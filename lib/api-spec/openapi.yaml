@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication and registration
 paths:
   /healthz:
     get:
@@ -24,6 +26,84 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /auth/register:
+    post:
+      operationId: registerUser
+      tags: [auth]
+      summary: Register a new user and send confirmation code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegistrationInput"
+      responses:
+        "200":
+          description: Confirmation code sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegistrationResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Email or username already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /auth/verify:
+    post:
+      operationId: verifyCode
+      tags: [auth]
+      summary: Verify the 6-digit confirmation code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyInput"
+      responses:
+        "200":
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerifyResponse"
+        "400":
+          description: Invalid or expired code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /auth/resend:
+    post:
+      operationId: resendCode
+      tags: [auth]
+      summary: Resend confirmation code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResendInput"
+      responses:
+        "200":
+          description: Code resent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegistrationResponse"
+        "400":
+          description: No pending registration for this email
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +113,103 @@ components:
           type: string
       required:
         - status
-
+    RegistrationInput:
+      type: object
+      required:
+        - fullName
+        - username
+        - email
+        - confirmEmail
+        - phoneCountryCode
+        - phoneNumber
+      properties:
+        fullName:
+          type: string
+          minLength: 2
+        username:
+          type: string
+          minLength: 3
+        email:
+          type: string
+          format: email
+        confirmEmail:
+          type: string
+          format: email
+        phoneCountryCode:
+          type: string
+        phoneNumber:
+          type: string
+        referralCode:
+          type: ["string", "null"]
+    RegistrationResponse:
+      type: object
+      required:
+        - message
+        - email
+      properties:
+        message:
+          type: string
+        email:
+          type: string
+    VerifyInput:
+      type: object
+      required:
+        - email
+        - code
+      properties:
+        email:
+          type: string
+          format: email
+        code:
+          type: string
+          minLength: 6
+          maxLength: 6
+    VerifyResponse:
+      type: object
+      required:
+        - message
+        - user
+      properties:
+        message:
+          type: string
+        user:
+          $ref: "#/components/schemas/UserProfile"
+    ResendInput:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+    UserProfile:
+      type: object
+      required:
+        - id
+        - fullName
+        - username
+        - email
+      properties:
+        id:
+          type: integer
+        fullName:
+          type: string
+        username:
+          type: string
+        email:
+          type: string
+        phoneCountryCode:
+          type: string
+        phoneNumber:
+          type: string
+        referralCode:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
