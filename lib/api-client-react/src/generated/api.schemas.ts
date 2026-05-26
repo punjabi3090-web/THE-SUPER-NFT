@@ -20,6 +20,10 @@ export interface RegistrationInput {
   phoneNumber: string;
   /** @nullable */
   referralCode?: string | null;
+  /** @minLength 6 */
+  password: string;
+  /** @minLength 6 */
+  confirmPassword: string;
 }
 
 export interface RegistrationResponse {
@@ -55,6 +59,16 @@ export interface VerifyResponse {
 
 export interface ResendInput {
   email: string;
+}
+
+export interface LoginInput {
+  email: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  message: string;
+  user: UserProfile;
 }
 
 export interface ErrorResponse {

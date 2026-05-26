@@ -104,6 +104,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /auth/login:
+    post:
+      operationId: loginUser
+      tags: [auth]
+      summary: Login with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
     HealthStatus:
@@ -122,6 +146,8 @@ components:
         - confirmEmail
         - phoneCountryCode
         - phoneNumber
+        - password
+        - confirmPassword
       properties:
         fullName:
           type: string
@@ -141,6 +167,12 @@ components:
           type: string
         referralCode:
           type: ["string", "null"]
+        password:
+          type: string
+          minLength: 6
+        confirmPassword:
+          type: string
+          minLength: 6
     RegistrationResponse:
       type: object
       required:
@@ -182,6 +214,27 @@ components:
         email:
           type: string
           format: email
+    LoginInput:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+    LoginResponse:
+      type: object
+      required:
+        - message
+        - user
+      properties:
+        message:
+          type: string
+        user:
+          $ref: "#/components/schemas/UserProfile"
     UserProfile:
       type: object
       required:

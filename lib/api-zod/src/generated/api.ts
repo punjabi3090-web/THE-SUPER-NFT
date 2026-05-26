@@ -24,6 +24,10 @@ export const registerUserBodyFullNameMin = 2;
 
 export const registerUserBodyUsernameMin = 3;
 
+export const registerUserBodyPasswordMin = 6;
+
+export const registerUserBodyConfirmPasswordMin = 6;
+
 
 
 export const RegisterUserBody = zod.object({
@@ -33,7 +37,9 @@ export const RegisterUserBody = zod.object({
   "confirmEmail": zod.string().email(),
   "phoneCountryCode": zod.string(),
   "phoneNumber": zod.string(),
-  "referralCode": zod.string().nullish()
+  "referralCode": zod.string().nullish(),
+  "password": zod.string().min(registerUserBodyPasswordMin),
+  "confirmPassword": zod.string().min(registerUserBodyConfirmPasswordMin)
 })
 
 export const RegisterUserResponse = zod.object({
@@ -80,6 +86,29 @@ export const ResendCodeBody = zod.object({
 export const ResendCodeResponse = zod.object({
   "message": zod.string(),
   "email": zod.string()
+})
+
+
+/**
+ * @summary Login with email and password
+ */
+export const LoginUserBody = zod.object({
+  "email": zod.string().email(),
+  "password": zod.string()
+})
+
+export const LoginUserResponse = zod.object({
+  "message": zod.string(),
+  "user": zod.object({
+  "id": zod.number(),
+  "fullName": zod.string(),
+  "username": zod.string(),
+  "email": zod.string(),
+  "phoneCountryCode": zod.string().optional(),
+  "phoneNumber": zod.string().optional(),
+  "referralCode": zod.string().nullish(),
+  "createdAt": zod.string().optional()
+})
 })
 
 

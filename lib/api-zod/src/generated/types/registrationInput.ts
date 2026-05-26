@@ -17,4 +17,8 @@ export interface RegistrationInput {
   phoneNumber: string;
   /** @nullable */
   referralCode?: string | null;
+  /** @minLength 6 */
+  password: string;
+  /** @minLength 6 */
+  confirmPassword: string;
 }

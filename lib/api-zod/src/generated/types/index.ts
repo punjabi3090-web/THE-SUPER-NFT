@@ -8,6 +8,8 @@
 
 export * from './errorResponse';
 export * from './healthStatus';
+export * from './loginInput';
+export * from './loginResponse';
 export * from './registrationInput';
 export * from './registrationResponse';
 export * from './resendInput';

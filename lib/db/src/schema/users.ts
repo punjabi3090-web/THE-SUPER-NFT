@@ -10,6 +10,7 @@ export const usersTable = pgTable("users", {
   phoneCountryCode: varchar("phone_country_code", { length: 10 }).notNull(),
   phoneNumber: varchar("phone_number", { length: 30 }).notNull(),
   referralCode: varchar("referral_code", { length: 50 }),
+  passwordHash: text("password_hash").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
