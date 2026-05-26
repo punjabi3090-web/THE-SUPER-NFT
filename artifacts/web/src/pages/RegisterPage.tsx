@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, ArrowRight, CheckCircle2 } from "lucide-react";
+import { Link } from "wouter";
 import { 
   useRegisterUser, 
   useVerifyCode, 
@@ -250,11 +251,19 @@ export default function RegisterPage() {
                     type="submit" 
                     className="w-full mt-6 bg-gradient-to-r from-primary to-fuchsia-600 hover:from-primary/90 hover:to-fuchsia-600/90 text-white shadow-[0_0_20px_rgba(147,51,234,0.4)] hover:shadow-[0_0_25px_rgba(147,51,234,0.6)] transition-all h-12 text-lg"
                     disabled={registerUser.isPending}
+                    data-testid="button-register"
                   >
                     {registerUser.isPending ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
                     Register
                     {!registerUser.isPending && <ArrowRight className="ml-2 h-5 w-5" />}
                   </Button>
+
+                  <p className="text-center text-white/50 text-sm pt-1">
+                    Already have an account?{" "}
+                    <Link href="/login" className="text-purple-400 hover:text-purple-300 font-medium transition-colors underline underline-offset-2">
+                      Login
+                    </Link>
+                  </p>
                 </form>
               </Form>
             </motion.div>
