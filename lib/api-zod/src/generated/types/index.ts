@@ -7,12 +7,15 @@
  */
 
 export * from './errorResponse';
+export * from './forgotPasswordInput';
 export * from './healthStatus';
 export * from './loginInput';
 export * from './loginResponse';
+export * from './messageResponse';
 export * from './registrationInput';
 export * from './registrationResponse';
 export * from './resendInput';
+export * from './resetPasswordInput';
 export * from './userProfile';
 export * from './verifyInput';
 export * from './verifyResponse';

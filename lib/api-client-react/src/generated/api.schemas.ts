@@ -71,6 +71,27 @@ export interface LoginResponse {
   user: UserProfile;
 }
 
+export interface ForgotPasswordInput {
+  email: string;
+}
+
+export interface ResetPasswordInput {
+  email: string;
+  /**
+     * @minLength 6
+     * @maxLength 6
+     */
+  code: string;
+  /** @minLength 6 */
+  newPassword: string;
+  /** @minLength 6 */
+  confirmNewPassword: string;
+}
+
+export interface MessageResponse {
+  message: string;
+}
+
 export interface ErrorResponse {
   error: string;
 }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -26,6 +26,25 @@ import {
   InputOTPGroup,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
+
+const RESEND_COOLDOWN = 60;
+
+function useCooldown() {
+  const [seconds, setSeconds] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const start = () => {
+    setSeconds(RESEND_COOLDOWN);
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setSeconds((s) => {
+        if (s <= 1) { clearInterval(timerRef.current!); return 0; }
+        return s - 1;
+      });
+    }, 1000);
+  };
+  useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
+  return { seconds, start, active: seconds > 0 };
+}
 
 const registerSchema = z
   .object({
@@ -93,6 +112,7 @@ export default function RegisterPage() {
   const registerUser = useRegisterUser();
   const verifyCode = useVerifyCode();
   const resendCode = useResendCode();
+  const cooldown = useCooldown();
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
@@ -116,6 +136,7 @@ export default function RegisterPage() {
       {
         onSuccess: (response) => {
           setEmail(response.email);
+          cooldown.start();
           setStep(2);
         },
         onError: (err: any) => {
@@ -145,11 +166,12 @@ export default function RegisterPage() {
   };
 
   const handleResend = () => {
+    if (cooldown.active) return;
     setApiError(null);
     resendCode.mutate(
       { data: { email } },
       {
-        onSuccess: () => {},
+        onSuccess: () => { cooldown.start(); },
         onError: (err: any) => {
           setApiError(err?.response?.data?.error || "Failed to resend code.");
         },
@@ -434,10 +456,15 @@ export default function RegisterPage() {
 
               <button
                 onClick={handleResend}
-                disabled={resendCode.isPending}
-                className="text-white/60 hover:text-white text-sm transition-colors"
+                disabled={cooldown.active || resendCode.isPending}
+                className="text-sm transition-colors disabled:cursor-not-allowed"
+                style={{ color: cooldown.active ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.6)" }}
               >
-                {resendCode.isPending ? "Resending..." : "Didn't receive code? Resend Code"}
+                {cooldown.active
+                  ? `Resend code in ${cooldown.seconds}s`
+                  : resendCode.isPending
+                  ? "Resending..."
+                  : "Didn't receive code? Resend Code"}
               </button>
             </motion.div>
           )}

@@ -9,7 +9,6 @@ import * as zod from 'zod';
 
 
 /**
- * Returns server health status
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({
@@ -109,6 +108,42 @@ export const LoginUserResponse = zod.object({
   "referralCode": zod.string().nullish(),
   "createdAt": zod.string().optional()
 })
+})
+
+
+/**
+ * @summary Request a password reset code
+ */
+export const ForgotPasswordBody = zod.object({
+  "email": zod.string().email()
+})
+
+export const ForgotPasswordResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
+ * @summary Reset password using the code
+ */
+export const resetPasswordBodyCodeMin = 6;
+export const resetPasswordBodyCodeMax = 6;
+
+export const resetPasswordBodyNewPasswordMin = 6;
+
+export const resetPasswordBodyConfirmNewPasswordMin = 6;
+
+
+
+export const ResetPasswordBody = zod.object({
+  "email": zod.string().email(),
+  "code": zod.string().min(resetPasswordBodyCodeMin).max(resetPasswordBodyCodeMax),
+  "newPassword": zod.string().min(resetPasswordBodyNewPasswordMin),
+  "confirmNewPassword": zod.string().min(resetPasswordBodyConfirmNewPasswordMin)
+})
+
+export const ResetPasswordResponse = zod.object({
+  "message": zod.string()
 })
 
 
