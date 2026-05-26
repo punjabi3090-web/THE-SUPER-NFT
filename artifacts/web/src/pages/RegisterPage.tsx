@@ -37,12 +37,20 @@ function useCooldown() {
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
       setSeconds((s) => {
-        if (s <= 1) { clearInterval(timerRef.current!); return 0; }
+        if (s <= 1) {
+          clearInterval(timerRef.current!);
+          return 0;
+        }
         return s - 1;
       });
     }, 1000);
   };
-  useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
+  useEffect(
+    () => () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    },
+    [],
+  );
   return { seconds, start, active: seconds > 0 };
 }
 
@@ -52,7 +60,10 @@ const registerSchema = z
     username: z
       .string()
       .min(3, "Username must be at least 3 characters")
-      .regex(/^[a-zA-Z0-9_]+$/, "Only letters, numbers, and underscores allowed"),
+      .regex(
+        /^[a-zA-Z0-9_]+$/,
+        "Only letters, numbers, and underscores allowed",
+      ),
     email: z.string().email("Invalid email address"),
     confirmEmail: z.string().email("Invalid email address"),
     phoneCountryCode: z.string().min(1, "Country code is required"),
@@ -106,7 +117,9 @@ function PasswordInput({
 export default function RegisterPage() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [email, setEmail] = useState("");
-  const [registeredUser, setRegisteredUser] = useState<{ fullName: string } | null>(null);
+  const [registeredUser, setRegisteredUser] = useState<{
+    fullName: string;
+  } | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
 
   const registerUser = useRegisterUser();
@@ -140,9 +153,12 @@ export default function RegisterPage() {
           setStep(2);
         },
         onError: (err: any) => {
-          setApiError(err?.response?.data?.error || "Failed to register. Please try again.");
+          setApiError(
+            err?.response?.data?.error ||
+              "Failed to register. Please try again.",
+          );
         },
-      }
+      },
     );
   };
 
@@ -159,9 +175,11 @@ export default function RegisterPage() {
           setStep(3);
         },
         onError: (err: any) => {
-          setApiError(err?.response?.data?.error || "Invalid verification code.");
+          setApiError(
+            err?.response?.data?.error || "Invalid verification code.",
+          );
         },
-      }
+      },
     );
   };
 
@@ -171,11 +189,13 @@ export default function RegisterPage() {
     resendCode.mutate(
       { data: { email } },
       {
-        onSuccess: () => { cooldown.start(); },
+        onSuccess: () => {
+          cooldown.start();
+        },
         onError: (err: any) => {
           setApiError(err?.response?.data?.error || "Failed to resend code.");
         },
-      }
+      },
     );
   };
 
@@ -203,8 +223,12 @@ export default function RegisterPage() {
               className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl"
             >
               <div className="mb-6 text-center">
-                <h1 className="text-3xl font-bold tracking-tight text-white mb-2">Join the Elite</h1>
-                <p className="text-white/60">Create your account to get started.</p>
+                <h1 className="text-3xl font-bold tracking-tight text-white mb-2">
+                  THE SUPER NFT
+                </h1>
+                <p className="text-white/60">
+                  Create your account to get started.
+                </p>
               </div>
 
               {apiError && (
@@ -214,13 +238,18 @@ export default function RegisterPage() {
               )}
 
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmitRegister)} className="space-y-4">
+                <form
+                  onSubmit={form.handleSubmit(onSubmitRegister)}
+                  className="space-y-4"
+                >
                   <FormField
                     control={form.control}
                     name="fullName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-white/80">Full Name</FormLabel>
+                        <FormLabel className="text-white/80">
+                          Full Name
+                        </FormLabel>
                         <FormControl>
                           <Input
                             placeholder="Jane Doe"
@@ -239,7 +268,9 @@ export default function RegisterPage() {
                     name="username"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-white/80">Username</FormLabel>
+                        <FormLabel className="text-white/80">
+                          Username
+                        </FormLabel>
                         <FormControl>
                           <Input
                             placeholder="janedoe_99"
@@ -278,7 +309,9 @@ export default function RegisterPage() {
                       name="confirmEmail"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-white/80">Confirm Email</FormLabel>
+                          <FormLabel className="text-white/80">
+                            Confirm Email
+                          </FormLabel>
                           <FormControl>
                             <Input
                               type="email"
@@ -295,7 +328,9 @@ export default function RegisterPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-white/80">Phone Number</label>
+                    <label className="text-sm font-medium text-white/80">
+                      Phone Number
+                    </label>
                     <div className="flex gap-2">
                       <FormField
                         control={form.control}
@@ -303,7 +338,10 @@ export default function RegisterPage() {
                         render={({ field }) => (
                           <FormItem className="flex-shrink-0">
                             <FormControl>
-                              <CountryCodeSelect value={field.value} onChange={field.onChange} />
+                              <CountryCodeSelect
+                                value={field.value}
+                                onChange={field.onChange}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -336,9 +374,15 @@ export default function RegisterPage() {
                       name="password"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-white/80">Create Password</FormLabel>
+                          <FormLabel className="text-white/80">
+                            Create Password
+                          </FormLabel>
                           <FormControl>
-                            <PasswordInput field={field} placeholder="Min 6 characters" testId="input-password" />
+                            <PasswordInput
+                              field={field}
+                              placeholder="Min 6 characters"
+                              testId="input-password"
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -349,9 +393,15 @@ export default function RegisterPage() {
                       name="confirmPassword"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-white/80">Confirm Password</FormLabel>
+                          <FormLabel className="text-white/80">
+                            Confirm Password
+                          </FormLabel>
                           <FormControl>
-                            <PasswordInput field={field} placeholder="Repeat password" testId="input-confirm-password" />
+                            <PasswordInput
+                              field={field}
+                              placeholder="Repeat password"
+                              testId="input-confirm-password"
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -366,7 +416,9 @@ export default function RegisterPage() {
                       <FormItem>
                         <FormLabel className="text-white/80">
                           Referral Code{" "}
-                          <span className="text-white/40 font-normal">(Optional)</span>
+                          <span className="text-white/40 font-normal">
+                            (Optional)
+                          </span>
                         </FormLabel>
                         <FormControl>
                           <Input
@@ -391,7 +443,9 @@ export default function RegisterPage() {
                       <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                     ) : null}
                     Register
-                    {!registerUser.isPending && <ArrowRight className="ml-2 h-5 w-5" />}
+                    {!registerUser.isPending && (
+                      <ArrowRight className="ml-2 h-5 w-5" />
+                    )}
                   </Button>
 
                   <p className="text-center text-white/50 text-sm pt-1">
@@ -417,7 +471,9 @@ export default function RegisterPage() {
               transition={{ duration: 0.3 }}
               className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl text-center"
             >
-              <h2 className="text-2xl font-bold tracking-tight text-white mb-2">Verify Your Email</h2>
+              <h2 className="text-2xl font-bold tracking-tight text-white mb-2">
+                Verify Your Email
+              </h2>
               <p className="text-white/60 mb-8">
                 We've sent a 6-digit verification code to
                 <br />
@@ -450,7 +506,9 @@ export default function RegisterPage() {
                 className="w-full bg-gradient-to-r from-primary to-fuchsia-600 hover:from-primary/90 hover:to-fuchsia-600/90 text-white shadow-[0_0_20px_rgba(147,51,234,0.4)] h-12 text-lg mb-4"
                 data-testid="button-verify"
               >
-                {verifyCode.isPending ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
+                {verifyCode.isPending ? (
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                ) : null}
                 Verify
               </Button>
 
@@ -458,13 +516,17 @@ export default function RegisterPage() {
                 onClick={handleResend}
                 disabled={cooldown.active || resendCode.isPending}
                 className="text-sm transition-colors disabled:cursor-not-allowed"
-                style={{ color: cooldown.active ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.6)" }}
+                style={{
+                  color: cooldown.active
+                    ? "rgba(255,255,255,0.3)"
+                    : "rgba(255,255,255,0.6)",
+                }}
               >
                 {cooldown.active
                   ? `Resend code in ${cooldown.seconds}s`
                   : resendCode.isPending
-                  ? "Resending..."
-                  : "Didn't receive code? Resend Code"}
+                    ? "Resending..."
+                    : "Didn't receive code? Resend Code"}
               </button>
             </motion.div>
           )}
@@ -491,7 +553,9 @@ export default function RegisterPage() {
               <h2 className="text-3xl font-bold tracking-tight text-white mb-2 relative z-10">
                 Congratulations!
               </h2>
-              <p className="text-primary font-medium mb-2 relative z-10">Registration Successful</p>
+              <p className="text-primary font-medium mb-2 relative z-10">
+                Registration Successful
+              </p>
               <p className="text-white/60 mb-8 relative z-10">
                 Welcome aboard, {registeredUser?.fullName}.
                 <br />
