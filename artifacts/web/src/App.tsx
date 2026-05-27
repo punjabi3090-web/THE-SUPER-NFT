@@ -1,3 +1,4 @@
+import './index.css';
 import { Switch, Route } from "wouter";
 import LoginPage from "./pages/LoginPage";
 import Dashboard from "./pages/Dashboard";
