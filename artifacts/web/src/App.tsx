@@ -2,6 +2,7 @@ import { Switch, Route } from "wouter";
 import LoginPage from "./pages/LoginPage";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/not-found";
+import './index.css';
 
 function App() {
   return (
