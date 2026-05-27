@@ -1,3 +1,31 @@
+Purana "THE SUPER NFT" wala complete auth system bana do. Sidebar delete kar ke bottom navigation lagao.
+
+Teeno files ka code delete karke ye naya paste kar do:
+
+=== FILE 1: App.tsx ===
+App.tsx file khol. Purana code delete kar. Ye paste kar:
+
+import { Switch, Route } from "wouter";
+import LoginPage from "./pages/LoginPage";
+import Dashboard from "./pages/Dashboard";
+import NotFound from "./pages/not-found";
+import './index.css';
+
+function App() {
+  return (
+    <Switch>
+      <Route path="/" component={Dashboard} />
+      <Route path="/login" component={LoginPage} />
+      <Route component={NotFound} />
+    </Switch>
+  );
+}
+
+export default App;
+
+=== FILE 2: pages/LoginPage.tsx ===
+pages/LoginPage.tsx file khol. Purana code delete kar. Ye paste kar:
+
 import { useState } from "react";
 import { useLocation } from "wouter";
 
@@ -17,12 +45,13 @@ export default function LoginPage() {
     otp: ""
   });
 
-  const handleRegister = async (e: React.FormEvent) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
     if (formData.email !== formData.confirmEmail) {
       alert("Email match nahi kar rahi");
       return;
     }
+    // Yahan API call karke OTP bhejo
     const res = await fetch("/api/send-otp", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -34,7 +63,7 @@ export default function LoginPage() {
     }
   };
 
-  const handleVerifyOTP = async (e: React.FormEvent) => {
+  const handleVerifyOTP = async (e) => {
     e.preventDefault();
     const res = await fetch("/api/verify-otp", {
       method: "POST",
@@ -49,7 +78,7 @@ export default function LoginPage() {
     }
   };
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     const res = await fetch("/api/login", {
       method: "POST",
@@ -88,7 +117,7 @@ export default function LoginPage() {
               type="submit"
               className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white py-3 rounded-lg font-semibold hover:from-purple-700 hover:to-blue-700 shadow-lg shadow-purple-500/50"
             >
-              Verify &amp; Register
+              Verify & Register
             </button>
           </form>
         ) : isLogin ? (
@@ -195,7 +224,7 @@ export default function LoginPage() {
         <p className="text-center mt-6 text-slate-400 text-sm">
           {isLogin ? "Don't have account?" : "Already have account?"}
           <button
-            onClick={() => { setIsLogin(!isLogin); setShowOTP(false); }}
+            onClick={() => {setIsLogin(!isLogin); setShowOTP(false)}}
             className="text-purple-400 ml-1 font-semibold hover:text-purple-300"
           >
             {isLogin ? "Register" : "Sign In Account"}
@@ -205,3 +234,133 @@ export default function LoginPage() {
     </div>
   );
 }
+
+=== FILE 3: pages/Dashboard.tsx ===
+pages/Dashboard.tsx file khol. Purana code delete kar. Ye paste kar:
+
+import { useState } from "react";
+import { Home, Shield, TrendingUp, Wallet, DollarSign, LogOut } from "lucide-react";
+import { useLocation } from "wouter";
+
+export default function Dashboard() {
+  const [, setLocation] = useLocation();
+  const [activeTab, setActiveTab] = useState("home");
+
+  const bottomMenu = [
+    { id: "home", label: "Home", icon: Home },
+    { id: "reserve", label: "Reserve", icon: Shield },
+    { id: "stake", label: "Stake", icon: TrendingUp },
+    { id: "asset", label: "Asset", icon: Wallet },
+    { id: "profit", label: "Profit", icon: DollarSign },
+  ];
+
+  const handleLogout = () => {
+    setLocation("/login");
+  };
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case "home":
+        return (
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h1 className="text-2xl font-bold text-white">Home</h1>
+              <button onClick={handleLogout} className="flex items-center gap-2 text-slate-400 hover:text-white">
+                <LogOut size={20} />
+                <span className="text-sm">Logout</span>
+              </button>
+            </div>
+            <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
+              <p className="text-slate-300">Welcome to THE SUPER NFT!</p>
+            </div>
+          </div>
+        );
+      case "reserve":
+        return (
+          <div className="p-6">
+            <h1 className="text-2xl font-bold text-white mb-4">Reserve</h1>
+            <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
+              <p className="text-slate-300">Reserve section content.</p>
+            </div>
+          </div>
+        );
+      case "stake":
+        return (
+          <div className="p-6">
+            <h1 className="text-2xl font-bold text-white mb-4">Stake</h1>
+            <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
+              <p className="text-slate-300">Staking section content.</p>
+            </div>
+          </div>
+        );
+      case "asset":
+        return (
+          <div className="p-6">
+            <h1 className="text-2xl font-bold text-white mb-4">Asset</h1>
+            <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
+              <p className="text-slate-300">Asset section content.</p>
+            </div>
+          </div>
+        );
+      case "profit":
+        return (
+          <div className="p-6">
+            <h1 className="text-2xl font-bold text-white mb-4">Profit</h1>
+            <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
+              <p className="text-slate-300">Profit section content.</p>
+            </div>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-900 pb-20">
+      {renderContent()}
+
+      <div className="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700">
+        <div className="flex justify-around items-center py-3">
+          {bottomMenu.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className={`flex flex-col items-center gap-1 px-3 py-1 ${
+                  activeTab === item.id ? "text-purple-400" : "text-slate-400"
+                }`}
+              >
+                <Icon size={22} />
+                <span className="text-xs font-medium">{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+=== FILE 4: index.css ===
+index.css file khol. Ye paste kar do:
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+}
+
+=== IMPORTANT: EMAIL OTP SETUP ===
+Backend me 2 API routes banao:
+
+1. /api/send-otp - Nodemailer se Gmail SMTP use karke user ke email pe 6 digit OTP bhejo
+2. /api/verify-otp - OTP verify karo aur user ko database me save karo
+
+Gmail App Password use karna: Gmail > Security > 2-Step Verification > App Passwords
+
+Sab save karke Republish kar do.

@@ -31,7 +31,7 @@ export default function Dashboard() {
               </button>
             </div>
             <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
-              <p className="text-slate-300">Welcome to THE SUPER NFT! Yahan Home ka content aayega.</p>
+              <p className="text-slate-300">Welcome to THE SUPER NFT!</p>
             </div>
           </div>
         );
@@ -40,7 +40,7 @@ export default function Dashboard() {
           <div className="p-6">
             <h1 className="text-2xl font-bold text-white mb-4">Reserve</h1>
             <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
-              <p className="text-slate-300">Reserve section. NFT lock/unlock yahan hoga.</p>
+              <p className="text-slate-300">Reserve section content.</p>
             </div>
           </div>
         );
@@ -49,7 +49,7 @@ export default function Dashboard() {
           <div className="p-6">
             <h1 className="text-2xl font-bold text-white mb-4">Stake</h1>
             <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
-              <p className="text-slate-300">Staking pools yahan dikhenge.</p>
+              <p className="text-slate-300">Staking section content.</p>
             </div>
           </div>
         );
@@ -58,7 +58,7 @@ export default function Dashboard() {
           <div className="p-6">
             <h1 className="text-2xl font-bold text-white mb-4">Asset</h1>
             <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
-              <p className="text-slate-300">Tere NFTs aur tokens ki list yahan aayegi.</p>
+              <p className="text-slate-300">Asset section content.</p>
             </div>
           </div>
         );
@@ -67,7 +67,7 @@ export default function Dashboard() {
           <div className="p-6">
             <h1 className="text-2xl font-bold text-white mb-4">Profit</h1>
             <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
-              <p className="text-slate-300">Daily income aur total profit yahan dikhega.</p>
+              <p className="text-slate-300">Profit section content.</p>
             </div>
           </div>
         );
@@ -80,7 +80,6 @@ export default function Dashboard() {
     <div className="min-h-screen bg-slate-900 pb-20">
       {renderContent()}
 
-      {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700">
         <div className="flex justify-around items-center py-3">
           {bottomMenu.map((item) => {
