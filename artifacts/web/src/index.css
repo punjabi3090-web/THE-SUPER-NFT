@@ -1,21 +1,5 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@import "tw-animate-css";
+@plugin "@tailwindcss/typography";
 
-body {
-  background: linear-gradient(135deg, #e0f2fe 0%, #fce7f3 50%, #fef3c7 100%);
-  min-height: 100vh;
-  font-family: 'Inter', sans-serif;
-}
-
-.card {
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-}
-
-.bottom-nav {
-  background: white;
-  border-radius: 24px 24px 0 0;
-  box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
-}
+@custom-variant dark (&:is(.dark *));
