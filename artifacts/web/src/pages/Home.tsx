@@ -17,6 +17,7 @@ export default function Home() {
       <div className="mx-4 mt-4 rounded-2xl p-5 text-white shadow-md" style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}>
         <p className="text-sm opacity-90">Wallet Balance (USDT)</p>
         <h1 className="text-3xl font-bold mt-1">${balance.toFixed(2)}</h1>
+        <p style={{ fontSize: 14, color: '#fff', opacity: 0.9, marginTop: 4 }}>Level-0</p>
       </div>
 
       {/* My Team */}

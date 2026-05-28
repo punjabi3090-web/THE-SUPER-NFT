@@ -1,0 +1,68 @@
+3 MAJOR UPDATES KARNE HAIN:
+
+====================================
+TASK 1: HEADER LOGO REPLACE
+====================================
+- Header me "SN" wala blue box delete karo
+- Uski jagah ye uploaded logo.png lagao
+- Size: 40x40px, border-radius: 8px
+- "THE SUPER NFT" text same rakhna
+
+====================================
+TASK 2: HOME PAGE - LEVEL SYSTEM
+====================================
+- Wallet Balance box me $111.50 ke neeche "Level-0" add karo
+- Style: font-size 14px, color #fff, opacity 0.9, margin-top 4px
+- Code: Level-{user.level || 0}
+- Range: Level-0 se Level-6 tak
+- Abhi hardcoded "Level-0"
+
+====================================
+TASK 3: RESERVE PAGE COMPLETE REBUILD
+====================================
+PURANA DELETE:
+- Reserve page ka "My NFTs" section pura hata do
+
+NAYA LAYOUT - 6 STATS CARDS:
+2x3 grid banao:
+
+ROW 1:
+1. Today Earnings: 0 | Left border #4285F4 Blue 4px
+2. Cumulative Income: 0 | Left border #34A853 Green 4px
+3. Team Benefits: 0 | Left border #9AA0A6 Grey 4px
+
+ROW 2:
+4. Reservation range: 1 ~ 1,000 | Left border #FBBC04 Orange 4px
+5. Wallet Balance: $111.50 | Left border #00BCD4 Cyan 4px
+6. Balance for Reservation: $111.50 | Left border #202124 Black 4px
+
+CARD STYLE:
+- Background #fff, border-radius 12px, padding 16px
+- Box-shadow: 0 2px 8px rgba(0,0,0,0.08)
+- Title: 12px, #666, margin-bottom 8px
+- Value: 24px, font-weight 700, #000
+
+TABS SECTION:
+3 tabs banao: Today's | Reserve | Collection
+
+Tab Style:
+- Default active: Today's
+- Active: border-bottom 2px solid #1a73e8, color #1a73e8, font-weight 600
+- Inactive: color #666
+- Padding: 12px 0
+
+TAB CONTENT:
+Teeno tabs ke neeche filhal bilkul khali chor do.
+Koi text nahi, koi "No records found" bhi nahi.
+Sirf empty div rakhna hai height: 200px
+
+IMPORTANT:
+- Draw date, Order No. wala section abhi nahi lagana
+- Tabs ke neeche kuch bhi mat dikhana, completely empty
+
+MOBILE: 6 cards 2x3 grid, Gap 12px
+
+====================================
+IMAGES: logo.png upload kiya hai
+DATA: Hardcoded rakho abhi
+====================================
