@@ -12,8 +12,11 @@ export default function BottomNav() {
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50" style={{ maxWidth: '448px', left: '50%', transform: 'translateX(-50%)' }}>
-      <div className="flex justify-around items-center px-4 py-2">
+    <div
+      className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50"
+      style={{ maxWidth: '448px', left: '50%', transform: 'translateX(-50%)', paddingBottom: 'env(safe-area-inset-bottom)' }}
+    >
+      <div className="flex items-center h-16">
         {navs.map(n => {
           const Icon = n.icon;
           const active = location === n.path || (location === '/' && n.path === '/');
@@ -21,10 +24,16 @@ export default function BottomNav() {
             <button
               key={n.path}
               onClick={() => setLocation(n.path)}
-              className={`flex flex-col items-center gap-1 px-3 py-1 ${active ? 'text-emerald-500' : 'text-gray-400'}`}
+              className="flex-1 flex flex-col items-center justify-center gap-0.5 h-full"
             >
-              <Icon size={22} strokeWidth={active ? 2.5 : 2} />
-              <span className="text-[11px] font-medium">{n.label}</span>
+              <Icon
+                size={22}
+                strokeWidth={active ? 2.5 : 2}
+                className={active ? 'text-emerald-500' : 'text-gray-400'}
+              />
+              <span className={`text-[11px] font-medium ${active ? 'text-emerald-500' : 'text-gray-400'}`}>
+                {n.label}
+              </span>
             </button>
           );
         })}
