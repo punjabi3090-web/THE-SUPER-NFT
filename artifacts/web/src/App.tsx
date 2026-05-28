@@ -9,6 +9,9 @@ import Assets from "./pages/Assets";
 import My from "./pages/My";
 import Deposit from "./pages/Deposit";
 import Withdraw from "./pages/Withdraw";
+import Tutorials from "./pages/Tutorials";
+import Service from "./pages/Service";
+import Language from "./pages/Language";
 import './index.css';
 
 export const TEST_MODE = true;
@@ -111,6 +114,9 @@ function Routes() {
       <Route path="/my" component={My} />
       <Route path="/deposit" component={Deposit} />
       <Route path="/withdraw" component={Withdraw} />
+      <Route path="/tutorials" component={Tutorials} />
+      <Route path="/service" component={Service} />
+      <Route path="/language" component={Language} />
     </Switch>
   );
 }

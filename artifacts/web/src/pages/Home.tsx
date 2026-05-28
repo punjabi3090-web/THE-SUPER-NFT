@@ -90,7 +90,7 @@ export default function Home() {
         <h2 className="text-base font-bold text-gray-800">Common Functions</h2>
         <div className="border-t border-gray-100 my-3"></div>
         <div className="grid grid-cols-4 gap-2 text-center">
-          <button onClick={() => console.log('Tutorials')} className="flex flex-col items-center gap-2 py-2 active:bg-gray-50 rounded-lg">
+          <button onClick={() => { console.log('Tutorials'); setLocation('/tutorials'); }} className="flex flex-col items-center gap-2 py-2 active:bg-gray-50 rounded-lg">
             <div className="w-10 h-10 bg-gradient-to-br from-cyan-100 to-blue-100 rounded-xl flex items-center justify-center">
               <Send size={20} className="text-cyan-500" strokeWidth={1.5} />
             </div>

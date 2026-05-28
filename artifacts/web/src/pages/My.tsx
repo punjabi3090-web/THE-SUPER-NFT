@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Copy, Check, ChevronRight, Download, Upload, FileText, Shield, Settings, Headphones, Info, LogOut } from "lucide-react";
+import { Copy, Check, ChevronRight, Download, Upload, FileText, Shield, Settings, Headphones, Info, LogOut, Globe } from "lucide-react";
 import { useLocation } from "wouter";
 import Header from "../components/Header";
 import BottomNav from "../components/BottomNav";
@@ -61,7 +61,7 @@ export default function My() {
         </div>
         <div className="bg-gray-50 rounded-xl p-3">
           <p className="text-xs text-gray-500">Balance</p>
-          <p className="text-2xl font-bold text-slate-800">${testUser.balance.toFixed(2)}</p>
+          <p className="text-2xl font-bold text-slate-800">${(111.50).toFixed(2)}</p>
         </div>
       </div>
 
@@ -72,7 +72,8 @@ export default function My() {
         <MenuItem icon={FileText} label="Bill Details" onClick={() => console.log('bill details')} />
         <MenuItem icon={Shield} label="Security" onClick={() => console.log('security')} />
         <MenuItem icon={Settings} label="Settings" onClick={() => console.log('settings')} />
-        <MenuItem icon={Headphones} label="Service" onClick={() => console.log('service')} />
+        <MenuItem icon={Globe} label="Language" onClick={() => { console.log('language'); setLocation('/language'); }} />
+        <MenuItem icon={Headphones} label="Service" onClick={() => { console.log('service'); setLocation('/service'); }} />
         <MenuItem icon={Info} label="About" onClick={() => console.log('about')} />
       </div>
 
