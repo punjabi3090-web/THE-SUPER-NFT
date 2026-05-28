@@ -1,0 +1,59 @@
+THE SUPER NFT Login Page me ye 4 changes karo. Baaki sab kuch same rahe:
+
+=== TASK 1: Logo Replace ===
+LoginPage.tsx me "THE SUPER NFT" heading ke upar wala green gradient box/icon delete karo.
+Uski jagah ye image lagao: <img src="/logo.png" alt="Logo" className="w-16 h-16 mx-auto mb-3 rounded-xl" />
+Note: User abhi logo.png upload karega. Path /logo.png rakhna.
+
+=== TASK 2: Referral Code Auto-Fill ===
+LoginPage.tsx me URL se referral code read karo aur auto-fill karo.
+
+1. Import add karo: import { useLocation, useSearch } from "wouter";
+2. useEffect add karo:
+
+useEffect(() => {
+  const params = new URLSearchParams(search);
+  const refCode = params.get('ref');
+  if (refCode) {
+    setFormData(prev => ({...prev, referralCode: refCode}));
+  }
+}, [search]);
+
+Test URL: /login?ref=Bakht123 se field auto fill ho jani chahiye.
+
+=== TASK 3: Popup Text Change ===
+Saare popups me "Sent Successful" ki jagah sirf "Email Sent" likho.
+Purana Urdu wala popup completely delete karo.
+
+showPopup("Email Sent", "success") use karo OTP bhejte waqt.
+
+=== TASK 4: Phone Country Dropdown Upgrade ===
+1. countries array me sab se upar USA lagao: { code: "+1", name: "USA", flag: "🇺🇸" }
+2. Har country ke saath flag emoji add karo
+3. Dropdown me sirf flag + code dikhao, country name mat dikhao
+4. Total 195+ countries add karo
+
+Updated countries array:
+const countries = [
+  { code: "+1", name: "USA", flag: "🇺🇸" },
+  { code: "+44", name: "UK", flag: "🇬🇧" },
+  { code: "+92", name: "Pakistan", flag: "🇵🇰" },
+  { code: "+91", name: "India", flag: "🇮🇳" },
+  { code: "+86", name: "China", flag: "🇨🇳" },
+  { code: "+81", name: "Japan", flag: "🇯🇵" },
+  { code: "+49", name: "Germany", flag: "🇩🇪" },
+  { code: "+33", name: "France", flag: "🇫🇷" },
+  { code: "+971", name: "UAE", flag: "🇦🇪" },
+  { code: "+966", name: "Saudi Arabia", flag: "🇸🇦" },
+  // Baaki 185+ countries bhi add karo with flags
+];
+
+Dropdown ka JSX change karo:
+<select className="w-24...">
+  {countries.map(c => <option key={c.code} value={c.code}>{c.flag} {c.code}</option>)}
+</select>
+
+IMPORTANT:
+- THE SUPER NFT heading, Welcome to Community World, sab fields, Dashboard, colors, backend logic same rahe
+- Sirf ye 4 changes karne hain
+- Logo.png file user upload karega, tum bas path set kar do
