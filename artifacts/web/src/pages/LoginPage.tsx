@@ -315,7 +315,7 @@ export default function LoginPage() {
     setLoading(false);
     if (res.ok) {
       localStorage.setItem('user', JSON.stringify(data.user));
-      setLocation("/");
+      setLocation("/showcase");
     } else {
       showPopup("Wrong Password or Wrong Email", "error");
     }

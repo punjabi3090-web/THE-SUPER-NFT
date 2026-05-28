@@ -13,6 +13,7 @@ import Service from "./pages/Service";
 import Language from "./pages/Language";
 import AdminPanel from "./pages/AdminPanel";
 import Notifications from "./pages/Notifications";
+import Showcase from "./pages/Showcase";
 import './index.css';
 
 export const TEST_MODE = true;
@@ -340,7 +341,7 @@ function Routes() {
   useEffect(() => {
     const user = localStorage.getItem('user');
     if (!user && location !== '/login') setLocation('/login');
-    if (user && location === '/login') setLocation('/');
+    if (user && location === '/login') setLocation('/showcase');
   }, [location]);
 
   return (
@@ -356,6 +357,7 @@ function Routes() {
       <Route path="/tutorials" component={Tutorials} />
       <Route path="/service" component={Service} />
       <Route path="/language" component={Language} />
+      <Route path="/showcase" component={Showcase} />
       <Route path="/admin" component={AdminPanel} />
       <Route path="/notifications" component={Notifications} />
     </Switch>
