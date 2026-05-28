@@ -1,0 +1,204 @@
+COMPLETE ADMIN CONTROL + USER NOTIFICATIONS SYSTEM
+
+=== PART 1: App.tsx - Global State Update ===
+
+import { createContext, useContext, useState, ReactNode } from "react";
+import { Route, Switch } from "wouter";
+
+type Notification = {
+  id: string;
+  type: 'deposit' | 'withdraw' | 'order' | 'stake' | 'admin';
+  title: string;
+  message: string;
+  date: Date;
+  read: boolean;
+};
+
+type Withdraw = {
+  id: string;
+  amount: number;
+  address: string;
+  date: Date;
+  status: 'pending' | 'approved' | 'rejected';
+};
+
+type Order = {
+  id: string;
+  name: string;
+  price: number;
+  date: Date;
+  status: 'pending' | 'completed';
+};
+
+type Stake = {
+  id: string;
+  amount: number;
+  plan: string;
+  dailyProfit: number;
+  date: Date;
+  status: 'active' | 'completed';
+};
+
+type BalanceContextType = {
+  balance: number;
+  deposits: any[];
+  withdraws: Withdraw[];
+  orders: Order[];
+  stakes: Stake[];
+  notifications: Notification[];
+  addDeposit: (amount: number) => void;
+  requestWithdraw: (amount: number, address: string) => void;
+  approveWithdraw: (id: string) => void;
+  rejectWithdraw: (id: string) => void;
+  addOrder: (name: string, price: number) => boolean;
+  approveOrder: (id: string) => void;
+  addStake: (amount: number, plan: string, profit: number) => void;
+  markNotificationRead: (id: string) => void;
+  addNotification: (notif: Omit<Notification, 'id' | 'date' | 'read'>) => void;
+  adminAddBalance: (amount: number) => void;
+};
+
+const BalanceContext = createContext<BalanceContextType | undefined>(undefined);
+
+export function BalanceProvider({ children }: { children: ReactNode }) {
+  const [balance, setBalance] = useState(111.50);
+  const [deposits, setDeposits] = useState<any[]>([]);
+  const [withdraws, setWithdraws] = useState<Withdraw[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [stakes, setStakes] = useState<Stake[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+
+  const addNotification = (notif: Omit<Notification, 'id' | 'date' | 'read'>) => {
+    const newNotif: Notification = {
+      id: Date.now().toString(),
+      date: new Date(),
+      read: false,
+      ...notif
+    };
+    setNotifications(prev => [newNotif, ...prev]);
+  };
+
+  const addDeposit = (amount: number) => {
+    setBalance(prev => prev + amount);
+    setDeposits(prev => [...prev, { id: Date.now(), amount, date: new Date(), status: 'completed' }]);
+    addNotification({
+      type: 'deposit',
+      title: 'Deposit Successful',
+      message: `$${amount.toFixed(2)} USDT added to your wallet`
+    });
+  };
+
+  const requestWithdraw = (amount: number, address: string) => {
+    if (amount > balance) return;
+    const newWithdraw: Withdraw = {
+      id: Date.now().toString(),
+      amount,
+      address,
+      date: new Date(),
+      status: 'pending'
+    };
+    setWithdraws(prev => [...prev, newWithdraw]);
+    setBalance(prev => prev - amount);
+    addNotification({
+      type: 'withdraw',
+      title: 'Withdrawal Requested',
+      message: `$${amount.toFixed(2)} withdrawal pending admin approval`
+    });
+  };
+
+  const approveWithdraw = (id: string) => {
+    setWithdraws(prev => prev.map(w => 
+      w.id === id ? {...w, status: 'approved'} : w
+    ));
+    const w = withdraws.find(x => x.id === id);
+    if(w) addNotification({
+      type: 'withdraw',
+      title: 'Withdrawal Approved ✅',
+      message: `$${w.amount.toFixed(2)} sent to ${w.address.slice(0,10)}...`
+    });
+  };
+
+  const rejectWithdraw = (id: string) => {
+    const withdraw = withdraws.find(w => w.id === id);
+    if(withdraw) {
+      setBalance(prev => prev + withdraw.amount);
+      setWithdraws(prev => prev.map(w => 
+        w.id === id ? {...w, status: 'rejected'} : w
+      ));
+      addNotification({
+        type: 'withdraw',
+        title: 'Withdrawal Rejected',
+        message: `$${withdraw.amount.toFixed(2)} refunded to your balance`
+      });
+    }
+  };
+
+  const addOrder = (name: string, price: number) => {
+    if (balance < price) return false;
+    setBalance(prev => prev - price);
+    const newOrder: Order = {
+      id: Date.now().toString(),
+      name,
+      price,
+      date: new Date(),
+      status: 'pending'
+    };
+    setOrders(prev => [...prev, newOrder]);
+    addNotification({
+      type: 'order',
+      title: 'NFT Reserved Successfully 🎉',
+      message: `You reserved ${name} for $${price}. NFT added to your collection!`
+    });
+    return true;
+  };
+
+  const approveOrder = (id: string) => {
+    setOrders(prev => prev.map(o => 
+      o.id === id ? {...o, status: 'completed'} : o
+    ));
+  };
+
+  const addStake = (amount: number, plan: string, profit: number) => {
+    if (balance < amount) return;
+    setBalance(prev => prev - amount);
+    const newStake: Stake = {
+      id: Date.now().toString(),
+      amount,
+      plan,
+      dailyProfit: profit,
+      date: new Date(),
+      status: 'active'
+    };
+    setStakes(prev => [...prev, newStake]);
+    addNotification({
+      type: 'stake',
+      title: 'Staking Started 📈',
+      message: `$${amount} staked for ${plan}. Daily profit: $${profit.toFixed(2)}`
+    });
+  };
+
+  const markNotificationRead = (id: string) => {
+    setNotifications(prev => prev.map(n => 
+      n.id === id ? {...n, read: true} : n
+    ));
+  };
+
+  const adminAddBalance = (amount: number) => {
+    setBalance(prev => prev + amount);
+    addNotification({
+      type: 'admin',
+      title: 'Admin Credit 🎁',
+      message: `Admin added $${amount.toFixed(2)} USDT to your wallet`
+    });
+  };
+
+  return (
+    <BalanceContext.Provider value={{
+      balance, deposits, withdraws, orders, stakes, notifications,
+      addDeposit, requestWithdraw, approveWithdraw, rejectWithdraw,
+      addOrder, approveOrder, addStake, markNotificationRead, addNotification, adminAddBalance
+    }}>
+      {children}
+    </BalanceContext.Provider>
+  );
+}
