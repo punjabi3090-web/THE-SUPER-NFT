@@ -1,5 +1,5 @@
 import { useLocation } from "wouter";
-import { Users, Trophy, FileText, Share2, User, FileCheck } from "lucide-react";
+import { Users, Trophy, FileText, Share2, User, FileCheck, Send, Settings, Hammer, Bookmark } from "lucide-react";
 import Header from "../components/Header";
 import BottomNav from "../components/BottomNav";
 import { testUser, TEST_MODE } from "../App";
@@ -81,6 +81,38 @@ export default function Home() {
           <button onClick={() => console.log('details')} className="flex flex-col items-center gap-1">
             <FileCheck className="text-blue-400" size={24} />
             <p className="text-xs text-gray-500">Details</p>
+          </button>
+        </div>
+      </div>
+
+      {/* Common Functions */}
+      <div className="bg-white mx-4 mt-4 rounded-2xl p-4 shadow-sm">
+        <h2 className="text-base font-bold text-gray-800">Common Functions</h2>
+        <div className="border-t border-gray-100 my-3"></div>
+        <div className="grid grid-cols-4 gap-2 text-center">
+          <button onClick={() => console.log('Tutorials')} className="flex flex-col items-center gap-2 py-2 active:bg-gray-50 rounded-lg">
+            <div className="w-10 h-10 bg-gradient-to-br from-cyan-100 to-blue-100 rounded-xl flex items-center justify-center">
+              <Send size={20} className="text-cyan-500" strokeWidth={1.5} />
+            </div>
+            <span className="text-xs text-gray-600">Tutorials</span>
+          </button>
+          <button onClick={() => setLocation('/my')} className="flex flex-col items-center gap-2 py-2 active:bg-gray-50 rounded-lg">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-xl flex items-center justify-center">
+              <Settings size={20} className="text-blue-500" strokeWidth={1.5} />
+            </div>
+            <span className="text-xs text-gray-600">Settings</span>
+          </button>
+          <button onClick={() => setLocation('/reserve')} className="flex flex-col items-center gap-2 py-2 active:bg-gray-50 rounded-lg">
+            <div className="w-10 h-10 bg-gradient-to-br from-teal-100 to-emerald-100 rounded-xl flex items-center justify-center">
+              <Hammer size={20} className="text-teal-500" strokeWidth={1.5} />
+            </div>
+            <span className="text-xs text-gray-600">Mint</span>
+          </button>
+          <button onClick={() => setLocation('/assets')} className="flex flex-col items-center gap-2 py-2 active:bg-gray-50 rounded-lg">
+            <div className="w-10 h-10 bg-gradient-to-br from-purple-100 to-pink-100 rounded-xl flex items-center justify-center">
+              <Bookmark size={20} className="text-purple-500" strokeWidth={1.5} />
+            </div>
+            <span className="text-xs text-gray-600">Collection</span>
           </button>
         </div>
       </div>
