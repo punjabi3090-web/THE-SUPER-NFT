@@ -9,7 +9,8 @@ const plans = [
     id: "7d",
     label: "7 Days",
     apy: 5,
-    duration: "7 days",
+    apyStr: "5%",
+    days: 7,
     color: "from-emerald-400 to-teal-500",
     bgLight: "from-emerald-50 to-teal-50",
     border: "border-emerald-200",
@@ -19,7 +20,8 @@ const plans = [
     id: "30d",
     label: "30 Days",
     apy: 12,
-    duration: "30 days",
+    apyStr: "12%",
+    days: 30,
     color: "from-blue-400 to-indigo-500",
     bgLight: "from-blue-50 to-indigo-50",
     border: "border-blue-200",
@@ -29,7 +31,8 @@ const plans = [
     id: "90d",
     label: "90 Days",
     apy: 25,
-    duration: "90 days",
+    apyStr: "25%",
+    days: 90,
     color: "from-purple-400 to-pink-500",
     bgLight: "from-purple-50 to-pink-50",
     border: "border-purple-200",
@@ -42,12 +45,16 @@ type PopupState = "success" | "insufficient" | "invalid" | null;
 export default function Stake() {
   const { balance, stakes, addStake } = useBalance();
   const [selectedPlan, setSelectedPlan] = useState(plans[0]);
-  const [amount, setAmount] = useState("");
-  const [popup, setPopup] = useState<PopupState>(null);
+  const [amount, setAmount]             = useState("");
+  const [popup, setPopup]               = useState<PopupState>(null);
 
-  const numAmount = parseFloat(amount || "0");
-  const dailyProfit = numAmount > 0 ? ((numAmount * selectedPlan.apy) / 100 / (parseInt(selectedPlan.id) || 7)).toFixed(2) : "0.00";
-  const totalReturn = numAmount > 0 ? (numAmount + (numAmount * selectedPlan.apy) / 100).toFixed(2) : "0.00";
+  const numAmount   = parseFloat(amount || "0");
+  const dailyProfit = numAmount > 0
+    ? (numAmount * selectedPlan.apy) / 100 / selectedPlan.days
+    : 0;
+  const totalReturn = numAmount > 0
+    ? numAmount + (numAmount * selectedPlan.apy) / 100
+    : 0;
 
   const showPopup = (s: PopupState) => {
     setPopup(s);
@@ -55,25 +62,26 @@ export default function Stake() {
   };
 
   const handleStake = () => {
-    if (!numAmount || numAmount <= 0) { showPopup("invalid"); return; }
-    if (numAmount < 10) { showPopup("invalid"); return; }
-    console.log("stake submit", { plan: selectedPlan.label, amount: numAmount, apy: `${selectedPlan.apy}%` });
-    const ok = addStake(selectedPlan.label, numAmount, `${selectedPlan.apy}%`, selectedPlan.duration);
+    if (!numAmount || numAmount < 10) { showPopup("invalid"); return; }
+    console.log("stake submit", { plan: selectedPlan.label, amount: numAmount, apy: selectedPlan.apyStr });
+    const ok = addStake(numAmount, selectedPlan.label, dailyProfit, selectedPlan.apyStr);
     if (!ok) { showPopup("insufficient"); return; }
     showPopup("success");
     setAmount("");
   };
 
-  const daysNum = parseInt(selectedPlan.id);
-
   return (
     <div className="pb-20 max-w-md mx-auto">
       <Header />
-      {TEST_MODE && <div className="bg-yellow-100 text-yellow-800 text-xs text-center py-1 font-medium">🧪 Test Mode</div>}
+      {TEST_MODE && (
+        <div className="bg-yellow-100 text-yellow-800 text-xs text-center py-1 font-medium">
+          🧪 Test Mode
+        </div>
+      )}
 
       {popup === "success" && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-emerald-500 text-white px-5 py-3 rounded-xl shadow-lg font-semibold text-sm">
-          ✅ Staked successfully!
+          ✅ Staked successfully! Notification sent.
         </div>
       )}
       {popup === "insufficient" && (
@@ -93,7 +101,7 @@ export default function Stake() {
         <span className="font-bold text-emerald-600">${balance.toFixed(2)}</span>
       </div>
 
-      {/* Plan Selector */}
+      {/* Plan selector */}
       <div className="px-4 mt-4">
         <p className="text-sm font-semibold text-slate-600 mb-2">Select Plan</p>
         <div className="grid grid-cols-3 gap-3">
@@ -121,7 +129,7 @@ export default function Stake() {
         </div>
       </div>
 
-      {/* Amount Input */}
+      {/* Amount input */}
       <div className="mx-4 mt-4 bg-white rounded-2xl p-4 shadow-sm">
         <label className="text-sm font-semibold text-slate-700 mb-2 block">Stake Amount (USDT)</label>
         <div className="flex gap-2 mb-3">
@@ -148,7 +156,7 @@ export default function Stake() {
         />
       </div>
 
-      {/* Profit Preview */}
+      {/* Profit preview */}
       {numAmount >= 10 && (
         <div className="mx-4 mt-3 bg-white rounded-2xl p-4 shadow-sm">
           <p className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
@@ -161,17 +169,17 @@ export default function Stake() {
             </div>
             <div className="flex justify-between">
               <span className="text-slate-500">Daily Profit</span>
-              <span className="font-semibold text-emerald-600">+${dailyProfit}</span>
+              <span className="font-semibold text-emerald-600">+${dailyProfit.toFixed(4)}</span>
             </div>
             <div className="flex justify-between border-t border-slate-100 pt-2">
               <span className="text-slate-500">Total Return</span>
-              <span className="font-bold text-emerald-600">${totalReturn}</span>
+              <span className="font-bold text-emerald-600">${totalReturn.toFixed(2)}</span>
             </div>
           </div>
         </div>
       )}
 
-      {/* Stake Button */}
+      {/* Stake button */}
       <div className="px-4 mt-4">
         <button
           onClick={handleStake}
@@ -182,7 +190,7 @@ export default function Stake() {
         </button>
       </div>
 
-      {/* Active Stakes */}
+      {/* Active stakes */}
       {stakes.length > 0 && (
         <div className="px-4 mt-5">
           <p className="text-sm font-semibold text-slate-700 mb-3">Active Stakes ({stakes.length})</p>
@@ -192,7 +200,10 @@ export default function Stake() {
                 <div>
                   <p className="font-semibold text-slate-800 text-sm">{s.plan}</p>
                   <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
-                    <Clock size={11} /> {s.date.toLocaleDateString()}
+                    <Clock size={11} /> {new Date(s.date).toLocaleDateString()}
+                  </p>
+                  <p className="text-xs text-blue-500 mt-0.5">
+                    Until: {new Date(s.endDate).toLocaleDateString()}
                   </p>
                 </div>
                 <div className="text-right">
@@ -200,6 +211,7 @@ export default function Stake() {
                   <p className="text-xs text-emerald-600 font-semibold flex items-center gap-0.5 justify-end mt-0.5">
                     <CheckCircle size={11} /> {s.apy} APY
                   </p>
+                  <p className="text-xs text-slate-400">+${s.dailyProfit.toFixed(4)}/day</p>
                 </div>
               </div>
             ))}

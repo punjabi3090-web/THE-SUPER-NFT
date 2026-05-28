@@ -37,8 +37,8 @@ const nftItems = [
 type PopupState = { type: "success" | "insufficient" | null; name?: string };
 
 export default function Reserve() {
-  const { balance, addWithdraw } = useBalance();
-  const [popup, setPopup] = useState<PopupState>({ type: null });
+  const { balance, addOrder } = useBalance();
+  const [popup, setPopup]   = useState<PopupState>({ type: null });
   const [reserved, setReserved] = useState<number[]>([]);
 
   const showPopup = (state: PopupState) => {
@@ -48,11 +48,11 @@ export default function Reserve() {
 
   const handleReserve = (nft: typeof nftItems[0]) => {
     console.log("reserve clicked", nft.name, nft.price);
-    if (balance < nft.price) {
+    const ok = addOrder(nft.name, nft.price);
+    if (!ok) {
       showPopup({ type: "insufficient" });
       return;
     }
-    addWithdraw(nft.price, `NFT Reserve: ${nft.name}`);
     setReserved(prev => [...prev, nft.id]);
     showPopup({ type: "success", name: nft.name });
   };
@@ -60,7 +60,11 @@ export default function Reserve() {
   return (
     <div className="pb-20 max-w-md mx-auto">
       <Header />
-      {TEST_MODE && <div className="bg-yellow-100 text-yellow-800 text-xs text-center py-1 font-medium">🧪 Test Mode</div>}
+      {TEST_MODE && (
+        <div className="bg-yellow-100 text-yellow-800 text-xs text-center py-1 font-medium">
+          🧪 Test Mode
+        </div>
+      )}
 
       {popup.type === "success" && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-emerald-500 text-white px-5 py-3 rounded-xl shadow-lg font-semibold text-sm">
