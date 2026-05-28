@@ -1,5 +1,5 @@
 import { useLocation } from "wouter";
-import { Users, Trophy, FileText, Share2, User, FileCheck, Download, Upload, ArrowDownCircle, ArrowUpCircle } from "lucide-react";
+import { Users, Trophy, FileText, Share2, User, FileCheck } from "lucide-react";
 import Header from "../components/Header";
 import BottomNav from "../components/BottomNav";
 import { testUser, TEST_MODE } from "../App";
@@ -12,24 +12,10 @@ export default function Home() {
       <Header />
       {TEST_MODE && <div className="bg-yellow-100 text-yellow-800 text-xs text-center py-1 font-medium">🧪 Test Mode</div>}
 
-      {/* Wallet Balance Card */}
+      {/* Wallet Balance Card — no deposit/withdraw buttons */}
       <div className="mx-4 mt-4 rounded-2xl p-5 text-white shadow-md" style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}>
         <p className="text-sm opacity-90">Wallet Balance (USDT)</p>
         <h1 className="text-3xl font-bold mt-1">${testUser.balance.toFixed(2)}</h1>
-        <div className="flex gap-3 mt-4">
-          <button
-            onClick={() => { console.log('deposit clicked'); setLocation('/deposit'); }}
-            className="flex-1 bg-white/20 backdrop-blur-sm py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5"
-          >
-            <ArrowDownCircle size={17} /> Deposit
-          </button>
-          <button
-            onClick={() => { console.log('withdraw clicked'); setLocation('/withdraw'); }}
-            className="flex-1 bg-white/20 backdrop-blur-sm py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5"
-          >
-            <ArrowUpCircle size={17} /> Withdraw
-          </button>
-        </div>
       </div>
 
       {/* My Team */}
@@ -68,7 +54,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* My Orders */}
+      {/* My Orders — only My Bid + Details, no deposit/withdraw */}
       <div className="bg-white mx-4 mt-4 rounded-2xl p-4 shadow-sm">
         <div className="flex justify-between items-center mb-3">
           <h3 className="font-semibold text-slate-800">My Orders</h3>
@@ -87,7 +73,7 @@ export default function Home() {
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-4 text-center gap-2">
+        <div className="grid grid-cols-2 text-center gap-2">
           <button onClick={() => console.log('bid')} className="flex flex-col items-center gap-1">
             <User className="text-blue-400" size={24} />
             <p className="text-xs text-gray-500">My Bid</p>
@@ -95,14 +81,6 @@ export default function Home() {
           <button onClick={() => console.log('details')} className="flex flex-col items-center gap-1">
             <FileCheck className="text-blue-400" size={24} />
             <p className="text-xs text-gray-500">Details</p>
-          </button>
-          <button onClick={() => { console.log('deposit'); setLocation('/deposit'); }} className="flex flex-col items-center gap-1">
-            <Download className="text-blue-400" size={24} />
-            <p className="text-xs text-gray-500">Deposit</p>
-          </button>
-          <button onClick={() => { console.log('withdraw'); setLocation('/withdraw'); }} className="flex flex-col items-center gap-1">
-            <Upload className="text-blue-400" size={24} />
-            <p className="text-xs text-gray-500">Withdraw</p>
           </button>
         </div>
       </div>

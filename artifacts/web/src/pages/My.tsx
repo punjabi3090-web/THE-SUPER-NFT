@@ -1,9 +1,24 @@
 import { useState } from "react";
-import { Copy, Check, ChevronRight, Shield, FileText, Headphones, Info, LogOut, Download, Upload } from "lucide-react";
+import { Copy, Check, ChevronRight, Download, Upload, FileText, Shield, Settings, Headphones, Info, LogOut } from "lucide-react";
 import { useLocation } from "wouter";
 import Header from "../components/Header";
 import BottomNav from "../components/BottomNav";
 import { testUser, TEST_MODE } from "../App";
+
+function MenuItem({ icon: Icon, label, onClick }: { icon: React.ElementType; label: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center justify-between w-full px-4 py-3.5 border-b border-gray-100 last:border-0 hover:bg-slate-50 text-left"
+    >
+      <div className="flex items-center gap-3">
+        <Icon size={20} className="text-gray-500" />
+        <span className="text-sm text-slate-700">{label}</span>
+      </div>
+      <ChevronRight size={16} className="text-gray-300" />
+    </button>
+  );
+}
 
 export default function My() {
   const [, setLocation] = useLocation();
@@ -23,87 +38,51 @@ export default function My() {
     window.location.href = '/login';
   };
 
-  const menuItems = [
-    { icon: Download, label: "Deposit Records", onClick: () => { console.log('deposit records'); setLocation('/deposit'); } },
-    { icon: Upload, label: "Withdraw Records", onClick: () => { console.log('withdraw records'); setLocation('/withdraw'); } },
-    { icon: FileText, label: "Bill Details", onClick: () => console.log('bill details') },
-    { icon: Shield, label: "Security", onClick: () => console.log('security') },
-    { icon: Headphones, label: "Service", onClick: () => console.log('service') },
-    { icon: Info, label: "About", onClick: () => console.log('about') },
-  ];
-
   return (
     <div className="pb-20 max-w-md mx-auto">
       <Header />
       {TEST_MODE && <div className="bg-yellow-100 text-yellow-800 text-xs text-center py-1 font-medium">🧪 Test Mode</div>}
 
-      {/* Profile Card */}
+      {/* Profile Card — no deposit/withdraw in balance */}
       <div className="bg-white mx-4 mt-4 rounded-2xl p-4 shadow-sm">
-        <div className="flex items-center gap-4 mb-4">
-          <div className="w-14 h-14 bg-gradient-to-br from-emerald-400 to-blue-500 rounded-2xl flex items-center justify-center text-white text-2xl font-bold shadow-sm">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center text-white font-bold text-lg">
             {(user?.fullName || user?.name || "U")[0].toUpperCase()}
           </div>
           <div>
-            <p className="font-bold text-slate-800">{user?.fullName || user?.name || "Test User"}</p>
-            <div className="flex items-center gap-1.5 mt-1">
-              <span className="text-xs text-slate-500">UID: {testUser.uid}</span>
+            <p className="font-semibold text-slate-800">{user?.fullName || user?.name || "Test User"}</p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <p className="text-xs text-gray-500">UID: {testUser.uid}</p>
               <button onClick={handleCopyUID} className="text-emerald-500">
                 {copied ? <Check size={13} /> : <Copy size={13} />}
               </button>
             </div>
           </div>
         </div>
-
-        {/* Balance */}
-        <div className="rounded-xl p-3 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #ecfdf5, #eff6ff)' }}>
-          <div>
-            <p className="text-xs text-slate-500">Balance</p>
-            <p className="text-xl font-bold text-slate-800">${testUser.balance.toFixed(2)}</p>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => { console.log('deposit'); setLocation('/deposit'); }}
-              className="bg-emerald-500 text-white text-xs font-semibold px-3 py-1.5 rounded-full"
-            >
-              Deposit
-            </button>
-            <button
-              onClick={() => { console.log('withdraw'); setLocation('/withdraw'); }}
-              className="bg-blue-500 text-white text-xs font-semibold px-3 py-1.5 rounded-full"
-            >
-              Withdraw
-            </button>
-          </div>
+        <div className="bg-gray-50 rounded-xl p-3">
+          <p className="text-xs text-gray-500">Balance</p>
+          <p className="text-2xl font-bold text-slate-800">${testUser.balance.toFixed(2)}</p>
         </div>
       </div>
 
-      {/* Menu */}
+      {/* Menu List — with Settings added */}
       <div className="bg-white mx-4 mt-4 rounded-2xl shadow-sm overflow-hidden">
-        {menuItems.map((item, i) => {
-          const Icon = item.icon;
-          return (
-            <button
-              key={i}
-              onClick={item.onClick}
-              className="w-full flex items-center justify-between px-4 py-3.5 border-b border-slate-50 last:border-0 hover:bg-slate-50 text-left"
-            >
-              <div className="flex items-center gap-3">
-                <Icon size={18} className="text-slate-400" />
-                <span className="text-sm font-medium text-slate-700">{item.label}</span>
-              </div>
-              <ChevronRight size={15} className="text-slate-300" />
-            </button>
-          );
-        })}
+        <MenuItem icon={Download} label="Deposit Records" onClick={() => { console.log('deposit records'); setLocation('/deposit'); }} />
+        <MenuItem icon={Upload} label="Withdraw Records" onClick={() => { console.log('withdraw records'); setLocation('/withdraw'); }} />
+        <MenuItem icon={FileText} label="Bill Details" onClick={() => console.log('bill details')} />
+        <MenuItem icon={Shield} label="Security" onClick={() => console.log('security')} />
+        <MenuItem icon={Settings} label="Settings" onClick={() => console.log('settings')} />
+        <MenuItem icon={Headphones} label="Service" onClick={() => console.log('service')} />
+        <MenuItem icon={Info} label="About" onClick={() => console.log('about')} />
       </div>
 
       {/* Logout */}
       <div className="mx-4 mt-4">
         <button
           onClick={handleLogout}
-          className="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-2xl flex items-center justify-center gap-2 shadow-md"
+          className="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 shadow-md"
         >
-          <LogOut size={17} /> Logout
+          <LogOut size={18} /> Logout
         </button>
       </div>
 
