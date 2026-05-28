@@ -33,21 +33,21 @@ export default function My() {
   ];
 
   return (
-    <div className="pb-28 max-w-md mx-auto">
+    <div className="pb-20 max-w-md mx-auto">
       <Header />
       {TEST_MODE && <div className="bg-yellow-100 text-yellow-800 text-xs text-center py-1 font-medium">🧪 Test Mode</div>}
 
-      {/* Profile */}
+      {/* Profile Card */}
       <div className="bg-white mx-4 mt-4 rounded-2xl p-4 shadow-sm">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 bg-gradient-to-br from-blue-400 to-purple-500 rounded-2xl flex items-center justify-center text-white text-2xl font-bold shadow">
+        <div className="flex items-center gap-4 mb-4">
+          <div className="w-14 h-14 bg-gradient-to-br from-emerald-400 to-blue-500 rounded-2xl flex items-center justify-center text-white text-2xl font-bold shadow-sm">
             {(user?.fullName || user?.name || "U")[0].toUpperCase()}
           </div>
           <div>
             <p className="font-bold text-slate-800">{user?.fullName || user?.name || "Test User"}</p>
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-1.5 mt-1">
               <span className="text-xs text-slate-500">UID: {testUser.uid}</span>
-              <button onClick={handleCopyUID} className="text-blue-500">
+              <button onClick={handleCopyUID} className="text-emerald-500">
                 {copied ? <Check size={13} /> : <Copy size={13} />}
               </button>
             </div>
@@ -55,21 +55,21 @@ export default function My() {
         </div>
 
         {/* Balance */}
-        <div className="mt-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-3 flex items-center justify-between">
+        <div className="rounded-xl p-3 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #ecfdf5, #eff6ff)' }}>
           <div>
             <p className="text-xs text-slate-500">Balance</p>
             <p className="text-xl font-bold text-slate-800">${testUser.balance.toFixed(2)}</p>
           </div>
           <div className="flex gap-2">
             <button
-              onClick={() => { console.log('deposit clicked'); setLocation('/deposit'); }}
-              className="bg-blue-500 text-white text-xs font-semibold px-3 py-1.5 rounded-full"
+              onClick={() => { console.log('deposit'); setLocation('/deposit'); }}
+              className="bg-emerald-500 text-white text-xs font-semibold px-3 py-1.5 rounded-full"
             >
               Deposit
             </button>
             <button
-              onClick={() => { console.log('withdraw clicked'); setLocation('/withdraw'); }}
-              className="bg-purple-500 text-white text-xs font-semibold px-3 py-1.5 rounded-full"
+              onClick={() => { console.log('withdraw'); setLocation('/withdraw'); }}
+              className="bg-blue-500 text-white text-xs font-semibold px-3 py-1.5 rounded-full"
             >
               Withdraw
             </button>

@@ -1,8 +1,8 @@
 import { Switch, Route, useLocation } from "wouter";
 import { useEffect } from "react";
 import LoginPage from "./pages/LoginPage";
+import Home from "./pages/Home";
 import Stake from "./pages/Stake";
-import Earn from "./pages/Earn";
 import Reserve from "./pages/Reserve";
 import Assets from "./pages/Assets";
 import My from "./pages/My";
@@ -12,7 +12,7 @@ import './index.css';
 
 export const TEST_MODE = true;
 export const testUser = {
-  id: 1, name: "Test User", uid: "SUPER123456", balance: 0.00,
+  id: 1, name: "Test User", uid: "SUPER123456", balance: 111.50,
   team: { rewards: 0, valid: 0, a: 0, bc: 0 },
   orders: { total: 0, processing: 0, bought: 0, sold: 0 }
 };
@@ -25,24 +25,24 @@ export const testNFTs = [
 
 function App() {
   const [location, setLocation] = useLocation();
+
   useEffect(() => {
     const user = localStorage.getItem('user');
     if (!user && location !== '/login') setLocation('/login');
-    if (user && location === '/login') setLocation('/stake');
+    if (user && location === '/login') setLocation('/');
   }, [location]);
 
   return (
     <div className="bg-gradient-to-br from-blue-50 via-green-50 to-purple-50 min-h-screen">
       <Switch>
         <Route path="/login" component={LoginPage} />
+        <Route path="/" component={Home} />
         <Route path="/stake" component={Stake} />
-        <Route path="/earn" component={Earn} />
         <Route path="/reserve" component={Reserve} />
         <Route path="/assets" component={Assets} />
         <Route path="/my" component={My} />
         <Route path="/deposit" component={Deposit} />
         <Route path="/withdraw" component={Withdraw} />
-        <Route path="/" component={Stake} />
       </Switch>
     </div>
   );
