@@ -1,0 +1,107 @@
+THE SUPER NFT me ye 2 critical fixes karo:
+
+=== FIX 1: Login Guard Lagao - Bina Login Dashboard Na Khule ===
+
+FILE 1: App.tsx
+import { Switch, Route, useLocation } from "wouter";
+import { useEffect, useState } from "react";
+import LoginPage from "./pages/LoginPage";
+import Dashboard from "./pages/Dashboard";
+import NotFound from "./pages/not-found";
+import './index.css';
+
+function App() {
+  const [location, setLocation] = useLocation();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    const user = localStorage.getItem('user');
+    if (user) setIsLoggedIn(true);
+    setChecking(false);
+  }, []);
+
+  useEffect(() => {
+    if (!checking) {
+      if (!isLoggedIn && location !== '/login') {
+        setLocation('/login');
+      }
+      if (isLoggedIn && location === '/login') {
+        setLocation('/');
+      }
+    }
+  }, [isLoggedIn, location, checking]);
+
+  if (checking) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  }
+
+  return (
+    <Switch>
+      <Route path="/login" component={LoginPage} />
+      <Route path="/" component={Dashboard} />
+      <Route component={NotFound} />
+    </Switch>
+  );
+}
+export default App;
+
+=== FIX 2: Referral Code Auto-Fill + Login Save ===
+
+FILE 2: pages/LoginPage.tsx
+1. Import update karo:
+import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
+import { Eye, EyeOff } from "lucide-react";
+
+2. useEffect add karo referral ke liye - page ke top pe useState ke baad:
+useEffect(() => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const refCode = urlParams.get('ref');
+  if (refCode) {
+    setFormData(prev => ({...prev, referralCode: refCode}));
+  }
+}, []);
+
+3. handleLogin function update karo:
+const handleLogin = async (e) => {
+  e.preventDefault();
+  setLoading(true);
+  const res = await fetch("/api/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: formData.email, password: formData.password })
+  });
+  const data = await res.json();
+  setLoading(false);
+  if (res.ok) {
+    localStorage.setItem('user', JSON.stringify(data.user));
+    setLocation("/");
+  } else {
+    showPopup("Wrong Password or Wrong Email", "error");
+  }
+};
+
+FILE 3: pages/Dashboard.tsx
+Logout button update karo:
+<button onClick={() => {
+  localStorage.removeItem('user');
+  setLocation("/login");
+}} className="flex items-center gap-2 text-slate-600 hover:text-slate-900">
+  <LogOut size={20} />
+  <span className="text-sm">Logout</span>
+</button>
+
+FILE 4: api/login.js
+export default async function handler(req, res) {
+  const { email, password } = req.body;
+  // Abhi dummy user return karo, baad me DB se check karna
+  const user = { id: 1, email: email, name: "Test User" };
+  res.status(200).json({ success: true, user: user });
+}
+
+IMPORTANT: 
+- Ab login ke baghair dashboard nahi khulega
+- Link /login?ref=Bakht123 se referral code auto fill ho jayega
+- Logout pe login page pe redirect hoga
+- Baaki sab code same rahe

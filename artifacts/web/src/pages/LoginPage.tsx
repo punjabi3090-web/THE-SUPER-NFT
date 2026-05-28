@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useLocation, useSearch } from "wouter";
+import { useLocation } from "wouter";
 import { Eye, EyeOff } from "lucide-react";
 
 type PopupType = { show: boolean; message: string; type: string };
@@ -21,7 +21,6 @@ function Popup({ popup }: { popup: PopupType }) {
 
 export default function LoginPage() {
   const [, setLocation] = useLocation();
-  const search = useSearch();
   const [page, setPage] = useState("register");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -41,12 +40,12 @@ export default function LoginPage() {
   });
 
   useEffect(() => {
-    const params = new URLSearchParams(search);
-    const refCode = params.get('ref');
+    const urlParams = new URLSearchParams(window.location.search);
+    const refCode = urlParams.get('ref');
     if (refCode) {
       setFormData(prev => ({...prev, referralCode: refCode}));
     }
-  }, [search]);
+  }, []);
 
   const countries = [
     { code: "+1", name: "USA", flag: "🇺🇸" },
@@ -312,8 +311,10 @@ export default function LoginPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: formData.email, password: formData.password })
     });
+    const data = await res.json().catch(() => ({}));
     setLoading(false);
     if (res.ok) {
+      localStorage.setItem('user', JSON.stringify(data.user));
       setLocation("/");
     } else {
       showPopup("Wrong Password or Wrong Email", "error");

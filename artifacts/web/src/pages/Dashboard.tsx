@@ -19,7 +19,7 @@ export default function Dashboard() {
       <div className="p-6">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-slate-900 capitalize">{activeTab}</h1>
-          <button onClick={() => setLocation("/login")} className="flex items-center gap-2 text-slate-600 hover:text-slate-900">
+          <button onClick={() => { localStorage.removeItem('user'); setLocation("/login"); }} className="flex items-center gap-2 text-slate-600 hover:text-slate-900">
             <LogOut size={20} />
             <span className="text-sm">Logout</span>
           </button>
