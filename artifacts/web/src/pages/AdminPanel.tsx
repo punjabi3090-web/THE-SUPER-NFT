@@ -4,7 +4,7 @@ import {
   ShieldCheck, LogOut, ArrowLeft, CheckCircle, XCircle,
   Plus, Minus, ClipboardList, BarChart3, ArrowUpDown
 } from "lucide-react";
-import { useBalance, isAdminAuthed, setAdminAuthed, clearAdminAuth } from "../App";
+import { useBalance, isAdminAuthed, setAdminAuthed, clearAdminAuth, refreshAdminSession } from "../App";
 
 const ADMIN_SECRET = import.meta.env.VITE_ADMIN_SECRET ?? "";
 
@@ -75,10 +75,12 @@ export default function AdminPanel() {
 
   const openApproveConfirm = () => {
     if (!approveId || !txHash.trim()) return;
+    refreshAdminSession();
     setConfirm({
       title: "Confirm Withdrawal Approval",
       message: `Approve this withdrawal?\nTX Hash: ${txHash.slice(0, 20)}...`,
       onConfirm: () => {
+        refreshAdminSession();
         approveWithdraw(approveId, txHash.trim());
         setApproveId(null);
         setTxHash("");
@@ -89,11 +91,13 @@ export default function AdminPanel() {
 
   const openRejectConfirm = () => {
     if (!rejectId || !rejectReason.trim()) return;
+    refreshAdminSession();
     setConfirm({
       title: "Confirm Withdrawal Rejection",
       message: `Reject this withdrawal? Balance will be refunded.\nReason: "${rejectReason}"`,
       danger: true,
       onConfirm: () => {
+        refreshAdminSession();
         rejectWithdraw(rejectId, rejectReason.trim());
         setRejectId(null);
         setRejectReason("");
@@ -107,10 +111,12 @@ export default function AdminPanel() {
   const openAddConfirm = () => {
     const amt = parseFloat(balAmt);
     if (!amt || amt <= 0 || !balReason.trim()) return;
+    refreshAdminSession();
     setConfirm({
       title: "Add Balance",
       message: `Add $${amt.toFixed(2)} USDT to user wallet?\nReason: "${balReason}"`,
       onConfirm: () => {
+        refreshAdminSession();
         adminAddBalance(amt, balReason.trim());
         setBalAmt(""); setBalReason("");
         setConfirm(null);
@@ -121,11 +127,13 @@ export default function AdminPanel() {
   const openDeductConfirm = () => {
     const amt = parseFloat(balAmt);
     if (!amt || amt <= 0 || !balReason.trim()) return;
+    refreshAdminSession();
     setConfirm({
       title: "⚠️ Deduct Balance",
       message: `Deduct $${amt.toFixed(2)} USDT from user wallet? This cannot be undone.\nReason: "${balReason}"`,
       danger: true,
       onConfirm: () => {
+        refreshAdminSession();
         adminDeductBalance(amt, balReason.trim());
         setBalAmt(""); setBalReason("");
         setConfirm(null);
@@ -277,7 +285,7 @@ export default function AdminPanel() {
         ] as const).map(t => (
           <button
             key={t.key}
-            onClick={() => setTab(t.key as Tab)}
+            onClick={() => { refreshAdminSession(); setTab(t.key as Tab); }}
             className={`flex-1 py-3 text-[11px] font-semibold flex flex-col items-center gap-1 transition-colors relative ${
               tab === t.key ? 'text-emerald-600 border-b-2 border-emerald-500' : 'text-slate-400'
             }`}

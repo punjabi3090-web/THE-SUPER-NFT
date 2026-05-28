@@ -12,6 +12,7 @@ import Tutorials from "./pages/Tutorials";
 import Service from "./pages/Service";
 import Language from "./pages/Language";
 import AdminPanel from "./pages/AdminPanel";
+import Notifications from "./pages/Notifications";
 import './index.css';
 
 export const TEST_MODE = true;
@@ -140,6 +141,9 @@ export function isAdminAuthed(): boolean {
 }
 export function setAdminAuthed() {
   sessionStorage.setItem('snft_admin_ts', Date.now().toString());
+}
+export function refreshAdminSession() {
+  if (isAdminAuthed()) sessionStorage.setItem('snft_admin_ts', Date.now().toString());
 }
 export function clearAdminAuth() {
   sessionStorage.removeItem('snft_admin_ts');
@@ -353,6 +357,7 @@ function Routes() {
       <Route path="/service" component={Service} />
       <Route path="/language" component={Language} />
       <Route path="/admin" component={AdminPanel} />
+      <Route path="/notifications" component={Notifications} />
     </Switch>
   );
 }

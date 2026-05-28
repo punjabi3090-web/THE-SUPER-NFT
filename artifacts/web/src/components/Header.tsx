@@ -16,6 +16,7 @@ export default function Header() {
   const [, setLocation]           = useLocation();
   const menuRef  = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
+  // Hidden tap counter — logo acts as a concealed admin trigger
   const tapTimes = useRef<number[]>([]);
 
   const { notifications, markNotificationRead, markAllRead } = useBalance();
@@ -31,7 +32,7 @@ export default function Header() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // 5-tap logo secret → /admin
+  // Hidden secret: 5 rapid taps on logo within 2s → /admin
   const handleLogoTap = () => {
     const now = Date.now();
     tapTimes.current = [...tapTimes.current.filter(t => now - t < TAP_WINDOW), now];
@@ -49,11 +50,8 @@ export default function Header() {
 
   return (
     <div className="bg-white px-4 py-3 flex justify-between items-center sticky top-0 z-40 shadow-sm">
-      {/* Logo — 5 rapid taps opens admin */}
-      <button
-        className="flex items-center gap-2 select-none"
-        onClick={handleLogoTap}
-      >
+      {/* Logo — hidden admin trigger (5 rapid taps) */}
+      <button className="flex items-center gap-2 select-none" onClick={handleLogoTap}>
         <div className="w-8 h-8 bg-gradient-to-r from-emerald-500 to-blue-500 rounded-lg flex items-center justify-center text-white font-bold text-xs">
           SN
         </div>
@@ -62,7 +60,7 @@ export default function Header() {
 
       <div className="flex items-center gap-3 text-slate-600">
 
-        {/* Bell + inline notification drawer */}
+        {/* Bell — shows quick drawer + badge; tap "View all" to go to /notifications page */}
         <div className="relative" ref={notifRef}>
           <button
             onClick={() => { setNotifOpen(v => !v); setMenuOpen(false); }}
@@ -84,46 +82,45 @@ export default function Header() {
                   Notifications{unread > 0 && <span className="text-emerald-500 ml-1">({unread} new)</span>}
                 </span>
                 {unread > 0 && (
-                  <button
-                    onClick={markAllRead}
-                    className="flex items-center gap-1 text-xs text-emerald-600 font-semibold"
-                  >
+                  <button onClick={markAllRead} className="flex items-center gap-1 text-xs text-emerald-600 font-semibold">
                     <CheckCheck size={13} /> Mark all read
                   </button>
                 )}
               </div>
 
-              {/* List */}
-              <div className="max-h-72 overflow-y-auto">
+              {/* Notification list */}
+              <div className="max-h-64 overflow-y-auto">
                 {notifications.length === 0 ? (
-                  <div className="py-10 text-center text-slate-400">
-                    <p className="text-3xl mb-2">🔔</p>
+                  <div className="py-8 text-center text-slate-400">
+                    <p className="text-2xl mb-1">🔔</p>
                     <p className="text-xs">No notifications yet</p>
                   </div>
                 ) : (
-                  notifications.slice(0, 25).map(n => (
+                  notifications.slice(0, 10).map(n => (
                     <button
                       key={n.id}
                       onClick={() => markNotificationRead(n.id)}
                       className={`w-full text-left px-4 py-3 flex gap-3 items-start border-b border-slate-50 hover:bg-slate-50 transition-colors ${!n.read ? 'bg-emerald-50/60' : ''}`}
                     >
-                      <span className="text-base leading-none mt-0.5 shrink-0">
-                        {NOTIF_ICON[n.type] ?? '📣'}
-                      </span>
+                      <span className="text-base leading-none mt-0.5 shrink-0">{NOTIF_ICON[n.type] ?? '📣'}</span>
                       <div className="flex-1 min-w-0">
-                        <p className={`text-xs font-semibold truncate ${!n.read ? 'text-slate-900' : 'text-slate-600'}`}>
-                          {n.title}
-                        </p>
+                        <p className={`text-xs font-semibold truncate ${!n.read ? 'text-slate-900' : 'text-slate-600'}`}>{n.title}</p>
                         <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">{n.message}</p>
-                        <p className="text-[10px] text-slate-300 mt-0.5">
-                          {new Date(n.date).toLocaleString()}
-                        </p>
+                        <p className="text-[10px] text-slate-300 mt-0.5">{new Date(n.date).toLocaleString()}</p>
                       </div>
                       {!n.read && <span className="w-2 h-2 rounded-full bg-emerald-400 mt-1.5 shrink-0" />}
                     </button>
                   ))
                 )}
               </div>
+
+              {/* View all link → /notifications page */}
+              <button
+                onClick={() => { setNotifOpen(false); setLocation('/notifications'); }}
+                className="w-full py-2.5 text-xs text-emerald-600 font-semibold bg-slate-50 hover:bg-slate-100 border-t border-slate-100 text-center"
+              >
+                View all notifications →
+              </button>
             </div>
           )}
         </div>
@@ -138,15 +135,12 @@ export default function Header() {
           >
             {menuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
-
           {menuOpen && (
             <div className="absolute right-0 top-9 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden w-44 z-50">
               {menuItems.map((item, i) => {
                 const Icon = item.icon;
                 return (
-                  <button
-                    key={i}
-                    onClick={item.action}
+                  <button key={i} onClick={item.action}
                     className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 text-left border-b border-slate-50 last:border-0"
                   >
                     <Icon size={18} className={item.color} />
