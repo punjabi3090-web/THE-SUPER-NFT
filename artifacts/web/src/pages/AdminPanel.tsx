@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { useBalance, isAdminAuthed, setAdminAuthed, clearAdminAuth } from "../App";
 
-const ADMIN_SECRET = import.meta.env.VITE_ADMIN_PASSWORD ?? "";
+const ADMIN_SECRET = import.meta.env.VITE_ADMIN_SECRET ?? "";
 
 type Tab = 'dashboard' | 'withdrawals' | 'balance' | 'logs';
 

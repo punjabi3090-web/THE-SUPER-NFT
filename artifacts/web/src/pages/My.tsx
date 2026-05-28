@@ -3,7 +3,7 @@ import { Copy, Check, ChevronRight, Download, Upload, FileText, Shield, Settings
 import { useLocation } from "wouter";
 import Header from "../components/Header";
 import BottomNav from "../components/BottomNav";
-import { testUser, TEST_MODE } from "../App";
+import { testUser, TEST_MODE, useBalance } from "../App";
 
 function MenuItem({ icon: Icon, label, onClick }: { icon: React.ElementType; label: string; onClick: () => void }) {
   return (
@@ -23,6 +23,7 @@ function MenuItem({ icon: Icon, label, onClick }: { icon: React.ElementType; lab
 export default function My() {
   const [, setLocation] = useLocation();
   const [copied, setCopied] = useState(false);
+  const { balance } = useBalance();
   const user = JSON.parse(localStorage.getItem('user') || 'null') || testUser;
 
   const handleCopyUID = () => {
@@ -61,7 +62,7 @@ export default function My() {
         </div>
         <div className="bg-gray-50 rounded-xl p-3">
           <p className="text-xs text-gray-500">Balance</p>
-          <p className="text-2xl font-bold text-slate-800">${(111.50).toFixed(2)}</p>
+          <p className="text-2xl font-bold text-slate-800">${balance.toFixed(2)}</p>
         </div>
       </div>
 

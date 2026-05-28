@@ -169,7 +169,7 @@ export default function Deposit() {
                 <div key={d.id} className="bg-white rounded-2xl p-4 shadow-sm flex items-center justify-between">
                   <div>
                     <p className="font-semibold text-slate-800">${d.amount.toFixed(2)}</p>
-                    <p className="text-xs text-slate-400 mt-0.5">{d.network} · {d.date.toLocaleDateString()}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">{d.network} · {new Date(d.date).toLocaleDateString()}</p>
                   </div>
                   <span className="bg-emerald-100 text-emerald-700 text-xs font-semibold px-3 py-1 rounded-full">{d.status}</span>
                 </div>
