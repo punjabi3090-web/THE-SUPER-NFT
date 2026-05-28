@@ -2,10 +2,11 @@ import { useLocation } from "wouter";
 import { Users, Trophy, FileText, Share2, User, FileCheck, Send, Settings, Hammer, Bookmark } from "lucide-react";
 import Header from "../components/Header";
 import BottomNav from "../components/BottomNav";
-import { testUser, TEST_MODE } from "../App";
+import { testUser, TEST_MODE, useBalance } from "../App";
 
 export default function Home() {
   const [, setLocation] = useLocation();
+  const { balance } = useBalance();
 
   return (
     <div className="pb-20 max-w-md mx-auto">
@@ -15,7 +16,7 @@ export default function Home() {
       {/* Wallet Balance Card — no deposit/withdraw buttons */}
       <div className="mx-4 mt-4 rounded-2xl p-5 text-white shadow-md" style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}>
         <p className="text-sm opacity-90">Wallet Balance (USDT)</p>
-        <h1 className="text-3xl font-bold mt-1">${testUser.balance.toFixed(2)}</h1>
+        <h1 className="text-3xl font-bold mt-1">${balance.toFixed(2)}</h1>
       </div>
 
       {/* My Team */}

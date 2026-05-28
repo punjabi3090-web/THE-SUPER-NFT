@@ -2,10 +2,11 @@ import { useLocation } from "wouter";
 import { ArrowDownCircle, ArrowUpCircle } from "lucide-react";
 import Header from "../components/Header";
 import BottomNav from "../components/BottomNav";
-import { testNFTs, testUser, TEST_MODE } from "../App";
+import { testNFTs, TEST_MODE, useBalance } from "../App";
 
 export default function Assets() {
   const [, setLocation] = useLocation();
+  const { balance } = useBalance();
 
   return (
     <div className="pb-20 max-w-md mx-auto">
@@ -15,7 +16,7 @@ export default function Assets() {
       {/* Balance Card with Deposit/Withdraw */}
       <div className="bg-white mx-4 mt-4 rounded-2xl p-5 shadow-sm">
         <p className="text-sm text-gray-500">Total Assets (USDT)</p>
-        <h1 className="text-3xl font-bold mt-1 text-slate-800">${testUser.balance.toFixed(2)}</h1>
+        <h1 className="text-3xl font-bold mt-1 text-slate-800">${balance.toFixed(2)}</h1>
         <div className="flex gap-3 mt-4">
           <button
             onClick={() => { console.log('deposit clicked'); setLocation('/deposit'); }}
