@@ -10,7 +10,7 @@ function Popup({ popup }: { popup: PopupType }) {
     <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[90vw] max-w-sm">
       <div className={`px-6 py-4 rounded-lg shadow-2xl border-2 text-center ${
         popup.type === "success"
-          ? "bg-green-50 border-green-500 text-green-900"
+          ? "bg-slate-50 border-slate-400 text-slate-900"
           : "bg-red-50 border-red-500 text-red-900"
       }`}>
         <p className="font-semibold text-base">{popup.message}</p>
@@ -338,7 +338,7 @@ export default function LoginPage() {
     }
   };
 
-  const inputClass = "w-full bg-slate-50 text-slate-900 px-4 py-3 rounded-lg border border-slate-300 focus:border-green-500 outline-none text-base";
+  const inputClass = "w-full bg-slate-50 text-slate-900 px-4 py-3 rounded-lg border border-slate-300 focus:border-slate-400 outline-none text-base";
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-8" style={{background: 'linear-gradient(135deg, #f8fafc 0%, #d1fae5 100%)'}}>
@@ -348,7 +348,7 @@ export default function LoginPage() {
         <div className="text-center mb-6">
           <img src="/logo.png" alt="Logo" className="w-16 h-16 mx-auto mb-3 rounded-xl object-cover" />
           <h1 className="text-3xl font-bold text-slate-900">THE SUPER NFT</h1>
-          <p className="text-green-600 text-sm mt-1 font-medium">Welcome to Community World</p>
+          <p className="text-[#333333] text-sm mt-1 font-medium">Welcome to Community World</p>
         </div>
 
         {page === "register" && (
@@ -361,13 +361,13 @@ export default function LoginPage() {
               <select
                 value={formData.countryCode}
                 onChange={(e) => setFormData({...formData, countryCode: e.target.value})}
-                className="w-24 bg-slate-50 text-slate-900 px-2 py-3 rounded-lg border border-slate-300 focus:border-green-500 outline-none text-sm"
+                className="w-24 bg-slate-50 text-slate-900 px-2 py-3 rounded-lg border border-slate-300 focus:border-slate-400 outline-none text-sm"
               >
                 {countries.map(c => (
                   <option key={c.code + c.name} value={c.code}>{c.flag} {c.code}</option>
                 ))}
               </select>
-              <input type="tel" placeholder="Phone Number" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="flex-1 bg-slate-50 text-slate-900 px-4 py-3 rounded-lg border border-slate-300 focus:border-green-500 outline-none text-base" required />
+              <input type="tel" placeholder="Phone Number" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="flex-1 bg-slate-50 text-slate-900 px-4 py-3 rounded-lg border border-slate-300 focus:border-slate-400 outline-none text-base" required />
             </div>
             <div className="relative">
               <input type={showPassword ? "text" : "password"} placeholder="Password" value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} className={inputClass} required />
@@ -387,7 +387,7 @@ export default function LoginPage() {
             </button>
             <p className="text-center text-sm text-slate-600">
               Already have account?{" "}
-              <button type="button" onClick={() => setPage("login")} className="text-green-600 font-semibold">Login Accounts</button>
+              <button type="button" onClick={() => setPage("login")} className="text-[#1A1A1A] font-semibold">Login Accounts</button>
             </p>
           </form>
         )}
@@ -423,14 +423,14 @@ export default function LoginPage() {
               </button>
             </div>
             <div className="text-right">
-              <button type="button" onClick={() => setPage("forgot")} className="text-sm text-green-600 hover:text-green-700">Forgot Password?</button>
+              <button type="button" onClick={() => setPage("forgot")} className="text-sm text-[#333333] hover:text-[#1A1A1A]">Forgot Password?</button>
             </div>
             <button type="submit" disabled={loading} className="w-full btn-green py-3 rounded-lg font-semibold shadow-lg disabled:opacity-50 text-base">
               {loading ? "Logging In..." : "Login Accounts"}
             </button>
             <p className="text-center text-sm text-slate-600">
               Don't have account?{" "}
-              <button type="button" onClick={() => setPage("register")} className="text-green-600 font-semibold">Register Now</button>
+              <button type="button" onClick={() => setPage("register")} className="text-[#1A1A1A] font-semibold">Register Now</button>
             </p>
           </form>
         )}

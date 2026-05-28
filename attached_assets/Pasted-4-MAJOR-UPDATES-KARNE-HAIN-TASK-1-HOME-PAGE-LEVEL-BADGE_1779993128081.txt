@@ -1,0 +1,86 @@
+4 MAJOR UPDATES KARNE HAIN:
+
+====================================
+TASK 1: HOME PAGE - LEVEL BADGE ADD
+====================================
+Wallet Balance wale box me amount ke neeche Level badge add karo
+
+DESIGN:
+- Container: Pill shape, Background #FFFFFF
+- Border: 1px solid #E0E0E0, Border-radius: 20px
+- Padding: 6px 14px, Display: inline-flex
+- Align-items: center, Gap: 6px
+- Box-shadow: 0 1px 3px rgba(0,0,0,0.08), Margin-top: 8px
+
+CONTENT:
+1. Icon: Trophy icon 18x18px
+2. Text: "Level 0"
+3. Arrow: ">"
+- Font: 13px, font-weight 500, color #333333
+
+CODE: Level-{user.level || 0}
+Abhi hardcoded "Level 0"
+
+====================================
+TASK 2: ASSETS PAGE - MY NFTs DELETE + HISTORY
+====================================
+PURANA DELETE:
+- Assets page ka "My NFTs" card/section pura hata do
+
+NAYA ADD KARO:
+Assets page me neeche sirf "History" section add karo
+
+HISTORY SECTION:
+- Title: "History" 
+- Font-size: 16px, font-weight: 600, color #000
+- Margin-top: 24px, margin-bottom: 12px
+- Neeche bilkul khali, height: 200px empty div
+- Koi card ya transaction nahi lagana
+
+====================================
+TASK 3: BOTTOM NAVIGATION - FIXED + EQUAL SPACE
+====================================
+Dashboard ke neeche jo 5 bottom buttons hain: Home, Reserve, Stake, Asset, My
+
+FIX KARO:
+1. SCROLL HATAO:
+   - Bottom nav scroll nahi hona chahiye
+   - Position: fixed, bottom: 0, left: 0, right: 0
+   - Z-index: 1000
+   - Page content me padding-bottom: 70px add karo taake nav ke peeche content na chupe
+
+2. EQUAL SPACING:
+   - Container: display: flex, justify-content: space-between
+   - Har button: flex: 1, text-align: center
+   - Left-right equal padding: 0 16px
+   - Saare 5 buttons equal width me fit hone chahiye
+
+3. STYLE:
+   - Background: #FFFFFF
+   - Border-top: 1px solid #F0F0F0
+   - Height: 60px
+   - Padding: 8px 0
+   - Box-shadow: 0 -2px 8px rgba(0,0,0,0.06)
+
+4. BUTTON STYLE:
+   - Icon: 22px, margin-bottom: 2px
+   - Text: 11px, font-weight 500
+   - Active: color #1A1A1A, font-weight 600
+   - Inactive: color #999999
+   - Active indicator: top border 2px solid #1A1A1A
+
+BUTTONS ORDER: Home | Reserve | Stake | Asset | My
+
+====================================
+TASK 4: GREEN COLOR GLOBAL REPLACE
+====================================
+Pure system me green color ko dark se replace karo
+
+REPLACE: #34A853, #0F9D58, #4CAF50, #00C853, bg-green-500 etc
+WITH: #1A1A1A primary, #2D2D2D secondary, #333333 border
+
+CHANGE:
+- Login button, success states, verified icons green → #1A1A1A
+- Dashboard me saare green elements → #1A1A1A
+
+KEEP SAME: Blue #4285F4, Orange #FBBC04, Red #EA4335, Cyan #00BCD4

@@ -7,7 +7,7 @@ type TabKey = "today" | "reserve" | "collection";
 
 const STATS = (balance: number) => [
   { label: "Today Earnings",        value: "0",          border: "#4285F4" },
-  { label: "Cumulative Income",     value: "0",          border: "#34A853" },
+  { label: "Cumulative Income",     value: "0",          border: "#2D2D2D" },
   { label: "Team Benefits",         value: "0",          border: "#9AA0A6" },
   { label: "Reservation range",     value: "1 ~ 1,000",  border: "#FBBC04" },
   { label: "Wallet Balance",        value: `$${balance.toFixed(2)}`, border: "#00BCD4" },

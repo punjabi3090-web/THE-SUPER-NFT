@@ -1,5 +1,5 @@
 import { useLocation } from "wouter";
-import { Users, Trophy, FileText, Share2, User, FileCheck, Send, Settings, Hammer, Bookmark } from "lucide-react";
+import { Users, Trophy, FileText, Share2, User, FileCheck, Send, Settings, Hammer, Bookmark, ChevronRight } from "lucide-react";
 import Header from "../components/Header";
 import BottomNav from "../components/BottomNav";
 import { testUser, TEST_MODE, useBalance } from "../App";
@@ -13,11 +13,21 @@ export default function Home() {
       <Header />
       {TEST_MODE && <div className="bg-yellow-100 text-yellow-800 text-xs text-center py-1 font-medium">🧪 Test Mode</div>}
 
-      {/* Wallet Balance Card — no deposit/withdraw buttons */}
-      <div className="mx-4 mt-4 rounded-2xl p-5 text-white shadow-md" style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}>
+      {/* Wallet Balance Card */}
+      <div className="mx-4 mt-4 rounded-2xl p-5 text-white shadow-md" style={{ background: 'linear-gradient(135deg, #1A1A1A 0%, #2D2D2D 100%)' }}>
         <p className="text-sm opacity-90">Wallet Balance (USDT)</p>
         <h1 className="text-3xl font-bold mt-1">${balance.toFixed(2)}</h1>
-        <p style={{ fontSize: 14, color: '#fff', opacity: 0.9, marginTop: 4 }}>Level-0</p>
+        {/* Level Badge — pill shape */}
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          background: '#FFFFFF', border: '1px solid #E0E0E0',
+          borderRadius: 20, padding: '6px 14px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.08)', marginTop: 8,
+        }}>
+          <Trophy size={18} color="#333333" />
+          <span style={{ fontSize: 13, fontWeight: 500, color: '#333333' }}>Level 0</span>
+          <ChevronRight size={14} color="#333333" />
+        </div>
       </div>
 
       {/* My Team */}
@@ -50,7 +60,7 @@ export default function Home() {
             <p className="text-xs text-gray-500 leading-tight">Community orders</p>
           </button>
           <button onClick={() => console.log('referral')} className="flex flex-col items-center gap-1">
-            <Share2 className="text-green-400" size={24} />
+            <Share2 className="text-slate-400" size={24} />
             <p className="text-xs text-gray-500 leading-tight">Referral</p>
           </button>
         </div>

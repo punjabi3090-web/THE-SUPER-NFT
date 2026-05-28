@@ -1,43 +1,74 @@
 import { useLocation } from "wouter";
-import { Home, Coins, Clock, Wallet, User } from "lucide-react";
+import { Home, Clock, TrendingUp, Wallet, User } from "lucide-react";
+
+const NAVS = [
+  { icon: Home,       label: "Home",    path: "/" },
+  { icon: Clock,      label: "Reserve", path: "/reserve" },
+  { icon: TrendingUp, label: "Stake",   path: "/stake" },
+  { icon: Wallet,     label: "Asset",   path: "/assets" },
+  { icon: User,       label: "My",      path: "/my" },
+];
 
 export default function BottomNav() {
   const [location, setLocation] = useLocation();
-  const navs = [
-    { icon: Home, label: "Home", path: "/" },
-    { icon: Coins, label: "Stake", path: "/stake" },
-    { icon: Clock, label: "Reserve", path: "/reserve" },
-    { icon: Wallet, label: "Assets", path: "/assets" },
-    { icon: User, label: "My", path: "/my" },
-  ];
 
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50"
-      style={{ maxWidth: '448px', left: '50%', transform: 'translateX(-50%)', paddingBottom: 'env(safe-area-inset-bottom)' }}
+      style={{
+        position: 'fixed',
+        bottom: 0,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        width: '100%',
+        maxWidth: 448,
+        background: '#FFFFFF',
+        borderTop: '1px solid #F0F0F0',
+        boxShadow: '0 -2px 8px rgba(0,0,0,0.06)',
+        height: 60,
+        zIndex: 1000,
+        display: 'flex',
+        alignItems: 'stretch',
+        padding: '0 16px',
+        paddingBottom: 'env(safe-area-inset-bottom)',
+      }}
     >
-      <div className="flex items-center h-16">
-        {navs.map(n => {
-          const Icon = n.icon;
-          const active = location === n.path || (location === '/' && n.path === '/');
-          return (
-            <button
-              key={n.path}
-              onClick={() => setLocation(n.path)}
-              className="flex-1 flex flex-col items-center justify-center gap-0.5 h-full"
-            >
-              <Icon
-                size={22}
-                strokeWidth={active ? 2.5 : 2}
-                className={active ? 'text-emerald-500' : 'text-gray-400'}
-              />
-              <span className={`text-[11px] font-medium ${active ? 'text-emerald-500' : 'text-gray-400'}`}>
-                {n.label}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+      {NAVS.map(n => {
+        const Icon = n.icon;
+        const active = location === n.path;
+        return (
+          <button
+            key={n.path}
+            onClick={() => setLocation(n.path)}
+            style={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 2,
+              background: 'none',
+              border: 'none',
+              borderTop: active ? '2px solid #1A1A1A' : '2px solid transparent',
+              cursor: 'pointer',
+              padding: '8px 0',
+              marginTop: active ? -2 : 0,
+            }}
+          >
+            <Icon
+              size={22}
+              strokeWidth={active ? 2.5 : 2}
+              color={active ? '#1A1A1A' : '#999999'}
+            />
+            <span style={{
+              fontSize: 11,
+              fontWeight: active ? 600 : 500,
+              color: active ? '#1A1A1A' : '#999999',
+            }}>
+              {n.label}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }

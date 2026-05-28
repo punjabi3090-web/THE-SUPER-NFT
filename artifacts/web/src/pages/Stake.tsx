@@ -80,7 +80,7 @@ export default function Stake() {
       )}
 
       {popup === "success" && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-emerald-500 text-white px-5 py-3 rounded-xl shadow-lg font-semibold text-sm">
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 text-white px-5 py-3 rounded-xl shadow-lg font-semibold text-sm" style={{ background: '#1A1A1A' }}>
           ✅ Staked successfully! Notification sent.
         </div>
       )}
@@ -98,7 +98,7 @@ export default function Stake() {
       {/* Balance strip */}
       <div className="mx-4 mt-4 bg-white rounded-2xl px-4 py-3 shadow-sm flex items-center justify-between">
         <span className="text-sm text-slate-500">Available Balance</span>
-        <span className="font-bold text-emerald-600">${balance.toFixed(2)}</span>
+        <span className="font-bold text-[#1A1A1A]">${balance.toFixed(2)}</span>
       </div>
 
       {/* Plan selector */}
@@ -152,7 +152,7 @@ export default function Stake() {
           placeholder="Min $10 USDT"
           value={amount}
           onChange={e => setAmount(e.target.value)}
-          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 outline-none focus:border-emerald-500 text-base"
+          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 outline-none focus:border-slate-400 text-base"
         />
       </div>
 
@@ -160,7 +160,7 @@ export default function Stake() {
       {numAmount >= 10 && (
         <div className="mx-4 mt-3 bg-white rounded-2xl p-4 shadow-sm">
           <p className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
-            <TrendingUp size={16} className="text-emerald-500" /> Profit Preview
+            <TrendingUp size={16} className="text-[#1A1A1A]" /> Profit Preview
           </p>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
@@ -169,11 +169,11 @@ export default function Stake() {
             </div>
             <div className="flex justify-between">
               <span className="text-slate-500">Daily Profit</span>
-              <span className="font-semibold text-emerald-600">+${dailyProfit.toFixed(4)}</span>
+              <span className="font-semibold text-[#1A1A1A]">+${dailyProfit.toFixed(4)}</span>
             </div>
             <div className="flex justify-between border-t border-slate-100 pt-2">
               <span className="text-slate-500">Total Return</span>
-              <span className="font-bold text-emerald-600">${totalReturn.toFixed(2)}</span>
+              <span className="font-bold text-[#1A1A1A]">${totalReturn.toFixed(2)}</span>
             </div>
           </div>
         </div>
@@ -208,7 +208,7 @@ export default function Stake() {
                 </div>
                 <div className="text-right">
                   <p className="font-bold text-slate-800">${s.amount.toFixed(2)}</p>
-                  <p className="text-xs text-emerald-600 font-semibold flex items-center gap-0.5 justify-end mt-0.5">
+                  <p className="text-xs text-[#1A1A1A] font-semibold flex items-center gap-0.5 justify-end mt-0.5">
                     <CheckCircle size={11} /> {s.apy} APY
                   </p>
                   <p className="text-xs text-slate-400">+${s.dailyProfit.toFixed(4)}/day</p>
