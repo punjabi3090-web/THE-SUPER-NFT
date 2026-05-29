@@ -11,6 +11,7 @@ import {
   approveWithdrawal, rejectWithdrawal, editUserBalance,
   blockUser, deleteUser, sendAdminNotification, sendAirdrop,
   getRewardSettings, getWithdrawalSettings, saveRewardSettings, saveWithdrawalSettings,
+  updateUserReferralCode,
   type WithdrawalRequest, type AdminLog, type RewardSettings, type WithdrawalSettings,
 } from "../lib/store";
 
@@ -55,6 +56,10 @@ export default function AdminPanel() {
   const [rwdSettings, setRwdSettings] = useState<RewardSettings>(getRewardSettings());
   const [wdSettings, setWdSettings] = useState<WithdrawalSettings>(getWithdrawalSettings());
   const [settingsSaved, setSettingsSaved] = useState(false);
+
+  // Referral code edit
+  const [refUserId, setRefUserId]   = useState<string | null>(null);
+  const [newRefCode, setNewRefCode] = useState("");
 
   // Delete confirm
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -185,6 +190,38 @@ export default function AdminPanel() {
         </div>
       )}
 
+      {/* Referral code edit modal */}
+      {refUserId && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center px-6">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+            <h3 className="font-bold text-slate-800 mb-1">Edit Referral Code</h3>
+            <p className="text-xs text-slate-400 mb-4">User: {users.find(u => u.userId === refUserId)?.email}</p>
+            <input
+              value={newRefCode}
+              onChange={e => setNewRefCode(e.target.value.toUpperCase().replace(/\s/g,''))}
+              placeholder="e.g. SP8iGr9"
+              maxLength={20}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none mb-4 font-mono tracking-wider"
+            />
+            <div className="flex gap-3">
+              <button onClick={() => { setRefUserId(null); setNewRefCode(""); }} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm">Cancel</button>
+              <button
+                onClick={() => {
+                  if (!newRefCode.trim()) return;
+                  const result = updateUserReferralCode(refUserId, newRefCode.trim());
+                  if (result === 'taken') { showToast("❌ Code already taken by another user"); return; }
+                  if (result === 'not_found') { showToast("❌ User not found"); return; }
+                  setRefUserId(null); setNewRefCode(""); refresh();
+                  showToast("✅ Referral code updated!");
+                }}
+                disabled={!newRefCode.trim()}
+                className="flex-1 py-2.5 rounded-xl bg-blue-600 disabled:opacity-40 text-white font-bold text-sm"
+              >Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Top bar */}
       <div className="bg-gradient-to-r from-slate-800 to-slate-900 px-4 py-4 flex items-center justify-between sticky top-0 z-30">
         <div className="flex items-center gap-2">
@@ -290,9 +327,16 @@ export default function AdminPanel() {
                   </div>
                 </div>
                 {u.withdrawalAddress && <p className="text-xs text-slate-400 font-mono truncate mb-2">Addr: {u.withdrawalAddress}</p>}
-                <div className="flex gap-2">
+                <p className="text-xs text-slate-400 mb-2">
+                  Ref: <span className="font-mono font-bold text-blue-600">{u.referralCode}</span>
+                  {u.referredBy && <span className="ml-2 text-slate-300">← {u.referredBy}</span>}
+                </p>
+                <div className="flex gap-2 flex-wrap">
                   <button onClick={() => { setBalUserId(u.userId); setBalAmt(""); setBalReason(""); }} className="flex items-center gap-1 bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg font-semibold">
                     <Plus size={12} /> Balance
+                  </button>
+                  <button onClick={() => { setRefUserId(u.userId); setNewRefCode(u.referralCode); }} className="flex items-center gap-1 bg-indigo-500 text-white text-xs px-3 py-1.5 rounded-lg font-semibold">
+                    🔑 Ref Code
                   </button>
                   <button onClick={() => { blockUser(u.userId); refresh(); showToast(u.isBlocked ? '✅ User unblocked' : '🔒 User blocked'); }}
                     className={`flex items-center gap-1 text-white text-xs px-3 py-1.5 rounded-lg font-semibold ${u.isBlocked ? 'bg-emerald-500' : 'bg-orange-500'}`}>

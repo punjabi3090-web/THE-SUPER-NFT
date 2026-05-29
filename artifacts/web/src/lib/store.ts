@@ -355,6 +355,19 @@ export function checkAutoRewards(userId: string, depositAmount: number) {
   lsSet('allUsers', users);
 }
 
+// ── Referral Code Update ───────────────────────────────────────────────────
+
+export function updateUserReferralCode(userId: string, newCode: string): true | 'taken' | 'not_found' {
+  const users = getAllUsers();
+  if (users.find(u => u.referralCode === newCode && u.userId !== userId)) return 'taken';
+  const i = users.findIndex(u => u.userId === userId);
+  if (i === -1) return 'not_found';
+  users[i].referralCode = newCode;
+  lsSet('allUsers', users);
+  logAdminAction('Updated referral code', users[i].email, 0, `New code: ${newCode}`);
+  return true;
+}
+
 // ── Admin Functions ────────────────────────────────────────────────────────
 
 export function logAdminAction(action: string, target: string, amount = 0, details = '') {

@@ -87,13 +87,14 @@ export default function My() {
         </div>
       </div>
 
-      {/* 4 Quick Buttons */}
+      {/* 5 Quick Buttons */}
       <div className="bg-white mx-4 mt-4 rounded-2xl shadow-sm">
         <div className="flex divide-x divide-slate-100">
-          <QuickBtn icon="💰" label="Deposit Record"   onClick={() => setLocation('/deposit-record')} />
-          <QuickBtn icon="💸" label="Withdraw Record"  onClick={() => setLocation('/withdraw-record')} />
-          <QuickBtn icon="🖼️" label="Reserve History" onClick={() => setLocation('/reserve-history')} />
-          <QuickBtn icon="📋" label="My History"       onClick={() => setLocation('/my-history')} />
+          <QuickBtn icon="💰" label="Deposit"    onClick={() => setLocation('/deposit-record')} />
+          <QuickBtn icon="💸" label="Withdraw"   onClick={() => setLocation('/withdraw-record')} />
+          <QuickBtn icon="👥" label="My Team"    onClick={() => setLocation('/team')} />
+          <QuickBtn icon="🖼️" label="Reserve"   onClick={() => setLocation('/reserve-history')} />
+          <QuickBtn icon="📋" label="History"    onClick={() => setLocation('/my-history')} />
         </div>
       </div>
 

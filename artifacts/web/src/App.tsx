@@ -20,6 +20,7 @@ import DepositRecord from "./pages/DepositRecord";
 import WithdrawRecord from "./pages/WithdrawRecord";
 import MyHistory from "./pages/MyHistory";
 import ReserveHistory from "./pages/ReserveHistory";
+import MyTeam from "./pages/MyTeam";
 import {
   initializeApp, getCurrentUser, getCurrentUserId,
   processDeposit, submitWithdrawalRequest, WithdrawResult,
@@ -152,6 +153,7 @@ function Routes() {
       <Route path="/withdraw-record" component={WithdrawRecord} />
       <Route path="/my-history"      component={MyHistory} />
       <Route path="/reserve-history" component={ReserveHistory} />
+      <Route path="/team"            component={MyTeam} />
     </Switch>
   );
 }
