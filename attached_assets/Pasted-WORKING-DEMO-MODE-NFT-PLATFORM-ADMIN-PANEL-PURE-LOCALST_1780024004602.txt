@@ -1,0 +1,383 @@
+WORKING DEMO MODE - NFT PLATFORM + ADMIN PANEL
+PURE LOCALSTORAGE - ZERO HARDCODED DATA
+
+PROJECT SETUP
+
+Stack: React/Next.js/Vue ya Vanilla JS
+Theme: Dark Blue #1E3A8A, Text #1E293B, Success #34A853, Error #EA4335, Warning #FBBC04
+Routes:
+/ = User Application
+/admin = Admin Panel
+/admin/login = Admin Login
+
+Storage: 100% localStorage
+Real-time: window.addEventListener('storage', updateUI)
+
+INITIALIZATION - EMPTY STATE
+
+App first load pe sab empty. Koi fake data nahi.
+
+if (!localStorage.getItem('appInitialized')) {
+  localStorage.setItem('allUsers', JSON.stringify([]));
+  localStorage.setItem('adminWallet', '0');
+  localStorage.setItem('withdrawalRequests', JSON.stringify([]));
+  localStorage.setItem('adminNotifications', JSON.stringify([]));
+  localStorage.setItem('adminLogs', JSON.stringify([]));
+  localStorage.setItem('systemSettings', JSON.stringify({
+    siteName: 'NFT Platform',
+    maintenanceMode: false
+  }));
+  localStorage.setItem('rewardSettings', JSON.stringify({
+    depositBonus: {enabled: true, percentage: 10, minDeposit: 50, maxBonus: 500},
+    referralBonus: {enabled: true, level1: 5, level2: 3, level3: 1},
+    activityReward: {enabled: true, dailyLogin: 1, reserveNFT: 2, completeProfile: 5},
+    reservationSettings: {enabled: true, minAmount: 10, maxAmount: 500, profitPercentage: 15, lockPeriodDays: 7},
+    levelSystem: {
+      level2Deposit: 100, level2Bonus: 20,
+      level3Deposit: 500, level3Bonus: 50,
+      level4Deposit: 1000, level4Bonus: 100
+    }
+  }));
+  localStorage.setItem('withdrawalSettings', JSON.stringify({
+    enabled: true, startTime: "00:00", endTime: "23:59",
+    minAmount: 10, maxAmount: 1000, requireGoogleAuth: true,
+    requireAddressBind: true, bindDelayHours: 24
+  }));
+  localStorage.setItem('securitySettings', JSON.stringify({
+    forceGoogleAuth: true, forceAddressBind: true, withdrawalDelayHours: 24
+  }));
+  localStorage.setItem('appInitialized', 'true');
+}
+
+USER APPLICATION - ALL DYNAMIC
+
+
+1. SIGNUP PAGE
+   Fields: Name, Email, Phone, Password, Country, ReferralCode(optional)
+   OnSubmit:
+   - userId = 'USR_' + Date.now()
+   - referralCode = name.substring(0,4).toUpperCase() + Math.floor(1000+Math.random()*9000)
+   - Push to localStorage.allUsers:
+     {
+       userId, name, email, phone, password: hash(password),
+       country, referralCode, referredBy: input || null,
+       walletBalance: 0, nftAccountBalance: 0, totalDeposit: 0,
+       totalWithdraw: 0, level: 1, isBlocked: false,
+       googleAuthBound: false, googleAuthSecret: null,
+       withdrawalAddress: null, addressBindDate: null,
+       joinDate: new Date().toISOString(), lastLogin: new Date().toISOString(),
+       myActivityHistory: []
+     }
+   - Auto login: localStorage.currentUser = userId
+   - If referredBy exists: add referral join history to upline
+
+2. LOGIN PAGE
+   Check: email + password match in localStorage.allUsers
+   If isBlocked === true: Show "Account blocked"
+   Else: localStorage.currentUser = userId
+
+3. DASHBOARD
+   Get currentUser from localStorage.allUsers
+   Display: walletBalance, nftAccountBalance, level, totalDeposit
+   All values from localStorage - no hardcoded
+
+4. DEPOSIT PAGE
+   User inputs: amount
+   On Confirm:
+   function processDeposit(amount) {
+     let users = JSON.parse(localStorage.allUsers);
+     let user = users.find(u => u.userId === localStorage.currentUser);
+
+     user.walletBalance += amount;
+     user.nftAccountBalance += amount;
+     user.totalDeposit += amount;
+
+     let adminWallet = parseFloat(localStorage.adminWallet || '0');
+     adminWallet += amount;
+
+     localStorage.setItem('allUsers', JSON.stringify(users));
+     localStorage.setItem('adminWallet', adminWallet.toString());
+
+     addToHistory(user.userId, 'deposit', {
+       id: Date.now(), type: 'deposit', title: 'Deposit Successful',
+       amount: amount, status: 'Completed', txHash: '0x'+Date.now(),
+       date: new Date().toLocaleString(), icon: '💰', color: '#34A853'
+     });
+
+     checkAutoRewards(user.userId, amount);
+   }
+
+5. WITHDRAWAL PAGE
+   Pre-checks:
+   - let settings = JSON.parse(localStorage.withdrawalSettings)
+   - let user = getCurrentUser()
+   - If!settings.enabled: Show "Withdrawals disabled"
+   - If!user.googleAuthBound: Show "Bind Google Auth first"
+   - If!user.withdrawalAddress: Show "Bind address first"
+   - Check time: now between startTime-endTime?
+   - Check delay: hours since addressBindDate >= bindDelayHours?
+
+   If all pass: Show form
+   On Submit:
+   - Validate: amount >= minAmount && amount <= maxAmount && amount <= user.walletBalance
+   - Add to localStorage.withdrawalRequests:
+     {id: Date.now(), userId, userName, userEmail, amount, address: user.withdrawalAddress,
+      status: 'pending', requestDate: new Date().toISOString()}
+   - Show: "Request submitted. Pending admin approval"
+
+6. MY HISTORY PAGE
+   let user = getCurrentUser()
+   let history = user.myActivityHistory || []
+   Display: history.map(item =>...)
+   If empty: "No records found"
+   Filters: All | Deposits | Withdrawals | Rewards | Security | Commission
+   Colors: deposit #34A853, withdrawal #EA4335, reward #FBBC04, commission #9C27B0, security #1E3A8A
+
+7. DEPOSIT RECORD PAGE - VIEW ONLY
+   let user = getCurrentUser()
+   let deposits = user.myActivityHistory.filter(h => h.type === 'deposit')
+   Table: Date | Amount | Status | TX Hash
+   NO form, NO button. Only table.
+   If empty: "No deposit records found"
+
+8. WITHDRAWAL RECORD PAGE - VIEW ONLY
+   let user = getCurrentUser()
+   let withdrawals = user.myActivityHistory.filter(h => h.type === 'withdrawal')
+   Table: Date | Amount | Status | TX Hash
+   NO form, NO button. Only table.
+   If empty: "No withdrawal records found"
+
+9. SETTINGS - SECURITY
+   GOOGLE AUTH BIND:
+   - Generate QR: otpauth://totp/...
+   - User enter 6-digit
+   - If valid: user.googleAuthBound = true, user.googleAuthSecret = secret
+   - Save + History log
+
+   ADDRESS BIND:
+   - Button disabled if!user.googleAuthBound
+   - Input address + Validate
+   - user.withdrawalAddress = address
+   - user.addressBindDate = new Date().toISOString()
+   - Save + History log
+
+10. NOTIFICATION BELL
+    let notifs = JSON.parse(localStorage.adminNotifications || '[]')
+    Show: notifs.filter(n =>!n.read.includes(currentUser))
+    Red dot if unread > 0
+
+ADMIN PANEL - ALL DYNAMIC
+
+
+ADMIN LOGIN: /admin/login
+Check: email === 'admin@demo.com' && password === 'admin123'
+Set: localStorage.adminLoggedIn = 'true'
+Protect: If!adminLoggedIn redirect to /admin/login
+
+ADMIN DASHBOARD - LIVE CALCULATIONS:
+
+1. TOTAL MEMBERS BALANCE CARD
+   let users = JSON.parse(localStorage.allUsers || '[]');
+   let total = users.reduce((sum, u) => sum + (u.walletBalance || 0), 0);
+   Display: $${total.toFixed(2)}
+
+2. TOTAL MEMBERS CARD
+   let registered = users.length;
+   let deposited = users.filter(u => (u.totalDeposit || 0) > 0).length;
+   Display: ${registered} Registered | ${deposited} Deposited
+
+3. PENDING WITHDRAWALS CARD
+   let requests = JSON.parse(localStorage.withdrawalRequests || '[]');
+   let pending = requests.filter(r => r.status === 'pending').length;
+   Display: ${pending} Pending Requests
+
+4. ADMIN WALLET CARD
+   Display: $${parseFloat(localStorage.adminWallet || '0').toFixed(2)}
+
+WITHDRAWAL REQUESTS PAGE:
+let requests = JSON.parse(localStorage.withdrawalRequests || '[]');
+Table: User | Email | Amount | Address | Request Date | Status | Action
+
+APPROVE FUNCTION:
+function approveWithdrawal(requestId) {
+  let requests = JSON.parse(localStorage.withdrawalRequests);
+  let req = requests.find(r => r.id === requestId);
+  let users = JSON.parse(localStorage.allUsers);
+  let user = users.find(u => u.userId === req.userId);
+
+  if(user.walletBalance < req.amount) return alert('Insufficient balance');
+
+  user.walletBalance -= req.amount;
+  user.totalWithdraw = (user.totalWithdraw || 0) + req.amount;
+  req.status = 'approved';
+  req.approvedDate = new Date().toISOString();
+  req.approvedBy = 'admin@demo.com';
+
+  localStorage.setItem('allUsers', JSON.stringify(users));
+  localStorage.setItem('withdrawalRequests', JSON.stringify(requests));
+
+  user.myActivityHistory.unshift({
+    id: Date.now(), type: 'withdrawal', title: 'Withdrawal Approved',
+    amount: req.amount, status: 'Completed', address: req.address,
+    date: new Date().toLocaleString(), icon: '💸', color: '#EA4335'
+  });
+
+  logAdminAction('Approved withdrawal', req.userId, req.amount);
+}
+
+REJECT FUNCTION:
+function rejectWithdrawal(requestId, reason) {
+  let requests = JSON.parse(localStorage.withdrawalRequests);
+  let req = requests.find(r => r.id === requestId);
+  req.status = 'rejected';
+  req.rejectReason = reason;
+  req.rejectedDate = new Date().toISOString();
+  localStorage.setItem('withdrawalRequests', JSON.stringify(requests));
+  logAdminAction('Rejected withdrawal', req.userId, req.amount, reason);
+}
+
+ALL MEMBERS PAGE:
+let users = JSON.parse(localStorage.allUsers || '[]');
+Table: UserID | Name | Email | Balance | NFT Balance | Level | Status | Actions
+Actions: [View] [Edit Balance] [Block] [Delete] [Send Bonus]
+
+EDIT BALANCE:
+function editUserBalance(userId, amount, type) {
+  let users = JSON.parse(localStorage.allUsers);
+  let user = users.find(u => u.userId === userId);
+  if(type === 'add') user.walletBalance += amount;
+  else user.walletBalance -= amount;
+  localStorage.setItem('allUsers', JSON.stringify(users));
+  addToHistory(userId, 'admin', {title: 'Admin Adjustment', amount, reason: type});
+  logAdminAction('Balance edit', userId, amount);
+}
+
+BLOCK USER:
+function toggleBlockUser(userId) {
+  let users = JSON.parse(localStorage.allUsers);
+  let user = users.find(u => u.userId === userId);
+  user.isBlocked =!user.isBlocked;
+  localStorage.setItem('allUsers', JSON.stringify(users));
+  logAdminAction(user.isBlocked? 'Blocked user' : 'Unblocked user', userId);
+}
+
+REWARD SETTINGS PAGE:
+Form with all settings from localStorage.rewardSettings
+On Save: localStorage.setItem('rewardSettings', JSON.stringify(formData))
+Show toast: "Settings saved successfully"
+
+WITHDRAWAL SETTINGS PAGE:
+Form: enabled, startTime, endTime, minAmount, maxAmount, bindDelayHours
+On Save: localStorage.setItem('withdrawalSettings', JSON.stringify(formData))
+
+SEND NOTIFICATION PAGE:
+Fields: Title, Message, Type, Target (all/specific)
+On Send:
+let notifs = JSON.parse(localStorage.adminNotifications || '[]');
+notifs.unshift({id: Date.now(), title, message, type, date: new Date().toISOString(), read: []});
+localStorage.setItem('adminNotifications', JSON.stringify(notifs));
+
+SEND AIRDROP PAGE:
+Field: Amount
+On Send:
+let users = JSON.parse(localStorage.allUsers);
+users.forEach(user => {
+  user.walletBalance += amount;
+  user.myActivityHistory.unshift({
+    id: Date.now(), type: 'reward', title: 'Admin Airdrop',
+    amount: amount, date: new Date().toLocaleString(), icon: '🪂', color: '#9C27B0'
+  });
+});
+localStorage.setItem('allUsers', JSON.stringify(users));
+logAdminAction('Airdrop sent', 'all', amount * users.length);
+
+ALL TRANSACTIONS PAGE:
+Combine: All users' myActivityHistory
+Table: Type | User | Amount | Status | Date | Details
+Filters: Type, Date Range, User
+Export: CSV download
+
+ADMIN LOGS PAGE:
+let logs = JSON.parse(localStorage.adminLogs || '[]');
+Table: Date | Admin | Action | Target | Amount | Details
+
+AUTO REWARD SYSTEM
+
+function checkAutoRewards(userId, depositAmount) {
+  let settings = JSON.parse(localStorage.rewardSettings);
+  let users = JSON.parse(localStorage.allUsers);
+  let user = users.find(u => u.userId === userId);
+
+  // 1. Deposit Bonus
+  if(settings.depositBonus.enabled && depositAmount >= settings.depositBonus.minDeposit) {
+    let bonus = Math.min(depositAmount * (settings.depositBonus.percentage / 100), settings.depositBonus.maxBonus);
+    user.walletBalance += bonus;
+    user.myActivityHistory.unshift({
+      id: Date.now(), type: 'reward', title: 'Deposit Bonus',
+      amount: bonus, date: new Date().toLocaleString(), icon: '🎁', color: '#FBBC04'
+    });
+  }
+
+  // 2. Referral Bonus
+  if(user.referredBy && settings.referralBonus.enabled) {
+    let upline = users.find(u => u.referralCode === user.referredBy);
+    if(upline) {
+      let refBonus = depositAmount * (settings.referralBonus.level1 / 100);
+      upline.walletBalance += refBonus;
+      upline.myActivityHistory.unshift({
+        id: Date.now(), type: 'commission', title: 'Referral Bonus L1',
+        amount: refBonus, from: user.name, date: new Date().toLocaleString(), icon: '👥', color: '#9C27B0'
+      });
+    }
+  }
+
+  // 3. Level Upgrade
+  let totalDep = user.totalDeposit;
+  let newLevel = 1;
+  if(totalDep >= settings.levelSystem.level4Deposit) newLevel = 4;
+  else if(totalDep >= settings.levelSystem.level3Deposit) newLevel = 3;
+  else if(totalDep >= settings.levelSystem.level2Deposit) newLevel = 2;
+
+  if(newLevel > user.level) {
+    let levelBonus = settings.levelSystem[`level${newLevel}Bonus`];
+    user.level = newLevel;
+    user.walletBalance += levelBonus;
+    user.myActivityHistory.unshift({
+      id: Date.now(), type: 'reward', title: `Level ${newLevel} Achieved`,
+      amount: levelBonus, date: new Date().toLocaleString(), icon: '⭐', color: '#FBBC04'
+    });
+  }
+
+  localStorage.setItem('allUsers', JSON.stringify(users));
+}
+
+HELPER FUNCTIONS
+
+function getCurrentUser() {
+  let users = JSON.parse(localStorage.allUsers || '[]');
+  return users.find(u => u.userId === localStorage.currentUser);
+}
+
+function addToHistory(userId, type, data) {
+  let users = JSON.parse(localStorage.allUsers);
+  let user = users.find(u => u.userId === userId);
+  if(!user.myActivityHistory) user.myActivityHistory = [];
+  user.myActivityHistory.unshift({id: Date.now(), type,...data});
+  localStorage.setItem('allUsers', JSON.stringify(users));
+}
+
+function logAdminAction(action, target, amount, details) {
+  let logs = JSON.parse(localStorage.adminLogs || '[]');
+  logs.unshift({
+    id: Date.now(), admin: 'admin@demo.com', action, target,
+    amount: amount || 0, details: details || '', timestamp: new Date().toISOString()
+  });
+  localStorage.setItem('adminLogs', JSON.stringify(logs));
+}
+
+CRITICAL RULES - MUST FOLLOW
+
+1. NEVER hardcode numbers. All data from localStorage
+2. Empty start - First signup creates first user
+3. Deposit must add to: user.walletBalance + user.nftAccountBalance + adminWallet
+4

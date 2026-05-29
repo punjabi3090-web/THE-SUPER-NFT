@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { useLocation } from "wouter";
-import { getHistory, HistoryItem } from "../lib/history";
+import { useBalance } from "../App";
+import type { HistoryItem } from "../lib/store";
 
 type FilterKey = 'all' | 'deposit' | 'withdrawal' | 'reward' | 'trading' | 'security' | 'commission';
 
@@ -15,99 +16,79 @@ const FILTERS: { key: FilterKey; label: string }[] = [
   { key: 'commission', label: 'Commission' },
 ];
 
-const TRADING_TYPES = new Set(['reserve', 'sell', 'trading']);
-
-function matchFilter(item: HistoryItem, filter: FilterKey): boolean {
-  if (filter === 'all')        return true;
-  if (filter === 'trading')    return TRADING_TYPES.has(item.type);
-  return item.type === filter;
-}
+const INCOME_TYPES = new Set(['deposit', 'reward', 'commission', 'admin']);
 
 export default function MyHistory() {
   const [, setLocation] = useLocation();
+  const { user } = useBalance();
   const [filter, setFilter] = useState<FilterKey>('all');
-  const all = getHistory();
-  const filtered = all.filter(h => matchFilter(h, filter));
+
+  const allHistory: HistoryItem[] = user?.myActivityHistory || [];
+  const filtered = filter === 'all' ? allHistory : allHistory.filter(h => h.type === filter);
 
   return (
-    <div className="min-h-screen max-w-md mx-auto bg-gray-50 pb-8">
-      {/* Header */}
+    <div className="min-h-screen max-w-md mx-auto bg-gradient-to-br from-blue-50 to-purple-50 pb-10">
       <div className="flex items-center gap-3 px-4 pt-4 pb-4 bg-white shadow-sm sticky top-0 z-10">
-        <button onClick={() => setLocation('/my')} className="text-slate-700">
-          <ArrowLeft size={22} />
-        </button>
-        <h1 className="text-lg font-bold text-[#1E293B]">My History</h1>
+        <button onClick={() => setLocation('/my')} className="text-slate-700"><ArrowLeft size={22} /></button>
+        <h2 className="font-bold text-lg text-slate-800">My History</h2>
         <span className="ml-auto text-xs text-slate-400">{filtered.length} records</span>
       </div>
 
-      {/* Filter tabs — scrollable */}
-      <div className="bg-white border-b border-slate-100 sticky top-14 z-10">
-        <div className="flex gap-1 px-3 py-2 overflow-x-auto scrollbar-none">
-          {FILTERS.map(f => (
-            <button
-              key={f.key}
-              onClick={() => setFilter(f.key)}
-              className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all"
-              style={{
-                background: filter === f.key ? '#1E3A8A' : '#F1F5F9',
-                color:      filter === f.key ? '#FFFFFF' : '#64748B',
-              }}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
+      {/* Filter tabs */}
+      <div className="flex gap-2 px-4 py-3 overflow-x-auto bg-white border-b border-slate-100">
+        {FILTERS.map(f => (
+          <button key={f.key} onClick={() => setFilter(f.key)}
+            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${filter === f.key ? 'text-white' : 'bg-slate-100 text-slate-500'}`}
+            style={filter === f.key ? { background: '#1E3A8A' } : {}}>
+            {f.label}
+          </button>
+        ))}
       </div>
 
-      {/* List */}
-      <div className="px-4 mt-3">
+      <div className="px-4 py-3 space-y-3">
         {filtered.length === 0 ? (
-          <div className="text-center py-24 text-slate-400">
-            <p className="text-5xl mb-4">📋</p>
-            <p className="font-semibold text-slate-500 mb-1">No records found</p>
-            <p className="text-sm">Activity will appear here as you use the platform</p>
+          <div className="text-center py-20">
+            <p className="text-5xl mb-3">📋</p>
+            <p className="text-slate-500 font-medium">No records found</p>
+            <p className="text-xs text-slate-400 mt-1">Activity will appear here as you use the app</p>
           </div>
-        ) : (
-          <div className="space-y-2">
-            {filtered.map(item => (
-              <div key={item.id} className="bg-white rounded-2xl p-4 shadow-sm flex items-center gap-3">
-                {/* Icon circle */}
-                <div
-                  className="w-11 h-11 rounded-full flex items-center justify-center text-xl shrink-0"
-                  style={{ background: `${item.color}18` }}
-                >
-                  {item.icon}
-                </div>
-
-                {/* Details */}
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-[#1E293B] text-sm truncate">{item.title}</p>
-                  {!!(item.desc || item.rewardType || item.commissionType || item.nftLevel) && (
-                    <p className="text-xs text-slate-400 truncate">
-                      {String(item.desc ?? item.rewardType ?? item.commissionType ?? `NFT Level ${item.nftLevel}`)}
-                    </p>
-                  )}
-                  <p className="text-xs text-slate-300 mt-0.5">{item.date}</p>
-                </div>
-
-                {/* Amount */}
-                <div className="text-right shrink-0">
-                  {item.amount !== undefined && (
-                    <p className="font-bold text-sm" style={{ color: item.color }}>
-                      {item.type === 'withdrawal' || item.type === 'sell' ? '-' : '+'}${Number(item.amount).toFixed(2)}
-                    </p>
-                  )}
-                  {item.status && (
-                    <span className="text-[10px] text-slate-400 mt-0.5 block">{String(item.status)}</span>
-                  )}
-                  {item.txHash && (
-                    <span className="text-[10px] font-mono text-slate-300 block truncate max-w-[80px]">{String(item.txHash).slice(0,10)}..</span>
-                  )}
-                </div>
+        ) : filtered.map(item => {
+          const isIncome = INCOME_TYPES.has(item.type);
+          return (
+            <div key={item.id} className="bg-white rounded-2xl p-3.5 shadow-sm flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0"
+                style={{ background: `${item.color}18` }}>
+                {item.icon}
               </div>
-            ))}
-          </div>
-        )}
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-[#1E293B] text-sm truncate">{item.title || item.type}</p>
+                {!!(item.desc || item.rewardType || item.from) && (
+                  <p className="text-xs text-slate-400 truncate">
+                    {String(item.desc ?? item.rewardType ?? (item.from ? `From: ${item.from}` : ''))}
+                  </p>
+                )}
+                <p className="text-xs text-slate-300 mt-0.5">{item.date}</p>
+              </div>
+              <div className="text-right shrink-0">
+                {item.amount !== undefined && (
+                  <p className={`font-bold text-sm ${isIncome ? 'text-emerald-600' : 'text-red-500'}`}>
+                    {isIncome ? '+' : '-'}${item.amount.toFixed(2)}
+                  </p>
+                )}
+                {item.status && (
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                    item.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' :
+                    item.status === 'Rejected'  ? 'bg-red-100 text-red-600' :
+                    'bg-orange-100 text-orange-600'
+                  }`}>{item.status}</span>
+                )}
+                {item.txHash && item.txHash !== 'Pending approval' && (
+                  <p className="text-[10px] text-slate-300 font-mono mt-0.5 truncate max-w-[80px]">{item.txHash.slice(0,10)}...</p>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

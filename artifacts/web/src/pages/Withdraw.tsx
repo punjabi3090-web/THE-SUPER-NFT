@@ -1,232 +1,121 @@
 import { useState } from "react";
-import { ArrowLeft, AlertCircle, Clock, CheckCircle, XCircle } from "lucide-react";
+import { ArrowLeft, AlertCircle, Shield, MapPin } from "lucide-react";
 import { useLocation } from "wouter";
-import { useBalance, TEST_MODE } from "../App";
-import { addToHistory } from "../lib/history";
+import { useBalance } from "../App";
+import { getCurrentUser, updateUser, addToUserHistory, getCurrentUserId } from "../lib/store";
 
 const quickAmounts = [10, 50, 100, 500];
-const FEE = 1;
-
-const TRC20_REGEX = /^T[A-Za-z1-9]{33}$/;
 
 export default function Withdraw() {
   const [, setLocation] = useLocation();
-  const { balance, withdraws, requestWithdraw } = useBalance();
+  const { balance, requestWithdraw, refresh, user } = useBalance();
+  const [amount, setAmount] = useState("");
+  const [popup, setPopup]   = useState<string | null>(null);
 
-  const [address, setAddress]   = useState("");
-  const [amount, setAmount]     = useState("");
-  const [popup, setPopup]       = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"withdraw" | "records">("withdraw");
-
-  const numAmount   = parseFloat(amount || "0");
-  const receive     = Math.max(0, numAmount - FEE).toFixed(2);
-  const insufficient = numAmount > balance;
-  const invalidAddr  = address.length > 0 && !TRC20_REGEX.test(address);
+  const numAmount = parseFloat(amount) || 0;
 
   const showPopup = (msg: string) => {
     setPopup(msg);
-    setTimeout(() => setPopup(null), 3000);
+    setTimeout(() => setPopup(null), 3500);
   };
 
   const handleSubmit = () => {
-    if (!address.trim())   { showPopup("❌ Please enter wallet address"); return; }
     if (!numAmount || numAmount <= 0) { showPopup("❌ Please enter amount"); return; }
-
-    const result = requestWithdraw(numAmount, address.trim());
-    if (result === 'min')          { showPopup("⚠️ Minimum withdrawal is $10 USDT"); return; }
-    if (result === 'invalid_addr') { showPopup("❌ Invalid TRC20 address format"); return; }
-    if (result === 'insufficient') { showPopup("❌ Insufficient balance"); return; }
-
-    addToHistory('withdrawal', {
-      title: 'Withdrawal Requested',
-      amount: numAmount,
-      status: 'Pending',
-      txHash: 'Pending approval',
-    });
-    showPopup("✅ Withdrawal submitted! Pending admin approval.");
-    setAddress("");
-    setAmount("");
+    const result = requestWithdraw(numAmount);
+    refresh();
+    if (result === 'disabled')         showPopup("⚠️ Withdrawals are currently disabled");
+    else if (result === 'no_auth')     showPopup("⚠️ Please bind Google Authenticator first");
+    else if (result === 'no_address')  showPopup("⚠️ Please bind your withdrawal address first");
+    else if (result === 'delay')       showPopup("⚠️ Address was just bound — wait 24 hours before withdrawing");
+    else if (result === 'time_restricted') showPopup("⚠️ Withdrawals are outside the allowed time window");
+    else if (result === 'min')         showPopup("⚠️ Minimum withdrawal is $10 USDT");
+    else if (result === 'max')         showPopup("⚠️ Maximum withdrawal limit exceeded");
+    else if (result === 'insufficient') showPopup("❌ Insufficient balance");
+    else { showPopup("✅ Withdrawal submitted! Pending admin approval."); setAmount(""); }
   };
+
+  const wdAddress = user?.withdrawalAddress;
 
   return (
     <div className="min-h-screen max-w-md mx-auto bg-gradient-to-br from-blue-50 via-green-50 to-purple-50">
-      {TEST_MODE && <div className="bg-yellow-100 text-yellow-800 text-xs text-center py-1 font-medium">🧪 Test Mode</div>}
-
-      {/* Toast popup */}
       {popup && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-slate-800 text-white px-5 py-3 rounded-xl shadow-lg font-semibold text-sm max-w-xs text-center">
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-xl shadow-lg font-semibold text-sm text-white max-w-xs text-center"
+          style={{ background: popup.startsWith('✅') ? '#1E3A8A' : '#EA4335' }}>
           {popup}
         </div>
       )}
 
-      {/* Header */}
       <div className="flex items-center gap-3 px-4 pt-4 pb-4 bg-white shadow-sm sticky top-0 z-10">
-        <button onClick={() => setLocation('/assets')} className="text-slate-700">
-          <ArrowLeft size={22} />
-        </button>
-        <h1 className="text-lg font-bold text-slate-800">Withdraw</h1>
+        <button onClick={() => setLocation('/assets')} className="text-slate-700"><ArrowLeft size={22} /></button>
+        <h2 className="font-bold text-lg text-slate-800">Withdraw USDT</h2>
       </div>
 
-      {/* Tabs */}
-      <div className="flex mx-4 mt-4 mb-4 bg-white rounded-xl overflow-hidden shadow-sm">
-        <button
-          onClick={() => setActiveTab("withdraw")}
-          className={`flex-1 py-2.5 text-sm font-semibold transition-all ${activeTab === "withdraw" ? "bg-emerald-500 text-white" : "text-slate-500"}`}
-        >
-          Withdraw
-        </button>
-        <button
-          onClick={() => setActiveTab("records")}
-          className={`flex-1 py-2.5 text-sm font-semibold transition-all ${activeTab === "records" ? "bg-emerald-500 text-white" : "text-slate-500"}`}
-        >
-          Records ({withdraws.length})
-        </button>
-      </div>
+      <div className="px-4 py-4 space-y-4">
+        {/* Balance */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm">
+          <p className="text-xs text-slate-400 mb-1">Available Balance</p>
+          <p className="text-2xl font-bold text-[#1E293B]">${balance.toFixed(2)} USDT</p>
+        </div>
 
-      {activeTab === "withdraw" ? (
-        <>
-          {/* Balance card */}
-          <div className="mx-4 rounded-2xl p-4 text-white shadow-md mb-4" style={{ background: "linear-gradient(135deg,#10b981,#3b82f6)" }}>
-            <p className="text-sm opacity-80">Available Balance</p>
-            <p className="text-3xl font-bold">${balance.toFixed(2)}</p>
-            <p className="text-xs opacity-60 mt-1">USDT</p>
+        {/* Withdrawal address */}
+        <div className={`bg-white rounded-2xl p-4 shadow-sm border-l-4 ${wdAddress ? 'border-emerald-400' : 'border-orange-400'}`}>
+          <div className="flex items-center gap-2 mb-2">
+            <MapPin size={16} className={wdAddress ? 'text-emerald-500' : 'text-orange-500'} />
+            <p className="text-sm font-semibold text-slate-700">Withdrawal Address (TRC20)</p>
           </div>
-
-          {/* Info banner */}
-          <div className="mx-4 mb-4 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-xs text-blue-700">
-            <p className="font-semibold mb-0.5">⏳ Manual Processing</p>
-            <p>Withdrawals are reviewed by admin and processed within 1-24 hours.</p>
-          </div>
-
-          {/* Form */}
-          <div className="mx-4 bg-white rounded-2xl p-4 shadow-sm mb-4 space-y-4">
-            {/* Address */}
-            <div>
-              <label className="text-sm font-semibold text-slate-700 mb-2 block">
-                Wallet Address (TRC20 / USDT)
-              </label>
-              <input
-                type="text"
-                placeholder="T... (34 characters)"
-                value={address}
-                onChange={e => setAddress(e.target.value)}
-                className={`w-full bg-slate-50 border rounded-xl px-4 py-3 text-slate-800 outline-none text-sm font-mono ${
-                  invalidAddr ? "border-red-400 focus:border-red-400" : "border-slate-200 focus:border-emerald-500"
-                }`}
-              />
-              {invalidAddr && (
-                <p className="flex items-center gap-1 text-red-500 text-xs mt-1.5">
-                  <AlertCircle size={12} /> Must start with T and be 34 characters (TRC20 format)
-                </p>
-              )}
-            </div>
-
-            {/* Amount */}
-            <div>
-              <label className="text-sm font-semibold text-slate-700 mb-2 block">Amount (USDT)</label>
-              <div className="flex gap-2 mb-3">
-                {quickAmounts.map(q => (
-                  <button
-                    key={q}
-                    onClick={() => setAmount(String(q))}
-                    className={`flex-1 py-1.5 rounded-lg text-sm font-semibold border transition-all ${
-                      amount === String(q)
-                        ? "bg-emerald-500 text-white border-emerald-500"
-                        : "bg-slate-50 text-slate-600 border-slate-200"
-                    }`}
-                  >
-                    ${q}
-                  </button>
-                ))}
-              </div>
-              <input
-                type="number"
-                placeholder="Min $10 USDT"
-                value={amount}
-                onChange={e => setAmount(e.target.value)}
-                className={`w-full bg-slate-50 border rounded-xl px-4 py-3 text-slate-800 outline-none text-sm ${
-                  insufficient ? "border-red-400" : "border-slate-200 focus:border-emerald-500"
-                }`}
-              />
-              {insufficient && (
-                <p className="flex items-center gap-1 text-red-500 text-xs mt-1.5">
-                  <AlertCircle size={12} /> Insufficient balance
-                </p>
-              )}
-            </div>
-
-            {/* Fee breakdown */}
-            {numAmount >= 10 && (
-              <div className="bg-slate-50 rounded-xl p-3 space-y-1.5 text-sm">
-                <div className="flex justify-between text-slate-500">
-                  <span>Amount</span>
-                  <span className="text-slate-700 font-medium">${numAmount.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-slate-500">
-                  <span>Network Fee</span>
-                  <span className="text-slate-700 font-medium">${FEE}.00</span>
-                </div>
-                <div className="flex justify-between font-semibold border-t border-slate-200 pt-1.5">
-                  <span className="text-slate-600">You Receive</span>
-                  <span className="text-emerald-600">${receive}</span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="px-4 pb-8">
-            <button
-              onClick={handleSubmit}
-              disabled={insufficient || invalidAddr || !address || !amount || numAmount < 10}
-              className="w-full bg-gradient-to-r from-emerald-500 to-blue-500 disabled:opacity-40 text-white font-bold py-3.5 rounded-2xl shadow-lg"
-            >
-              Submit Withdrawal Request
-            </button>
-            <p className="text-xs text-slate-400 text-center mt-2">Pending admin approval · 1-24 hours</p>
-          </div>
-        </>
-      ) : (
-        <div className="px-4 pb-6">
-          {withdraws.length === 0 ? (
-            <div className="text-center py-16 text-slate-400">
-              <p className="text-4xl mb-3">📋</p>
-              <p className="text-sm">No withdrawal records yet</p>
-            </div>
+          {wdAddress ? (
+            <p className="text-xs text-slate-600 font-mono bg-slate-50 px-3 py-2 rounded-lg break-all">{wdAddress}</p>
           ) : (
-            <div className="space-y-3">
-              {withdraws.map(w => (
-                <div key={w.id} className={`bg-white rounded-2xl p-4 shadow-sm border-l-4 ${
-                  w.status === 'pending'  ? 'border-orange-400' :
-                  w.status === 'approved' ? 'border-emerald-400' : 'border-red-400'
-                }`}>
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="font-bold text-slate-800">${w.amount.toFixed(2)}</p>
-                    <span className={`flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full ${
-                      w.status === 'pending'  ? 'bg-orange-100 text-orange-700' :
-                      w.status === 'approved' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
-                    }`}>
-                      {w.status === 'pending'  && <><Clock size={11} /> Pending</>}
-                      {w.status === 'approved' && <><CheckCircle size={11} /> Approved</>}
-                      {w.status === 'rejected' && <><XCircle size={11} /> Rejected</>}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-400">
-                    Fee: ${w.fee} · {new Date(w.date).toLocaleDateString()}
-                  </p>
-                  <p className="text-xs text-slate-400 font-mono truncate mt-0.5">
-                    To: {w.address.slice(0, 18)}...
-                  </p>
-                  {w.adminNote && (
-                    <p className="text-xs mt-1.5 bg-slate-50 px-2 py-1 rounded-lg text-slate-500 italic">
-                      {w.status === 'approved' ? `TX: ${w.adminNote}` : `Reason: ${w.adminNote}`}
-                    </p>
-                  )}
-                </div>
-              ))}
+            <div>
+              <p className="text-xs text-orange-600 mb-2">No address bound. Please set it in Security settings.</p>
+              <button onClick={() => setLocation('/security')} className="text-xs font-semibold px-4 py-2 rounded-lg text-white" style={{ background: '#1E3A8A' }}>
+                Bind Address →
+              </button>
             </div>
           )}
         </div>
-      )}
+
+        {/* Amount */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm">
+          <p className="text-sm font-semibold text-slate-700 mb-3">Amount (USDT)</p>
+          <input
+            type="number"
+            value={amount}
+            onChange={e => setAmount(e.target.value)}
+            placeholder="Enter amount"
+            className="w-full bg-[#EFF6FF] border border-[#BFDBFE] rounded-xl px-4 py-3 text-slate-800 outline-none focus:border-[#1E3A8A] text-base"
+          />
+          <div className="flex gap-2 mt-3">
+            {quickAmounts.map(q => (
+              <button key={q} onClick={() => setAmount(q.toString())}
+                className="flex-1 py-1.5 rounded-lg text-xs font-semibold border border-[#BFDBFE] text-slate-600 hover:bg-[#EFF6FF]">
+                ${q}
+              </button>
+            ))}
+          </div>
+          {numAmount > 0 && (
+            <p className="text-xs text-slate-500 mt-2">
+              You will receive: <strong>${Math.max(0, numAmount - 1).toFixed(2)} USDT</strong>
+              <span className="text-slate-400 ml-1">(after $1 fee)</span>
+            </p>
+          )}
+        </div>
+
+        <button onClick={handleSubmit}
+          disabled={!wdAddress || numAmount <= 0}
+          className="w-full py-3 rounded-xl text-white font-bold text-base shadow-md disabled:opacity-40"
+          style={{ background: '#1E3A8A' }}>
+          Submit Withdrawal Request
+        </button>
+
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-1.5">
+          <p className="text-xs text-slate-500 font-semibold">📋 Withdrawal Notes</p>
+          <p className="text-xs text-slate-400">• Minimum: $10 USDT · Fee: $1</p>
+          <p className="text-xs text-slate-400">• Requests are processed within 24 hours</p>
+          <p className="text-xs text-slate-400">• Make sure your address is correct — cannot be reversed</p>
+          {!user?.googleAuthBound && <p className="text-xs text-orange-500">• Bind Google Auth to enable withdrawals</p>}
+        </div>
+      </div>
     </div>
   );
 }

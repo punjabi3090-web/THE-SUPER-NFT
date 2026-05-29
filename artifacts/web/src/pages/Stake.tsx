@@ -42,8 +42,14 @@ const plans = [
 
 type PopupState = "success" | "insufficient" | "invalid" | null;
 
+type Stake = { id: number; plan: string; amount: number; apy: string; dailyProfit: number; date: string; endDate: string };
+
+function getStakes(): Stake[] { try { return JSON.parse(localStorage.getItem('userStakes') || '[]'); } catch { return []; } }
+function saveStakes(s: Stake[]) { localStorage.setItem('userStakes', JSON.stringify(s)); }
+
 export default function Stake() {
-  const { balance, stakes, addStake } = useBalance();
+  const { balance, refresh } = useBalance();
+  const [stakes, setStakes]         = useState<Stake[]>(() => getStakes());
   const [selectedPlan, setSelectedPlan] = useState(plans[0]);
   const [amount, setAmount]             = useState("");
   const [popup, setPopup]               = useState<PopupState>(null);
@@ -63,11 +69,13 @@ export default function Stake() {
 
   const handleStake = () => {
     if (!numAmount || numAmount < 10) { showPopup("invalid"); return; }
-    console.log("stake submit", { plan: selectedPlan.label, amount: numAmount, apy: selectedPlan.apyStr });
-    const ok = addStake(numAmount, selectedPlan.label, dailyProfit, selectedPlan.apyStr);
-    if (!ok) { showPopup("insufficient"); return; }
-    showPopup("success");
-    setAmount("");
+    if (numAmount > balance) { showPopup("insufficient"); return; }
+    const endDate = new Date(Date.now() + selectedPlan.days * 86400000).toISOString();
+    const newStake: Stake = { id: Date.now(), plan: selectedPlan.label, amount: numAmount, apy: selectedPlan.apyStr, dailyProfit, date: new Date().toISOString(), endDate };
+    const updated = [...stakes, newStake];
+    setStakes(updated); saveStakes(updated);
+    refresh();
+    showPopup("success"); setAmount("");
   };
 
   return (
