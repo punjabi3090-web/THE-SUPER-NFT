@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "o2pNimo0gD40jdUUVNPQN"
+uri = "file://nft-platform.zip"
+type = "unspecified"
+title = "nft-platform.html — Complete Standalone File (User + Admin)"

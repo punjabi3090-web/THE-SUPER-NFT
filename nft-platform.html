@@ -1,0 +1,1217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>THE SUPER NFT</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  *{box-sizing:border-box}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f4ff;margin:0;min-height:100vh}
+  .toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:9999;padding:12px 24px;border-radius:12px;font-weight:600;font-size:14px;color:#fff;max-width:340px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.2)}
+  input,select,textarea{width:100%;padding:12px 16px;border:1.5px solid #BFDBFE;border-radius:12px;background:#EFF6FF;color:#1E293B;font-size:14px;outline:none}
+  input:focus,select:focus,textarea:focus{border-color:#1E3A8A}
+  .btn-primary{background:#1E3A8A;color:#fff;padding:12px 0;border-radius:12px;font-weight:700;font-size:15px;width:100%;border:none;cursor:pointer;transition:background .2s}
+  .btn-primary:hover{background:#1E40AF}
+  .btn-primary:disabled{opacity:.4;cursor:not-allowed}
+  .btn-success{background:#34A853;color:#fff;padding:8px 14px;border-radius:10px;font-weight:600;font-size:13px;border:none;cursor:pointer}
+  .btn-danger{background:#EA4335;color:#fff;padding:8px 14px;border-radius:10px;font-weight:600;font-size:13px;border:none;cursor:pointer}
+  .btn-outline{background:#fff;color:#1E3A8A;padding:8px 14px;border-radius:10px;font-weight:600;font-size:13px;border:1.5px solid #BFDBFE;cursor:pointer}
+  .card{background:#fff;border-radius:18px;padding:18px;box-shadow:0 2px 12px rgba(30,58,138,.08)}
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px}
+  .modal{background:#fff;border-radius:20px;padding:24px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{background:#EFF6FF;color:#1E3A8A;font-weight:700;padding:10px 12px;text-align:left}
+  td{padding:10px 12px;border-bottom:1px solid #f1f5f9;color:#1E293B}
+  tr:last-child td{border:none}
+  .badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700}
+  .badge-green{background:#DCFCE7;color:#166534}
+  .badge-orange{background:#FFF7ED;color:#9A3412}
+  .badge-red{background:#FEE2E2;color:#991B1B}
+  .nav-item{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 12px;cursor:pointer;border-radius:10px;transition:background .15s}
+  .nav-item:hover{background:#EFF6FF}
+  .nav-item.active{color:#1E3A8A;font-weight:700}
+  .nav-item svg,.nav-item span{color:inherit}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  CONSTANTS
+// ═══════════════════════════════════════════════
+const ADMIN_EMAIL = 'admin@demo.com';
+const ADMIN_PASS  = 'admin123';
+
+// ═══════════════════════════════════════════════
+//  STORAGE HELPERS
+// ═══════════════════════════════════════════════
+function ls(key, fb) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : (fb !== undefined ? fb : null); } catch { return fb !== undefined ? fb : null; } }
+function lsSet(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
+
+// ═══════════════════════════════════════════════
+//  PASSWORD
+// ═══════════════════════════════════════════════
+function hashPassword(pass) { return btoa(pass); }
+
+// ═══════════════════════════════════════════════
+//  BACKUP
+// ═══════════════════════════════════════════════
+function createAutoBackup() {
+  lsSet('autoBackup', {
+    timestamp: new Date().toISOString(),
+    allUsers: getUsers(),
+    adminWallet: parseFloat(localStorage.getItem('adminWallet') || '0'),
+    withdrawalRequests: ls('withdrawalRequests', []),
+  });
+}
+
+// ═══════════════════════════════════════════════
+//  USER CRUD
+// ═══════════════════════════════════════════════
+function getUsers() { return ls('allUsers', []); }
+function saveUsers(users) { lsSet('allUsers', users); }
+function getCurrentUserId() { return localStorage.getItem('currentUser'); }
+function getCurrentUser() {
+  const uid = getCurrentUserId();
+  return uid ? getUsers().find(u => u.userId === uid) || null : null;
+}
+function updateUser(userId, updates) {
+  const users = getUsers();
+  const i = users.findIndex(u => u.userId === userId);
+  if (i !== -1) { users[i] = { ...users[i], ...updates }; saveUsers(users); }
+}
+
+// ═══════════════════════════════════════════════
+//  AUTH
+// ═══════════════════════════════════════════════
+function registerUser(data) {
+  const users = getUsers();
+  if (users.find(u => u.email.toLowerCase() === data.email.toLowerCase())) return 'email_exists';
+  const refCode = (data.name.substring(0,4) || 'USER').toUpperCase() + Math.floor(1000 + Math.random() * 9000);
+  const user = {
+    userId: 'USR_' + Date.now(),
+    name: data.name, email: data.email,
+    phone: (data.countryCode || '+1') + (data.phone || ''),
+    password: hashPassword(data.password),
+    country: data.countryCode || '+1',
+    referralCode: refCode,
+    referredBy: (data.referralCode || '').trim() || null,
+    walletBalance: 0, nftAccountBalance: 0,
+    totalDeposit: 0, totalWithdraw: 0, level: 1,
+    isBlocked: false, googleAuthBound: false,
+    withdrawalAddress: null, addressBindDate: null,
+    joinDate: new Date().toISOString(), lastLogin: new Date().toISOString(),
+    deposits: [], withdrawals: [], history: [],
+    notifications: [],
+  };
+  users.push(user); saveUsers(users);
+  return user;
+}
+
+function loginUser(email, pass) {
+  const users = getUsers();
+  const user = users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === hashPassword(pass));
+  if (!user) return 'invalid';
+  if (user.isBlocked) return 'blocked';
+  updateUser(user.userId, { lastLogin: new Date().toISOString() });
+  return user;
+}
+
+function logoutUser() {
+  localStorage.removeItem('currentUser');
+  navigate('login');
+}
+
+// ═══════════════════════════════════════════════
+//  DEPOSIT
+// ═══════════════════════════════════════════════
+function processDeposit(userId, amount, network) {
+  const users = getUsers();
+  const i = users.findIndex(u => u.userId === userId);
+  if (i === -1) return;
+  users[i].walletBalance    += amount;
+  users[i].nftAccountBalance += amount;
+  users[i].totalDeposit     += amount;
+  const rec = { id: Date.now(), amount, network, date: new Date().toLocaleString(), txHash: '0x' + Date.now().toString(16), status: 'Completed' };
+  users[i].deposits.unshift(rec);
+  users[i].history.unshift({ id: rec.id, type: 'deposit', title: 'Deposit Successful', amount, date: rec.date, status: 'Completed', txHash: rec.txHash });
+  saveUsers(users);
+  const aw = parseFloat(localStorage.getItem('adminWallet') || '0');
+  localStorage.setItem('adminWallet', (aw + amount).toString());
+  createAutoBackup();
+}
+
+// ═══════════════════════════════════════════════
+//  WITHDRAWAL
+// ═══════════════════════════════════════════════
+function submitWithdrawal(userId, amount) {
+  const user = getCurrentUser();
+  if (!user || user.userId !== userId) return 'invalid';
+  if (!user.withdrawalAddress) return 'no_address';
+  if (amount < 10) return 'min';
+  if (amount > user.walletBalance) return 'insufficient';
+  const reqs = ls('withdrawalRequests', []);
+  const reqId = Date.now();
+  reqs.unshift({ id: reqId, userId, userName: user.name, userEmail: user.email, amount, address: user.withdrawalAddress, status: 'pending', requestDate: new Date().toISOString() });
+  lsSet('withdrawalRequests', reqs);
+  const users = getUsers();
+  const i = users.findIndex(u => u.userId === userId);
+  if (i !== -1) {
+    users[i].history.unshift({ id: reqId, type: 'withdrawal', title: 'Withdrawal Requested', amount, date: new Date().toLocaleString(), status: 'Pending', txHash: '—' });
+    users[i].withdrawals.unshift({ id: reqId, amount, address: user.withdrawalAddress, date: new Date().toLocaleString(), status: 'Pending', txHash: '—' });
+    saveUsers(users);
+  }
+  return 'ok';
+}
+
+function approveWithdrawal(reqId, txHash) {
+  const reqs = ls('withdrawalRequests', []);
+  const i = reqs.findIndex(r => r.id === reqId);
+  if (i === -1) return;
+  const req = reqs[i];
+  reqs[i] = { ...req, status: 'approved', approvedDate: new Date().toISOString(), txHash };
+  lsSet('withdrawalRequests', reqs);
+  const users = getUsers();
+  const ui = users.findIndex(u => u.userId === req.userId);
+  if (ui !== -1) {
+    users[ui].walletBalance  = Math.max(0, users[ui].walletBalance - req.amount);
+    users[ui].totalWithdraw  = (users[ui].totalWithdraw || 0) + req.amount;
+    users[ui].history.unshift({ id: Date.now(), type: 'withdrawal', title: 'Withdrawal Approved', amount: req.amount, date: new Date().toLocaleString(), status: 'Completed', txHash });
+    const wi = users[ui].withdrawals.findIndex(w => w.id === reqId);
+    if (wi !== -1) { users[ui].withdrawals[wi].status = 'Completed'; users[ui].withdrawals[wi].txHash = txHash; }
+    saveUsers(users);
+  }
+  createAutoBackup();
+}
+
+function rejectWithdrawal(reqId, reason) {
+  const reqs = ls('withdrawalRequests', []);
+  const i = reqs.findIndex(r => r.id === reqId);
+  if (i === -1) return;
+  reqs[i] = { ...reqs[i], status: 'rejected', rejectedDate: new Date().toISOString(), rejectReason: reason };
+  lsSet('withdrawalRequests', reqs);
+  const users = getUsers();
+  const ui = users.findIndex(u => u.userId === reqs[i].userId);
+  if (ui !== -1) {
+    const wi = users[ui].withdrawals.findIndex(w => w.id === reqId);
+    if (wi !== -1) users[ui].withdrawals[wi].status = 'Rejected';
+    users[ui].history.unshift({ id: Date.now(), type: 'withdrawal', title: 'Withdrawal Rejected', amount: reqs[i].amount, date: new Date().toLocaleString(), status: 'Rejected', txHash: '—', desc: reason });
+    saveUsers(users);
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  TOAST
+// ═══════════════════════════════════════════════
+function showToast(msg, type) {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.style.background = (type === 'error') ? '#EA4335' : (type === 'warn') ? '#F59E0B' : '#1E3A8A';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove && el.remove(), 3000);
+}
+
+// ═══════════════════════════════════════════════
+//  ROUTER
+// ═══════════════════════════════════════════════
+let _page = 'login';
+let _params = {};
+
+function navigate(page, params) {
+  _page = page;
+  _params = params || {};
+  renderApp();
+}
+
+function renderApp() {
+  const root = document.getElementById('root');
+  if (!root) return;
+  const isAdminArea = window.location.pathname.includes('admin') || _page.startsWith('admin');
+  root.innerHTML = isAdminArea ? buildAdminPage(_page) : buildUserPage(_page);
+  bindEvents();
+}
+
+// ═══════════════════════════════════════════════
+//  SHARED NAV HTML
+// ═══════════════════════════════════════════════
+function userNav(active) {
+  const items = [
+    { page:'home',       icon:'🏠', label:'Home'     },
+    { page:'deposit',    icon:'💰', label:'Deposit'  },
+    { page:'withdraw',   icon:'💸', label:'Withdraw' },
+    { page:'history',    icon:'📋', label:'History'  },
+    { page:'security',   icon:'🔐', label:'Security' },
+  ];
+  return `<nav style="position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:#fff;border-top:1px solid #EFF6FF;display:flex;justify-content:space-around;padding:6px 0;z-index:100;box-shadow:0 -2px 10px rgba(30,58,138,.06)">
+    ${items.map(it => `<div class="nav-item ${active===it.page?'active':''}" onclick="navigate('${it.page}')" style="color:${active===it.page?'#1E3A8A':'#94A3B8'}">
+      <span style="font-size:20px">${it.icon}</span>
+      <span style="font-size:10px;font-weight:${active===it.page?700:400}">${it.label}</span>
+    </div>`).join('')}
+  </nav>`;
+}
+
+function adminNav(active) {
+  const items = [
+    { page:'admin-dashboard',   icon:'📊', label:'Stats'   },
+    { page:'admin-users',       icon:'👥', label:'Users'   },
+    { page:'admin-withdrawals', icon:'💸', label:'Withdrawals' },
+    { page:'admin-notify',      icon:'📣', label:'Notify'  },
+    { page:'admin-settings',    icon:'⚙️', label:'Settings'},
+    { page:'admin-backup',      icon:'💾', label:'Backup'  },
+  ];
+  return `<nav style="position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:520px;background:#1E293B;display:flex;justify-content:space-around;padding:6px 0;z-index:100">
+    ${items.map(it => `<div class="nav-item ${active===it.page?'active':''}" onclick="navigate('${it.page}')" style="color:${active===it.page?'#34D399':'#94A3B8'}">
+      <span style="font-size:16px">${it.icon}</span>
+      <span style="font-size:9px;font-weight:${active===it.page?700:400}">${it.label}</span>
+    </div>`).join('')}
+  </nav>`;
+}
+
+// ═══════════════════════════════════════════════
+//  USER PAGES
+// ═══════════════════════════════════════════════
+function buildUserPage(page) {
+  const user = getCurrentUser();
+  if (!user && page !== 'login' && page !== 'signup') {
+    setTimeout(() => navigate('login'), 0);
+    return '';
+  }
+  switch(page) {
+    case 'login':      return pageLogin();
+    case 'signup':     return pageSignup();
+    case 'home':       return pageHome(user);
+    case 'deposit':    return pageDeposit(user);
+    case 'withdraw':   return pageWithdraw(user);
+    case 'history':    return pageHistory(user);
+    case 'dep-records':return pageDepRecords(user);
+    case 'wd-records': return pageWdRecords(user);
+    case 'security':   return pageSecurity(user);
+    default:           return pageHome(user);
+  }
+}
+
+// ─── Login ────────────────────────────────────
+function pageLogin() {
+  return `<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1E3A8A 0%,#1E40AF 50%,#2563EB 100%);padding:20px">
+  <div class="card" style="width:100%;max-width:400px">
+    <div style="text-align:center;margin-bottom:24px">
+      <div style="width:64px;height:64px;background:linear-gradient(135deg,#1E3A8A,#7C3AED);border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:28px">🏆</div>
+      <h1 style="font-size:24px;font-weight:800;color:#1E293B;margin:0">THE SUPER NFT</h1>
+      <p style="color:#64748B;font-size:13px;margin:4px 0 0">Welcome back! Sign in to continue</p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <input id="l-email" type="email" placeholder="Email address" />
+      <div style="position:relative">
+        <input id="l-pass" type="password" placeholder="Password" style="padding-right:44px" />
+        <button onclick="togglePw('l-pass','l-eye')" id="l-eye" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:18px;color:#94A3B8">👁</button>
+      </div>
+      <button class="btn-primary" id="btn-login">Sign In</button>
+      <p style="text-align:center;font-size:13px;color:#64748B;margin:0">Don't have an account? <a href="#" onclick="navigate('signup');return false" style="color:#1E3A8A;font-weight:700">Register</a></p>
+    </div>
+  </div></div>`;
+}
+
+// ─── Signup ───────────────────────────────────
+function pageSignup() {
+  const codes = ['+1 🇺🇸','+44 🇬🇧','+92 🇵🇰','+91 🇮🇳','+86 🇨🇳','+971 🇦🇪','+966 🇸🇦','+81 🇯🇵','+49 🇩🇪','+55 🇧🇷','+63 🇵🇭','+84 🇻🇳','+60 🇲🇾','+62 🇮🇩','+66 🇹🇭','+20 🇪🇬','+90 🇹🇷','+27 🇿🇦','+880 🇧🇩','+7 🇷🇺','+234 🇳🇬','+82 🇰🇷','+54 🇦🇷','+33 🇫🇷','+39 🇮🇹','+34 🇪🇸','+31 🇳🇱','+48 🇵🇱'];
+  const opts = codes.map(c => `<option value="${c.split(' ')[0]}">${c}</option>`).join('');
+  return `<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1E3A8A 0%,#1E40AF 50%,#2563EB 100%);padding:20px">
+  <div class="card" style="width:100%;max-width:400px">
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="width:56px;height:56px;background:linear-gradient(135deg,#1E3A8A,#7C3AED);border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;font-size:24px">🏆</div>
+      <h1 style="font-size:22px;font-weight:800;color:#1E293B;margin:0">Create Account</h1>
+      <p style="color:#64748B;font-size:12px;margin:4px 0 0">Join THE SUPER NFT community</p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <input id="s-name" placeholder="Full Name" />
+      <input id="s-email" type="email" placeholder="Email" />
+      <input id="s-email2" type="email" placeholder="Confirm Email" />
+      <div style="display:flex;gap:8px">
+        <select id="s-code" style="width:110px;flex-shrink:0">${opts}</select>
+        <input id="s-phone" type="tel" placeholder="Phone Number" style="flex:1;width:auto" />
+      </div>
+      <div style="position:relative">
+        <input id="s-pass" type="password" placeholder="Password (min 6 chars)" style="padding-right:44px" />
+        <button onclick="togglePw('s-pass','s-eye')" id="s-eye" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:18px;color:#94A3B8">👁</button>
+      </div>
+      <div style="position:relative">
+        <input id="s-pass2" type="password" placeholder="Confirm Password" style="padding-right:44px" />
+        <button onclick="togglePw('s-pass2','s-eye2')" id="s-eye2" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:18px;color:#94A3B8">👁</button>
+      </div>
+      <input id="s-ref" placeholder="Referral Code (Optional)" />
+      <button class="btn-primary" id="btn-signup">Create Account</button>
+      <p style="text-align:center;font-size:13px;color:#64748B;margin:0">Already have account? <a href="#" onclick="navigate('login');return false" style="color:#1E3A8A;font-weight:700">Sign In</a></p>
+    </div>
+  </div></div>`;
+}
+
+// ─── Home / Dashboard ─────────────────────────
+function pageHome(user) {
+  const notifs = (user.notifications || []).filter(n => !n.read).length;
+  return `<div style="max-width:480px;margin:0 auto;padding:16px 16px 90px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <div>
+      <p style="margin:0;font-size:13px;color:#64748B">Welcome back,</p>
+      <h2 style="margin:2px 0 0;font-size:20px;font-weight:800;color:#1E293B">${esc(user.name)}</h2>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <button onclick="navigate('notifications')" style="position:relative;background:none;border:none;cursor:pointer;font-size:22px">🔔${notifs>0?`<span style="position:absolute;top:-4px;right:-4px;background:#EA4335;color:#fff;font-size:9px;font-weight:700;border-radius:99px;min-width:16px;height:16px;display:flex;align-items:center;justify-content:center;padding:0 2px">${notifs}</span>`:''}</button>
+      <button onclick="logoutUser()" style="background:#EFF6FF;border:none;cursor:pointer;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;color:#1E3A8A">Logout</button>
+    </div>
+  </div>
+
+  <div class="card" style="background:linear-gradient(135deg,#1E3A8A,#1E40AF);color:#fff;margin-bottom:14px">
+    <p style="margin:0;font-size:12px;opacity:.85">Wallet Balance (USDT)</p>
+    <h1 style="margin:4px 0;font-size:32px;font-weight:800">$${user.walletBalance.toFixed(2)}</h1>
+    <div style="display:flex;gap:20px;margin-top:12px">
+      <div><p style="margin:0;font-size:11px;opacity:.75">NFT Account</p><p style="margin:2px 0 0;font-size:16px;font-weight:700">$${user.nftAccountBalance.toFixed(2)}</p></div>
+      <div><p style="margin:0;font-size:11px;opacity:.75">Level</p><p style="margin:2px 0 0;font-size:16px;font-weight:700">${user.level}</p></div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+    <button onclick="navigate('deposit')" class="card" style="cursor:pointer;text-align:left;border:none;background:#fff">
+      <div style="font-size:28px;margin-bottom:6px">💰</div>
+      <p style="margin:0;font-weight:700;color:#1E293B;font-size:15px">Deposit</p>
+      <p style="margin:2px 0 0;font-size:11px;color:#64748B">Add funds</p>
+    </button>
+    <button onclick="navigate('withdraw')" class="card" style="cursor:pointer;text-align:left;border:none;background:#fff">
+      <div style="font-size:28px;margin-bottom:6px">💸</div>
+      <p style="margin:0;font-weight:700;color:#1E293B;font-size:15px">Withdraw</p>
+      <p style="margin:2px 0 0;font-size:11px;color:#64748B">Pending approval</p>
+    </button>
+  </div>
+
+  <div class="card" style="margin-bottom:14px">
+    <p style="margin:0 0 12px;font-weight:700;color:#1E293B">Account Stats</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center">
+      ${[['$'+user.totalDeposit.toFixed(2),'Total Deposit','#34A853'],['$'+user.totalWithdraw.toFixed(2),'Withdrawn','#EA4335'],[(user.referredBy?'Joined':'Organic'),'Member Type','#1E3A8A']].map(([v,l,c])=>`<div style="background:#F8FAFF;border-radius:10px;padding:10px"><p style="margin:0;font-weight:800;color:${c};font-size:15px">${v}</p><p style="margin:2px 0 0;font-size:10px;color:#94A3B8">${l}</p></div>`).join('')}
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <p style="margin:0;font-weight:700;color:#1E293B">Quick Access</p>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center">
+      ${[['📋','History','history'],['💰','Dep. Records','dep-records'],['💸','WD Records','wd-records']].map(([i,l,p])=>`<button onclick="navigate('${p}')" style="background:#EFF6FF;border:none;cursor:pointer;border-radius:12px;padding:12px 8px">
+        <div style="font-size:22px;margin-bottom:4px">${i}</div>
+        <p style="margin:0;font-size:11px;color:#1E3A8A;font-weight:600">${l}</p>
+      </button>`).join('')}
+    </div>
+  </div>
+
+  ${userNav('home')}
+  </div>`;
+}
+
+// ─── Deposit ──────────────────────────────────
+function pageDeposit(user) {
+  const nets = ['TRC20','ERC20','BEP20'];
+  const addrs = { TRC20:'TXaBcDeFgHiJkLmNoPqRsTuVwXyZ123456', ERC20:'0xAaBbCcDdEeFf001122334455', BEP20:'bnb1abcdefghijklmnopqrstuv' };
+  return `<div style="max-width:480px;margin:0 auto;padding:16px 16px 90px">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+    <button onclick="navigate('home')" style="background:#EFF6FF;border:none;border-radius:10px;width:36px;height:36px;cursor:pointer;font-size:18px">←</button>
+    <h2 style="margin:0;font-size:20px;font-weight:800;color:#1E293B">Deposit USDT</h2>
+  </div>
+
+  <div class="card" style="margin-bottom:14px">
+    <p style="margin:0 0 4px;font-size:12px;color:#64748B">Available Balance</p>
+    <p style="margin:0;font-size:26px;font-weight:800;color:#1E293B">$${user.walletBalance.toFixed(2)}</p>
+  </div>
+
+  <div class="card" style="margin-bottom:14px">
+    <p style="margin:0 0 10px;font-weight:700;color:#1E293B">Select Network</p>
+    <div style="display:flex;gap:8px" id="net-btns">
+      ${nets.map((n,idx)=>`<button class="net-btn" data-net="${n}" style="flex:1;padding:10px;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;border:2px solid ${idx===0?'#1E3A8A':'#BFDBFE'};background:${idx===0?'#1E3A8A':'#EFF6FF'};color:${idx===0?'#fff':'#1E3A8A'}">${n}</button>`).join('')}
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:14px" id="addr-card">
+    <p style="margin:0 0 6px;font-weight:700;color:#1E293B">Deposit Address (<span id="cur-net">TRC20</span>)</p>
+    <div style="background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:10px;padding:12px;display:flex;align-items:center;gap:8px">
+      <p id="dep-addr" style="margin:0;font-size:12px;font-family:monospace;color:#1E293B;flex:1;word-break:break-all">${addrs.TRC20}</p>
+      <button onclick="copyAddr()" style="background:#1E3A8A;border:none;border-radius:8px;color:#fff;padding:6px 10px;cursor:pointer;font-size:12px;font-weight:700;flex-shrink:0">Copy</button>
+    </div>
+    <p style="margin:8px 0 0;font-size:11px;color:#EA4335">⚠️ Only send USDT on selected network</p>
+  </div>
+
+  <div class="card">
+    <p style="margin:0 0 10px;font-weight:700;color:#1E293B">Confirm Amount</p>
+    <input id="dep-amt" type="number" placeholder="Enter amount (USDT)" min="1" />
+    <div style="display:flex;gap:6px;margin-top:8px">
+      ${[10,50,100,500].map(a=>`<button onclick="document.getElementById('dep-amt').value=${a}" style="flex:1;background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:8px;padding:6px;font-size:12px;font-weight:600;color:#1E293B;cursor:pointer">$${a}</button>`).join('')}
+    </div>
+    <button class="btn-primary" id="btn-deposit" style="margin-top:14px">Confirm Deposit</button>
+  </div>
+  ${userNav('deposit')}
+  </div>`;
+}
+
+// ─── Withdraw ─────────────────────────────────
+function pageWithdraw(user) {
+  return `<div style="max-width:480px;margin:0 auto;padding:16px 16px 90px">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+    <button onclick="navigate('home')" style="background:#EFF6FF;border:none;border-radius:10px;width:36px;height:36px;cursor:pointer;font-size:18px">←</button>
+    <h2 style="margin:0;font-size:20px;font-weight:800;color:#1E293B">Withdraw USDT</h2>
+  </div>
+
+  <div style="background:#FFF7ED;border:1.5px solid #FCD34D;border-radius:14px;padding:12px 16px;margin-bottom:14px;display:flex;gap:10px;align-items:flex-start">
+    <span style="font-size:18px">⏳</span>
+    <p style="margin:0;font-size:13px;color:#92400E;font-weight:500">Withdrawal requests require admin approval. Funds are deducted only after approval.</p>
+  </div>
+
+  <div class="card" style="margin-bottom:14px">
+    <p style="margin:0 0 4px;font-size:12px;color:#64748B">Available Balance</p>
+    <p style="margin:0;font-size:26px;font-weight:800;color:#1E293B">$${user.walletBalance.toFixed(2)}</p>
+  </div>
+
+  <div class="card" style="margin-bottom:14px;border-left:4px solid ${user.withdrawalAddress?'#34A853':'#F59E0B'}">
+    <p style="margin:0 0 6px;font-size:12px;color:#64748B;font-weight:600">Withdrawal Address (TRC20)</p>
+    ${user.withdrawalAddress
+      ? `<p style="margin:0;font-size:12px;font-family:monospace;color:#166534;background:#DCFCE7;padding:8px 12px;border-radius:8px;word-break:break-all">${esc(user.withdrawalAddress)}</p>`
+      : `<p style="margin:0 0 8px;font-size:13px;color:#92400E">No address bound.</p><button onclick="navigate('security')" class="btn-outline" style="width:auto;padding:6px 14px;font-size:13px">Bind Address →</button>`
+    }
+  </div>
+
+  <div class="card">
+    <p style="margin:0 0 10px;font-weight:700;color:#1E293B">Amount (USDT)</p>
+    <input id="wd-amt" type="number" placeholder="Min $10 USDT" min="10" max="${user.walletBalance}" />
+    <div style="display:flex;gap:6px;margin-top:8px">
+      ${[10,50,100,500].map(a=>`<button onclick="document.getElementById('wd-amt').value=${a}" style="flex:1;background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:8px;padding:6px;font-size:12px;font-weight:600;color:#1E293B;cursor:pointer">$${a}</button>`).join('')}
+    </div>
+    <button class="btn-primary" id="btn-withdraw" style="margin-top:14px" ${!user.withdrawalAddress?'disabled':''}>Submit Withdrawal Request</button>
+  </div>
+  ${userNav('withdraw')}
+  </div>`;
+}
+
+// ─── History ──────────────────────────────────
+function pageHistory(user) {
+  const hist = user.history || [];
+  return `<div style="max-width:480px;margin:0 auto;padding:16px 16px 90px">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+    <button onclick="navigate('home')" style="background:#EFF6FF;border:none;border-radius:10px;width:36px;height:36px;cursor:pointer;font-size:18px">←</button>
+    <h2 style="margin:0;font-size:20px;font-weight:800;color:#1E293B">Activity History</h2>
+    <span style="margin-left:auto;font-size:12px;color:#64748B">${hist.length} records</span>
+  </div>
+  ${hist.length === 0
+    ? `<div style="text-align:center;padding:60px 20px"><div style="font-size:60px;margin-bottom:12px">📋</div><p style="color:#94A3B8;font-weight:600">No activity yet</p></div>`
+    : `<div style="display:flex;flex-direction:column;gap:10px">
+      ${hist.map(h=>`<div class="card" style="display:flex;align-items:center;gap:14px">
+        <div style="width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;background:${h.type==='deposit'?'#DCFCE7':h.type==='withdrawal'?'#FEE2E2':'#EFF6FF'}">
+          ${h.type==='deposit'?'💰':h.type==='withdrawal'?'💸':'📋'}
+        </div>
+        <div style="flex:1;min-width:0">
+          <p style="margin:0;font-weight:700;color:#1E293B;font-size:14px">${esc(h.title||h.type)}</p>
+          ${h.desc?`<p style="margin:2px 0 0;font-size:11px;color:#F59E0B">${esc(h.desc)}</p>`:''}
+          <p style="margin:2px 0 0;font-size:11px;color:#94A3B8">${h.date}</p>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          ${h.amount!==undefined?`<p style="margin:0;font-weight:800;font-size:15px;color:${h.type==='deposit'?'#34A853':'#EA4335'}">${h.type==='deposit'?'+':'-'}$${parseFloat(h.amount).toFixed(2)}</p>`:''}
+          <span class="badge ${h.status==='Completed'||h.status==='Approved'?'badge-green':h.status==='Rejected'?'badge-red':'badge-orange'}">${h.status||'—'}</span>
+        </div>
+      </div>`).join('')}
+    </div>`
+  }
+  ${userNav('history')}
+  </div>`;
+}
+
+// ─── Deposit Records ──────────────────────────
+function pageDepRecords(user) {
+  const deps = user.deposits || [];
+  return `<div style="max-width:480px;margin:0 auto;padding:16px 16px 90px">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+    <button onclick="navigate('home')" style="background:#EFF6FF;border:none;border-radius:10px;width:36px;height:36px;cursor:pointer;font-size:18px">←</button>
+    <h2 style="margin:0;font-size:20px;font-weight:800;color:#1E293B">Deposit Records</h2>
+  </div>
+  ${deps.length === 0
+    ? `<div style="text-align:center;padding:60px 20px"><div style="font-size:60px;margin-bottom:12px">💰</div><p style="color:#94A3B8;font-weight:600">No deposit records</p></div>`
+    : `<div class="card" style="padding:0;overflow:hidden"><table>
+      <thead><tr><th>Date</th><th>Network</th><th>Amount</th><th>Status</th></tr></thead>
+      <tbody>${deps.map(d=>`<tr>
+        <td style="font-size:11px">${d.date}</td>
+        <td><span class="badge" style="background:#EFF6FF;color:#1E3A8A">${d.network}</span></td>
+        <td style="font-weight:700;color:#34A853">+$${parseFloat(d.amount).toFixed(2)}</td>
+        <td><span class="badge badge-green">${d.status}</span></td>
+      </tr>`).join('')}</tbody>
+    </table></div>`
+  }
+  ${userNav('history')}
+  </div>`;
+}
+
+// ─── Withdraw Records ─────────────────────────
+function pageWdRecords(user) {
+  const wds = user.withdrawals || [];
+  return `<div style="max-width:480px;margin:0 auto;padding:16px 16px 90px">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+    <button onclick="navigate('home')" style="background:#EFF6FF;border:none;border-radius:10px;width:36px;height:36px;cursor:pointer;font-size:18px">←</button>
+    <h2 style="margin:0;font-size:20px;font-weight:800;color:#1E293B">Withdrawal Records</h2>
+  </div>
+  ${wds.length === 0
+    ? `<div style="text-align:center;padding:60px 20px"><div style="font-size:60px;margin-bottom:12px">💸</div><p style="color:#94A3B8;font-weight:600">No withdrawal records</p></div>`
+    : `<div class="card" style="padding:0;overflow:hidden"><table>
+      <thead><tr><th>Date</th><th>Amount</th><th>Status</th><th>TX Hash</th></tr></thead>
+      <tbody>${wds.map(w=>`<tr>
+        <td style="font-size:11px">${w.date}</td>
+        <td style="font-weight:700;color:#EA4335">-$${parseFloat(w.amount).toFixed(2)}</td>
+        <td><span class="badge ${w.status==='Completed'?'badge-green':w.status==='Rejected'?'badge-red':'badge-orange'}">${w.status}</span></td>
+        <td style="font-family:monospace;font-size:10px;color:#64748B;max-width:80px;overflow:hidden;text-overflow:ellipsis">${w.txHash||'—'}</td>
+      </tr>`).join('')}</tbody>
+    </table></div>`
+  }
+  ${userNav('history')}
+  </div>`;
+}
+
+// ─── Security ─────────────────────────────────
+function pageSecurity(user) {
+  return `<div style="max-width:480px;margin:0 auto;padding:16px 16px 90px">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+    <button onclick="navigate('home')" style="background:#EFF6FF;border:none;border-radius:10px;width:36px;height:36px;cursor:pointer;font-size:18px">←</button>
+    <h2 style="margin:0;font-size:20px;font-weight:800;color:#1E293B">Security</h2>
+  </div>
+
+  <!-- Address Bind -->
+  <div class="card" style="margin-bottom:14px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <span style="font-size:22px">📍</span>
+      <p style="margin:0;font-weight:700;color:#1E293B;font-size:16px">Withdrawal Address</p>
+    </div>
+    ${user.withdrawalAddress
+      ? `<div style="background:#DCFCE7;border:1.5px solid #86EFAC;border-radius:10px;padding:10px 14px;margin-bottom:10px;display:flex;gap:8px;align-items:flex-start">
+          <span>✅</span>
+          <div><p style="margin:0;font-size:12px;font-weight:700;color:#166534">Address Bound</p><p style="margin:2px 0 0;font-size:11px;font-family:monospace;color:#166534;word-break:break-all">${esc(user.withdrawalAddress)}</p></div>
+        </div>`
+      : ''
+    }
+    <input id="sec-addr" placeholder="TRC20 address (starts with T, 34 chars)" value="${user.withdrawalAddress||''}" />
+    <p style="margin:6px 0 10px;font-size:11px;color:#94A3B8">⚠️ Address changes take 24h to activate for withdrawals</p>
+    <button class="btn-primary" id="btn-bind-addr">${user.withdrawalAddress?'Update Address':'Bind Address'}</button>
+  </div>
+
+  <!-- Google Auth -->
+  <div class="card">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <span style="font-size:22px">🔐</span>
+      <p style="margin:0;font-weight:700;color:#1E293B;font-size:16px">Google Authenticator</p>
+    </div>
+    ${user.googleAuthBound
+      ? `<div style="background:#DCFCE7;border:1.5px solid #86EFAC;border-radius:10px;padding:10px 14px;margin-bottom:10px;display:flex;gap:8px;align-items:center">
+          <span>✅</span><p style="margin:0;font-weight:700;color:#166534">Google Auth Enabled</p>
+        </div>
+        <button id="btn-disable-ga" class="btn-danger" style="width:100%">Disable Google Auth</button>`
+      : `<p style="margin:0 0 12px;font-size:13px;color:#64748B">Enable 2FA for extra account security.</p>
+         <input id="ga-code" placeholder="Enter 6-digit verification code" maxlength="6" />
+         <p style="margin:6px 0 10px;font-size:11px;color:#94A3B8">Demo: any 6-digit code works</p>
+         <button class="btn-primary" id="btn-enable-ga">Enable Google Auth</button>`
+    }
+  </div>
+  ${userNav('security')}
+  </div>`;
+}
+
+// ─── Notifications page ───────────────────────
+function pageNotifications(user) {
+  const notifs = user.notifications || [];
+  return `<div style="max-width:480px;margin:0 auto;padding:16px 16px 90px">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+    <button onclick="navigate('home')" style="background:#EFF6FF;border:none;border-radius:10px;width:36px;height:36px;cursor:pointer;font-size:18px">←</button>
+    <h2 style="margin:0;font-size:20px;font-weight:800;color:#1E293B">Announcements</h2>
+  </div>
+  ${notifs.length===0
+    ? `<div style="text-align:center;padding:60px 20px"><div style="font-size:60px;margin-bottom:12px">📣</div><p style="color:#94A3B8;font-weight:600">No announcements yet</p></div>`
+    : `<div style="display:flex;flex-direction:column;gap:10px">
+      ${notifs.map(n=>`<div class="card" style="border-left:4px solid ${n.read?'#E2E8F0':'#1E3A8A'};background:${n.read?'#fff':'#EFF6FF'}">
+        <p style="margin:0;font-weight:700;color:#1E293B;font-size:14px">📣 ${esc(n.title)}</p>
+        <p style="margin:6px 0;font-size:13px;color:#475569">${esc(n.message)}</p>
+        <p style="margin:0;font-size:11px;color:#94A3B8">${new Date(n.date).toLocaleString()}</p>
+      </div>`).join('')}
+    </div>`
+  }
+  ${userNav('home')}
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════
+//  ADMIN PAGES
+// ═══════════════════════════════════════════════
+function buildAdminPage(page) {
+  if (!localStorage.getItem('adminLoggedIn') && page !== 'admin-login') {
+    setTimeout(() => navigate('admin-login'), 0);
+    return '';
+  }
+  switch(page) {
+    case 'admin-login':       return pageAdminLogin();
+    case 'admin-dashboard':   return pageAdminDashboard();
+    case 'admin-withdrawals': return pageAdminWithdrawals();
+    case 'admin-users':       return pageAdminUsers();
+    case 'admin-settings':    return pageAdminSettings();
+    case 'admin-notify':      return pageAdminNotify();
+    case 'admin-backup':      return pageAdminBackup();
+    default:                  return pageAdminDashboard();
+  }
+}
+
+function pageAdminLogin() {
+  return `<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0F172A,#1E293B);padding:20px">
+  <div class="card" style="width:100%;max-width:380px;background:#1E293B;border:1px solid #334155">
+    <div style="text-align:center;margin-bottom:24px">
+      <div style="width:64px;height:64px;background:linear-gradient(135deg,#34D399,#3B82F6);border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:28px">🛡️</div>
+      <h1 style="font-size:22px;font-weight:800;color:#F1F5F9;margin:0">Admin Panel</h1>
+      <p style="color:#64748B;font-size:13px;margin:4px 0 0">THE SUPER NFT · Restricted Area</p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <input id="a-email" type="email" placeholder="Admin email" value="admin@demo.com" style="background:#0F172A;border-color:#334155;color:#F1F5F9" />
+      <input id="a-pass" type="password" placeholder="Password" style="background:#0F172A;border-color:#334155;color:#F1F5F9" />
+      <button class="btn-primary" id="btn-admin-login" style="background:linear-gradient(135deg,#34D399,#3B82F6)">Unlock Admin Panel</button>
+      <p style="text-align:center;font-size:11px;color:#475569;margin:0">admin@demo.com / admin123</p>
+    </div>
+  </div></div>`;
+}
+
+function pageAdminDashboard() {
+  const users = getUsers();
+  const reqs  = ls('withdrawalRequests', []);
+  const aw    = parseFloat(localStorage.getItem('adminWallet') || '0');
+  const totalBal = users.reduce((s,u)=>s+(u.walletBalance||0),0);
+  const pending = reqs.filter(r=>r.status==='pending').length;
+  return `<div style="max-width:520px;margin:0 auto;background:#0F172A;min-height:100vh">
+  ${adminTopBar('Dashboard')}
+  <div style="padding:16px 16px 90px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      ${[
+        ['👥','Total Members',users.length,'#3B82F6'],
+        ['💰','Members Balance','$'+totalBal.toFixed(2),'#34D399'],
+        ['⏳','Pending WDs',pending,'#F59E0B'],
+        ['🏦','Admin Wallet','$'+aw.toFixed(2),'#A78BFA'],
+      ].map(([i,l,v,c])=>`<div style="background:#1E293B;border-radius:16px;padding:16px;border:1px solid #334155">
+        <p style="margin:0;font-size:22px">${i}</p>
+        <p style="margin:4px 0 2px;font-size:20px;font-weight:800;color:${c}">${v}</p>
+        <p style="margin:0;font-size:11px;color:#64748B">${l}</p>
+      </div>`).join('')}
+    </div>
+    ${pending>0?`<div style="background:#451A03;border:1px solid #92400E;border-radius:14px;padding:14px;margin-bottom:14px;cursor:pointer" onclick="navigate('admin-withdrawals')">
+      <p style="margin:0;font-weight:700;color:#FCD34D">⚠️ ${pending} withdrawal${pending>1?'s':''} awaiting approval</p>
+      <p style="margin:4px 0 0;font-size:12px;color:#F59E0B">Tap to review →</p>
+    </div>`:''}
+    <div style="background:#1E293B;border-radius:16px;padding:16px;border:1px solid #334155">
+      <p style="margin:0 0 12px;font-weight:700;color:#F1F5F9">Recent Members (${users.length})</p>
+      ${users.length===0?`<p style="color:#64748B;font-size:13px;text-align:center;padding:20px 0">No members yet</p>`:
+        users.slice(0,5).map(u=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #334155">
+          <div><p style="margin:0;font-size:13px;font-weight:600;color:#F1F5F9">${esc(u.name)}</p><p style="margin:2px 0 0;font-size:11px;color:#64748B">${esc(u.email)}</p></div>
+          <div style="text-align:right"><p style="margin:0;font-weight:700;color:#34D399;font-size:14px">$${u.walletBalance.toFixed(2)}</p><p style="margin:2px 0 0;font-size:10px;color:#94A3B8">Lv ${u.level}</p></div>
+        </div>`).join('')
+      }
+    </div>
+  </div>
+  ${adminNav('admin-dashboard')}
+  </div>`;
+}
+
+function pageAdminWithdrawals() {
+  const reqs = ls('withdrawalRequests', []);
+  return `<div style="max-width:520px;margin:0 auto;background:#0F172A;min-height:100vh">
+  ${adminTopBar('Withdrawals')}
+  <div style="padding:16px 16px 90px">
+    ${reqs.length===0
+      ? `<div style="text-align:center;padding:60px 20px"><div style="font-size:60px;margin-bottom:12px">📋</div><p style="color:#64748B;font-weight:600">No withdrawal requests</p></div>`
+      : reqs.map(r=>`<div style="background:#1E293B;border-radius:16px;padding:16px;border:1px solid #334155;margin-bottom:12px;border-left:4px solid ${r.status==='pending'?'#F59E0B':r.status==='approved'?'#34D399':'#EA4335'}">
+        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px">
+          <div>
+            <p style="margin:0;font-size:20px;font-weight:800;color:#F1F5F9">$${parseFloat(r.amount).toFixed(2)} <span style="font-size:12px;font-weight:500">USDT</span></p>
+            <p style="margin:2px 0;font-size:12px;color:#94A3B8">${esc(r.userName)} · ${esc(r.userEmail)}</p>
+            <p style="margin:0;font-size:11px;color:#64748B">${new Date(r.requestDate).toLocaleString()}</p>
+          </div>
+          <span style="background:${r.status==='pending'?'#451A03':r.status==='approved'?'#052E16':'#450A0A'};color:${r.status==='pending'?'#FCD34D':r.status==='approved'?'#34D399':'#FCA5A5'};padding:4px 10px;border-radius:99px;font-size:11px;font-weight:700;text-transform:uppercase">${r.status}</span>
+        </div>
+        <p style="margin:0 0 10px;font-size:11px;color:#64748B;font-family:monospace;background:#0F172A;padding:6px 10px;border-radius:8px">To: ${esc(r.address)}</p>
+        ${r.txHash&&r.txHash!=='—'?`<p style="margin:0 0 10px;font-size:11px;color:#34D399;font-family:monospace;background:#052E16;padding:6px 10px;border-radius:8px">TX: ${esc(r.txHash)}</p>`:''}
+        ${r.rejectReason?`<p style="margin:0 0 10px;font-size:12px;color:#FCA5A5;background:#450A0A;padding:6px 10px;border-radius:8px">Reason: ${esc(r.rejectReason)}</p>`:''}
+        ${r.status==='pending'?`<div style="display:flex;gap:8px">
+          <button class="btn-success" style="flex:1;background:#34A853" onclick="openApprove(${r.id})">✅ Approve</button>
+          <button class="btn-danger" style="flex:1" onclick="openReject(${r.id})">❌ Reject</button>
+        </div>`:''}
+      </div>`).join('')
+    }
+  </div>
+  ${adminNav('admin-withdrawals')}
+  </div>`;
+}
+
+function pageAdminUsers() {
+  const users = getUsers();
+  return `<div style="max-width:520px;margin:0 auto;background:#0F172A;min-height:100vh">
+  ${adminTopBar('Members ('+users.length+')')}
+  <div style="padding:16px 16px 90px">
+    ${users.length===0
+      ? `<div style="text-align:center;padding:60px 20px"><div style="font-size:60px;margin-bottom:12px">👥</div><p style="color:#64748B;font-weight:600">No members yet</p></div>`
+      : users.map(u=>`<div style="background:#1E293B;border-radius:16px;padding:16px;border:1px solid #334155;margin-bottom:12px;border-left:4px solid ${u.isBlocked?'#EA4335':'#34D399'}">
+        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px">
+          <div>
+            <p style="margin:0;font-weight:700;color:#F1F5F9;font-size:15px">${esc(u.name)}</p>
+            <p style="margin:2px 0;font-size:12px;color:#94A3B8">${esc(u.email)}</p>
+            <p style="margin:0;font-size:10px;color:#475569">${u.userId}</p>
+          </div>
+          <span style="background:${u.isBlocked?'#450A0A':'#052E16'};color:${u.isBlocked?'#FCA5A5':'#34D399'};padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700">${u.isBlocked?'BLOCKED':'Lv '+u.level}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:12px">
+          ${[['$'+u.walletBalance.toFixed(2),'Balance','#34D399'],['$'+u.totalDeposit.toFixed(2),'Deposited','#3B82F6'],['$'+u.totalWithdraw.toFixed(2),'Withdrawn','#F87171']].map(([v,l,c])=>`<div style="background:#0F172A;border-radius:8px;padding:8px;text-align:center">
+            <p style="margin:0;font-weight:800;color:${c};font-size:13px">${v}</p>
+            <p style="margin:2px 0 0;font-size:9px;color:#64748B">${l}</p>
+          </div>`).join('')}
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn-outline" style="flex:1;font-size:12px;padding:6px" onclick="openEditBal('${u.userId}','${esc(u.name)}')">💰 Balance</button>
+          <button class="${u.isBlocked?'btn-success':'btn-danger'}" style="flex:1;font-size:12px;padding:6px" onclick="toggleBlock('${u.userId}')">${u.isBlocked?'🔓 Unblock':'🔒 Block'}</button>
+          <button class="btn-danger" style="padding:6px 10px;font-size:12px" onclick="deleteUser('${u.userId}')">🗑️</button>
+        </div>
+      </div>`).join('')
+    }
+  </div>
+  ${adminNav('admin-users')}
+  </div>`;
+}
+
+function pageAdminSettings() {
+  const ws = ls('wdSettings', { enabled:true, minAmount:10, maxAmount:1000, requireAddress:false, requireGA:false });
+  return `<div style="max-width:520px;margin:0 auto;background:#0F172A;min-height:100vh">
+  ${adminTopBar('Settings')}
+  <div style="padding:16px 16px 90px">
+    <div style="background:#1E293B;border-radius:16px;padding:18px;border:1px solid #334155;margin-bottom:14px">
+      <p style="margin:0 0 14px;font-weight:700;color:#F1F5F9;font-size:16px">💸 Withdrawal Settings</p>
+      <label style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;color:#CBD5E1;font-size:14px">
+        Withdrawals Enabled
+        <input type="checkbox" id="ws-enabled" ${ws.enabled?'checked':''} style="width:18px;height:18px" />
+      </label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+        <div><label style="font-size:11px;color:#94A3B8;display:block;margin-bottom:4px">Min Amount ($)</label>
+          <input id="ws-min" type="number" value="${ws.minAmount}" style="background:#0F172A;border-color:#334155;color:#F1F5F9" /></div>
+        <div><label style="font-size:11px;color:#94A3B8;display:block;margin-bottom:4px">Max Amount ($)</label>
+          <input id="ws-max" type="number" value="${ws.maxAmount}" style="background:#0F172A;border-color:#334155;color:#F1F5F9" /></div>
+      </div>
+      <label style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;color:#CBD5E1;font-size:14px">
+        Require Address Bind
+        <input type="checkbox" id="ws-addr" ${ws.requireAddress?'checked':''} style="width:18px;height:18px" />
+      </label>
+      <label style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;color:#CBD5E1;font-size:14px">
+        Require Google Auth
+        <input type="checkbox" id="ws-ga" ${ws.requireGA?'checked':''} style="width:18px;height:18px" />
+      </label>
+      <button class="btn-primary" id="btn-save-settings" style="background:#34A853">Save Settings</button>
+    </div>
+  </div>
+  ${adminNav('admin-settings')}
+  </div>`;
+}
+
+function pageAdminNotify() {
+  return `<div style="max-width:520px;margin:0 auto;background:#0F172A;min-height:100vh">
+  ${adminTopBar('Send Notification')}
+  <div style="padding:16px 16px 90px">
+    <div style="background:#1E293B;border-radius:16px;padding:18px;border:1px solid #334155;margin-bottom:14px">
+      <p style="margin:0 0 14px;font-weight:700;color:#F1F5F9;font-size:16px">📣 Broadcast to All Users</p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div><label style="font-size:11px;color:#94A3B8;display:block;margin-bottom:4px">Title</label>
+          <input id="notif-title" placeholder="Announcement title" style="background:#0F172A;border-color:#334155;color:#F1F5F9" /></div>
+        <div><label style="font-size:11px;color:#94A3B8;display:block;margin-bottom:4px">Message</label>
+          <textarea id="notif-msg" placeholder="Message content..." rows="4" style="background:#0F172A;border-color:#334155;color:#F1F5F9;resize:vertical"></textarea></div>
+        <button class="btn-primary" id="btn-send-notif" style="background:linear-gradient(135deg,#3B82F6,#8B5CF6)">📣 Send to All Users</button>
+      </div>
+    </div>
+    <div id="notif-sent" style="display:none;background:#052E16;border:1px solid #34D399;border-radius:14px;padding:14px;text-align:center">
+      <p style="margin:0;color:#34D399;font-weight:700">✅ Notification sent successfully!</p>
+    </div>
+  </div>
+  ${adminNav('admin-notify')}
+  </div>`;
+}
+
+function pageAdminBackup() {
+  const backup = ls('autoBackup', null);
+  return `<div style="max-width:520px;margin:0 auto;background:#0F172A;min-height:100vh">
+  ${adminTopBar('Backup & Restore')}
+  <div style="padding:16px 16px 90px">
+    ${backup?`<div style="background:#1E293B;border-radius:16px;padding:16px;border:1px solid #334155;margin-bottom:14px">
+      <p style="margin:0 0 6px;font-weight:700;color:#F1F5F9">Last Auto-Backup</p>
+      <p style="margin:0;font-size:12px;color:#34D399">📅 ${new Date(backup.timestamp).toLocaleString()}</p>
+      <p style="margin:4px 0 0;font-size:11px;color:#64748B">${backup.allUsers?.length||0} users · $${(backup.adminWallet||0).toFixed(2)} admin wallet · ${backup.withdrawalRequests?.length||0} withdrawal requests</p>
+    </div>`:''}
+    <div style="background:#1E293B;border-radius:16px;padding:18px;border:1px solid #334155;margin-bottom:14px">
+      <p style="margin:0 0 14px;font-weight:700;color:#F1F5F9">💾 Export Backup</p>
+      <p style="margin:0 0 12px;font-size:13px;color:#94A3B8">Download all platform data as JSON file</p>
+      <button class="btn-success" id="btn-export" style="width:100%;padding:12px">⬇️ Download Backup JSON</button>
+    </div>
+    <div style="background:#1E293B;border-radius:16px;padding:18px;border:1px solid #334155">
+      <p style="margin:0 0 14px;font-weight:700;color:#F1F5F9">📥 Import Backup</p>
+      <textarea id="import-data" placeholder="Paste backup JSON here..." rows="6" style="background:#0F172A;border-color:#334155;color:#F1F5F9;resize:vertical"></textarea>
+      <button class="btn-primary" id="btn-import" style="margin-top:10px;background:#F59E0B">⬆️ Restore from Backup</button>
+    </div>
+  </div>
+  ${adminNav('admin-backup')}
+  </div>`;
+}
+
+function adminTopBar(title) {
+  return `<div style="background:#0F172A;border-bottom:1px solid #334155;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50">
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:18px">🛡️</span>
+      <span style="font-weight:800;color:#F1F5F9;font-size:16px">${title}</span>
+    </div>
+    <button onclick="adminLogout()" style="background:#1E293B;border:1px solid #334155;border-radius:8px;color:#94A3B8;padding:6px 12px;cursor:pointer;font-size:12px;font-weight:600">Logout</button>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════
+//  MODALS
+// ═══════════════════════════════════════════════
+function openApprove(reqId) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `<div class="modal">
+    <h3 style="margin:0 0 14px;font-size:16px;font-weight:800;color:#1E293B">Enter TX Hash</h3>
+    <input id="m-txhash" placeholder="0x..." style="margin-bottom:14px" />
+    <div style="display:flex;gap:8px">
+      <button onclick="this.closest('.modal-overlay').remove()" class="btn-outline" style="flex:1">Cancel</button>
+      <button onclick="doApprove(${reqId})" style="flex:1;background:#34A853;color:#fff;padding:10px;border-radius:10px;font-weight:700;border:none;cursor:pointer">Approve ✅</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
+function doApprove(reqId) {
+  const txHash = (document.getElementById('m-txhash').value||'').trim();
+  if (!txHash) { showToast('Enter TX hash','error'); return; }
+  approveWithdrawal(reqId, txHash);
+  document.querySelector('.modal-overlay')?.remove();
+  showToast('✅ Withdrawal approved!');
+  navigate('admin-withdrawals');
+}
+
+function openReject(reqId) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `<div class="modal">
+    <h3 style="margin:0 0 14px;font-size:16px;font-weight:800;color:#1E293B">Rejection Reason</h3>
+    <input id="m-reason" placeholder="Enter reason..." style="margin-bottom:14px" />
+    <div style="display:flex;gap:8px">
+      <button onclick="this.closest('.modal-overlay').remove()" class="btn-outline" style="flex:1">Cancel</button>
+      <button onclick="doReject(${reqId})" style="flex:1;background:#EA4335;color:#fff;padding:10px;border-radius:10px;font-weight:700;border:none;cursor:pointer">Reject ❌</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
+function doReject(reqId) {
+  const reason = (document.getElementById('m-reason').value||'').trim();
+  if (!reason) { showToast('Enter reason','error'); return; }
+  rejectWithdrawal(reqId, reason);
+  document.querySelector('.modal-overlay')?.remove();
+  showToast('Withdrawal rejected');
+  navigate('admin-withdrawals');
+}
+
+function openEditBal(userId, name) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `<div class="modal">
+    <h3 style="margin:0 0 4px;font-size:16px;font-weight:800;color:#1E293B">Edit Balance</h3>
+    <p style="margin:0 0 14px;font-size:12px;color:#64748B">${name}</p>
+    <input id="m-amount" type="number" placeholder="Amount" style="margin-bottom:8px" />
+    <input id="m-breason" placeholder="Reason (required)" style="margin-bottom:14px" />
+    <div style="display:flex;gap:6px">
+      <button onclick="this.closest('.modal-overlay').remove()" class="btn-outline" style="flex:1;font-size:12px">Cancel</button>
+      <button onclick="doBal('${userId}','add')" style="flex:1;background:#34A853;color:#fff;padding:8px;border-radius:10px;font-weight:700;border:none;cursor:pointer;font-size:12px">+ Add</button>
+      <button onclick="doBal('${userId}','sub')" style="flex:1;background:#EA4335;color:#fff;padding:8px;border-radius:10px;font-weight:700;border:none;cursor:pointer;font-size:12px">- Deduct</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
+function doBal(userId, type) {
+  const amt = parseFloat(document.getElementById('m-amount').value);
+  const reason = (document.getElementById('m-breason').value||'').trim();
+  if (!amt || amt <= 0 || !reason) { showToast('Enter amount and reason','error'); return; }
+  const users = getUsers();
+  const i = users.findIndex(u => u.userId === userId);
+  if (i === -1) return;
+  if (type === 'add') users[i].walletBalance += amt;
+  else users[i].walletBalance = Math.max(0, users[i].walletBalance - amt);
+  users[i].history.unshift({ id: Date.now(), type:'admin', title: type==='add'?'Admin Credit':'Admin Deduction', amount:amt, date:new Date().toLocaleString(), status:'Completed', desc:reason });
+  saveUsers(users);
+  document.querySelector('.modal-overlay')?.remove();
+  showToast(`✅ Balance ${type==='add'?'added':'deducted'}`);
+  navigate('admin-users');
+}
+
+function toggleBlock(userId) {
+  const users = getUsers();
+  const i = users.findIndex(u => u.userId === userId);
+  if (i === -1) return;
+  users[i].isBlocked = !users[i].isBlocked;
+  saveUsers(users);
+  showToast(users[i].isBlocked ? '🔒 User blocked' : '🔓 User unblocked');
+  navigate('admin-users');
+}
+
+function deleteUser(userId) {
+  if (!confirm('Delete this user permanently?')) return;
+  saveUsers(getUsers().filter(u => u.userId !== userId));
+  showToast('🗑️ User deleted');
+  navigate('admin-users');
+}
+
+function adminLogout() {
+  localStorage.removeItem('adminLoggedIn');
+  navigate('admin-login');
+}
+
+// ═══════════════════════════════════════════════
+//  EVENT BINDING
+// ═══════════════════════════════════════════════
+function bindEvents() {
+
+  // ── Login ──
+  const btnLogin = document.getElementById('btn-login');
+  if (btnLogin) {
+    btnLogin.addEventListener('click', () => {
+      const email = val('l-email'), pass = val('l-pass');
+      if (!email || !pass) { showToast('Fill all fields','error'); return; }
+      const result = loginUser(email, pass);
+      if (result === 'invalid') { showToast('Wrong email or password','error'); return; }
+      if (result === 'blocked') { showToast('Account blocked. Contact support.','error'); return; }
+      localStorage.setItem('currentUser', result.userId);
+      showToast('Welcome back, ' + result.name + '!');
+      navigate('home');
+    });
+  }
+
+  // ── Signup ──
+  const btnSignup = document.getElementById('btn-signup');
+  if (btnSignup) {
+    btnSignup.addEventListener('click', () => {
+      const name = val('s-name'), email = val('s-email'), email2 = val('s-email2');
+      const phone = val('s-phone'), pass = val('s-pass'), pass2 = val('s-pass2');
+      const code = val('s-code'), ref = val('s-ref');
+      if (!name || !email || !phone || !pass) { showToast('Fill all required fields','error'); return; }
+      if (email !== email2) { showToast('Emails do not match','error'); return; }
+      if (pass !== pass2)   { showToast('Passwords do not match','error'); return; }
+      if (pass.length < 6)  { showToast('Password min 6 characters','error'); return; }
+      const result = registerUser({ name, email, phone, password: pass, countryCode: code, referralCode: ref });
+      if (result === 'email_exists') { showToast('Email already registered','error'); return; }
+      localStorage.setItem('currentUser', result.userId);
+      showToast('Account created! Welcome ' + result.name);
+      navigate('home');
+    });
+  }
+
+  // ── Admin Login ──
+  const btnAdminLogin = document.getElementById('btn-admin-login');
+  if (btnAdminLogin) {
+    btnAdminLogin.addEventListener('click', () => {
+      const email = val('a-email'), pass = val('a-pass');
+      if (email === ADMIN_EMAIL && pass === ADMIN_PASS) {
+        localStorage.setItem('adminLoggedIn', 'true');
+        navigate('admin-dashboard');
+      } else {
+        showToast('Invalid credentials','error');
+      }
+    });
+  }
+
+  // ── Deposit network buttons ──
+  const addrs = { TRC20:'TXaBcDeFgHiJkLmNoPqRsTuVwXyZ123456', ERC20:'0xAaBbCcDdEeFf001122334455', BEP20:'bnb1abcdefghijklmnopqrstuv' };
+  document.querySelectorAll('.net-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.net-btn').forEach(b => {
+        b.style.background = '#EFF6FF'; b.style.color = '#1E3A8A'; b.style.borderColor = '#BFDBFE';
+      });
+      btn.style.background = '#1E3A8A'; btn.style.color = '#fff'; btn.style.borderColor = '#1E3A8A';
+      const net = btn.dataset.net;
+      const el = document.getElementById('dep-addr');
+      const cur = document.getElementById('cur-net');
+      if (el) el.textContent = addrs[net] || '';
+      if (cur) cur.textContent = net;
+    });
+  });
+
+  // ── Confirm Deposit ──
+  const btnDep = document.getElementById('btn-deposit');
+  if (btnDep) {
+    btnDep.addEventListener('click', () => {
+      const amt = parseFloat(val('dep-amt'));
+      if (!amt || amt <= 0) { showToast('Enter valid amount','error'); return; }
+      const net = document.querySelector('.net-btn[style*="1E3A8A"]')?.dataset?.net || 'TRC20';
+      processDeposit(getCurrentUserId(), amt, net);
+      showToast('✅ Deposit of $' + amt.toFixed(2) + ' successful!');
+      navigate('home');
+    });
+  }
+
+  // ── Submit Withdrawal ──
+  const btnWd = document.getElementById('btn-withdraw');
+  if (btnWd) {
+    btnWd.addEventListener('click', () => {
+      const amt = parseFloat(val('wd-amt'));
+      if (!amt || amt <= 0) { showToast('Enter valid amount','error'); return; }
+      const result = submitWithdrawal(getCurrentUserId(), amt);
+      if (result === 'no_address') { showToast('Bind withdrawal address first','error'); return; }
+      if (result === 'min') { showToast('Minimum withdrawal is $10','warn'); return; }
+      if (result === 'insufficient') { showToast('Insufficient balance','error'); return; }
+      showToast('✅ Withdrawal request submitted! Pending admin approval.');
+      navigate('home');
+    });
+  }
+
+  // ── Bind Address ──
+  const btnAddr = document.getElementById('btn-bind-addr');
+  if (btnAddr) {
+    btnAddr.addEventListener('click', () => {
+      const addr = val('sec-addr').trim();
+      if (!addr) { showToast('Enter address','error'); return; }
+      if (!/^T[A-Za-z1-9]{33}$/.test(addr)) { showToast('Invalid TRC20 address (must start with T, 34 chars)','error'); return; }
+      const uid = getCurrentUserId();
+      updateUser(uid, { withdrawalAddress: addr, addressBindDate: new Date().toISOString() });
+      showToast('✅ Address bound successfully!');
+      navigate('security');
+    });
+  }
+
+  // ── Enable GA ──
+  const btnGA = document.getElementById('btn-enable-ga');
+  if (btnGA) {
+    btnGA.addEventListener('click', () => {
+      const code = val('ga-code');
+      if (!/^\d{6}$/.test(code)) { showToast('Enter valid 6-digit code','error'); return; }
+      updateUser(getCurrentUserId(), { googleAuthBound: true, googleAuthSecret: 'JBSWY3DPEHPK3PXP' });
+      showToast('✅ Google Auth enabled!');
+      navigate('security');
+    });
+  }
+
+  // ── Disable GA ──
+  const btnDisGA = document.getElementById('btn-disable-ga');
+  if (btnDisGA) {
+    btnDisGA.addEventListener('click', () => {
+      updateUser(getCurrentUserId(), { googleAuthBound: false, googleAuthSecret: null });
+      showToast('Google Auth disabled');
+      navigate('security');
+    });
+  }
+
+  // ── Admin: Save Settings ──
+  const btnSS = document.getElementById('btn-save-settings');
+  if (btnSS) {
+    btnSS.addEventListener('click', () => {
+      lsSet('wdSettings', {
+        enabled: document.getElementById('ws-enabled').checked,
+        minAmount: parseFloat(document.getElementById('ws-min').value)||10,
+        maxAmount: parseFloat(document.getElementById('ws-max').value)||1000,
+        requireAddress: document.getElementById('ws-addr').checked,
+        requireGA: document.getElementById('ws-ga').checked,
+      });
+      showToast('✅ Settings saved!');
+    });
+  }
+
+  // ── Admin: Send Notification ──
+  const btnSN = document.getElementById('btn-send-notif');
+  if (btnSN) {
+    btnSN.addEventListener('click', () => {
+      const title = val('notif-title').trim();
+      const msg   = val('notif-msg').trim();
+      if (!title || !msg) { showToast('Fill title and message','error'); return; }
+      const users = getUsers();
+      const notif = { id: Date.now(), title, message: msg, date: new Date().toISOString(), read: false };
+      users.forEach(u => { u.notifications = [notif, ...(u.notifications||[])]; });
+      saveUsers(users);
+      const el = document.getElementById('notif-sent');
+      if (el) el.style.display = 'block';
+      document.getElementById('notif-title').value = '';
+      document.getElementById('notif-msg').value   = '';
+      showToast('✅ Notification sent to ' + users.length + ' users!');
+    });
+  }
+
+  // ── Admin: Export Backup ──
+  const btnExp = document.getElementById('btn-export');
+  if (btnExp) {
+    btnExp.addEventListener('click', () => {
+      const data = {
+        exportedAt: new Date().toISOString(),
+        allUsers: getUsers(),
+        adminWallet: parseFloat(localStorage.getItem('adminWallet')||'0'),
+        withdrawalRequests: ls('withdrawalRequests',[]),
+        wdSettings: ls('wdSettings',{}),
+      };
+      const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url; a.download = 'nft-backup-'+Date.now()+'.json';
+      a.click(); URL.revokeObjectURL(url);
+      showToast('✅ Backup downloaded!');
+    });
+  }
+
+  // ── Admin: Import Backup ──
+  const btnImp = document.getElementById('btn-import');
+  if (btnImp) {
+    btnImp.addEventListener('click', () => {
+      try {
+        const raw = document.getElementById('import-data').value.trim();
+        if (!raw) { showToast('Paste backup JSON first','error'); return; }
+        const data = JSON.parse(raw);
+        if (!data.allUsers) { showToast('Invalid backup format','error'); return; }
+        if (!confirm('This will OVERWRITE all current data. Continue?')) return;
+        saveUsers(data.allUsers);
+        if (data.adminWallet !== undefined) localStorage.setItem('adminWallet', String(data.adminWallet));
+        if (data.withdrawalRequests) lsSet('withdrawalRequests', data.withdrawalRequests);
+        if (data.wdSettings) lsSet('wdSettings', data.wdSettings);
+        createAutoBackup();
+        showToast('✅ Backup restored successfully!');
+        navigate('admin-dashboard');
+      } catch { showToast('Invalid JSON data','error'); }
+    });
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════════════════
+function val(id) { const el = document.getElementById(id); return el ? el.value : ''; }
+function esc(str) { return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function copyAddr() {
+  const txt = document.getElementById('dep-addr')?.textContent || '';
+  navigator.clipboard.writeText(txt).then(()=>showToast('Address copied!')).catch(()=>showToast('Copy failed','error'));
+}
+function togglePw(inputId, btnId) {
+  const inp = document.getElementById(inputId);
+  if (!inp) return;
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  const btn = document.getElementById(btnId);
+  if (btn) btn.textContent = inp.type === 'password' ? '👁' : '🙈';
+}
+
+// ═══════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════
+(function init() {
+  const path = window.location.pathname;
+  const isAdmin = path.includes('admin');
+  if (isAdmin) {
+    if (localStorage.getItem('adminLoggedIn')) navigate('admin-dashboard');
+    else navigate('admin-login');
+  } else {
+    const uid = getCurrentUserId();
+    if (uid && getUsers().find(u => u.userId === uid)) navigate('home');
+    else navigate('login');
+  }
+})();
+</script>
+</body>
+</html>
