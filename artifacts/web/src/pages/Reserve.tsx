@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import Header from "../components/Header";
 import BottomNav from "../components/BottomNav";
 import { TEST_MODE, useBalance } from "../App";
+import { addToHistory } from "../lib/history";
 
 type TabKey = "today" | "reserve" | "collection";
 
@@ -114,6 +115,17 @@ export default function Reserve() {
                   <button
                     className="mt-2 px-4 py-1.5 rounded-lg text-white text-xs font-bold"
                     style={{ background: '#1E3A8A' }}
+                    onClick={() => {
+                      addToHistory('sell', {
+                        title: `NFT #${nft.id} Sold`,
+                        amount: nft.buyPrice,
+                        nftLevel: nft.level,
+                        status: 'Completed',
+                      });
+                      const updated = userNFTs.filter(n => n.id !== nft.id);
+                      setUserNFTs(updated);
+                      localStorage.setItem('userNFTs', JSON.stringify(updated));
+                    }}
                   >
                     Sell
                   </button>

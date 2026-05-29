@@ -1,0 +1,113 @@
+WORKING DEMO MODE - COMPLETE NFT PLATFORM WITH FULL HISTORY SYSTEM
+
+CORE REQUIREMENTS
+
+Demo mode hai lekin sab proper work karega. LocalStorage use karna. Real API nahi. Fake data se real experience.
+
+DARK BLUE THEME:
+Primary: #1E3A8A, Text: #1E293B, Hover: #1E40AF, Success: #34A853, Error: #EA4335
+
+TASK 1: NOTIFICATION - SIRF ADMIN
+
+- Top bar bell icon
+- Click pe dropdown open
+- SIRF admin announcements: localStorage.adminNotifications
+- Deposit/Withdraw/Reward/Commission ki notification YAHAN NAHI
+- Unread pe red dot
+
+TASK 2: AUTH + SETTINGS - REAL DATA
+
+SIGNUP: Name, Email, Phone, Password, Country, ReferralCode → localStorage save
+SETTINGS PAGE: Same data localStorage se show karo - Read only cards
+
+TASK 3: SECURITY - WORKING BINDINGS
+
+1. WITHDRAWAL ADDRESS: Input + Validate + Save + Auto log to history
+2. GOOGLE AUTH: QR + 6-digit verify + Save + Auto log to history
+
+TASK 4: MY PAGE - BUTTONS
+
+1. Deposit Record
+2. Withdrawal Record
+3. Reserve History
+4. My History - All Activity
+
+TASK 5: DEPOSIT/WITHDRAW RECORD - VIEW ONLY ← IMPORTANT
+
+DEPOSIT RECORD BUTTON:
+- Button rahega "Deposit Record"
+- Click karne pe page open ho
+- SIRF user ka deposit record/history dikhe
+- Koi "New Deposit" form nahi
+- Koi "Make Deposit" button nahi
+- Koi input field nahi
+- Sirf table: Date | Amount | Status | TX Hash
+- Data: myActivityHistory.filter(item => item.type === 'deposit')
+- Empty: "No deposit records found"
+
+WITHDRAWAL RECORD BUTTON:
+- Button rahega "Withdrawal Record"
+- Click karne pe page open ho
+- SIRF user ka withdrawal record/history dikhe
+- Koi "New Withdraw" form nahi
+- Koi "Request Withdrawal" button nahi
+- Koi input field nahi
+- Sirf table: Date | Amount | Status | TX Hash
+- Data: myActivityHistory.filter(item => item.type === 'withdrawal')
+- Empty: "No withdrawal records found"
+
+IMPORTANT: Deposit/Withdraw ke liye koi form, koi action button nahi. Sirf read-only history.
+
+TASK 6: MY HISTORY - COMPLETE ACTIVITY LOG
+
+SAB KUCH IS ME DIKHEGA:
+
+TRANSACTIONS: Deposit, Withdrawal
+TRADING: Reserve, Buy, Sell, NFT Orders
+REWARDS: Deposit Bonus, Airdrop, Referral Reward, Signup Bonus, Level Up Bonus
+COMMISSION: Team Commission Level 1/2/3
+SECURITY: Address Bound, Google Auth Enabled/Disabled, Level Upgrade
+
+FILTERS: [All] [Deposits] [Withdrawals] [Rewards] [Trading] [Security] [Commission]
+
+COLORS:
+Deposit: #34A853, Withdrawal: #EA4335, Reward: #FBBC04,
+Airdrop: #9C27B0, Referral: #1E3A8A, Commission: #9C27B0,
+Security: #1E3A8A, Reserve: #FBBC04
+
+TASK 7: AUTO LOGGING SYSTEM
+
+function addToHistory(type, data) {
+  let history = JSON.parse(localStorage.getItem('myActivityHistory') || '[]');
+  history.unshift({
+    id: Date.now(),
+    type: type,
+    date: new Date().toLocaleString('en-US'),
+  ...data
+  });
+  localStorage.setItem('myActivityHistory', JSON.stringify(history));
+  updateHistoryUI();
+}
+
+AUTO TRIGGERS:
+- Deposit complete → addToHistory('deposit', {...}) + addToHistory('reward', {title: 'Deposit Bonus'})
+- Withdrawal complete → addToHistory('withdrawal', {...})
+- Address Bind → addToHistory('security', {...})
+- Google Auth → addToHistory('security', {...})
+- NFT Reserve → addToHistory('reserve', {...})
+- NFT Sell → addToHistory('sell', {...})
+- Referral Join → addToHistory('reward', {title: 'Referral Bonus'})
+- Airdrop → addToHistory('reward', {title: 'Airdrop Received'})
+- Level Up → addToHistory('reward', {title: 'Level Up Reward'})
+- Team Commission → addToHistory('commission', {...})
+
+TASK 8: DEMO INITIALIZATION
+
+if (!localStorage.getItem('myActivityHistory')) {
+  localStorage.setItem('myActivityHistory', JSON.stringify([
+    {id: 1, type: "deposit", title: "Deposit Successful", amount: 100, status: "Completed", txHash: "0x123abc", date: "2026-05-27 14:30", icon: "💰", color: "#34A853"},
+    {id: 2, type: "reward", title: "Deposit Bonus Received", amount: 10, rewardType: "Deposit Reward", date: "2026-05-27 14:35", icon: "🎁", color: "#34A853"},
+    {id: 3, type: "withdrawal", title: "Withdrawal Processed", amount: 30, status: "Completed", txHash: "0xabc123", date: "2026-05-25 10:15", icon: "💸", color: "#EA4335"},
+    {id: 4, type: "reward", title: "Airdrop Received", amount: 50, rewardType: "Airdrop", date: "2026-05-28 09:00", icon: "🪂", color: "#9C27B0"},
+    {id: 5, type: "reward", title: "Referral Bonus", amount: 25, rewardType: "Referral", date: "2026-05-26 11:20", icon: "👥", color: "#1E3A8A"},
+    {id: 6, type: "commission", title: "Team Commission", amount: 12.50, commissionType: "Level 1", date: "2026-05-28

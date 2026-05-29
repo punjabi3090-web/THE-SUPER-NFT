@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ArrowLeft, AlertCircle, Clock, CheckCircle, XCircle } from "lucide-react";
 import { useLocation } from "wouter";
 import { useBalance, TEST_MODE } from "../App";
+import { addToHistory } from "../lib/history";
 
 const quickAmounts = [10, 50, 100, 500];
 const FEE = 1;
@@ -36,6 +37,12 @@ export default function Withdraw() {
     if (result === 'invalid_addr') { showPopup("❌ Invalid TRC20 address format"); return; }
     if (result === 'insufficient') { showPopup("❌ Insufficient balance"); return; }
 
+    addToHistory('withdrawal', {
+      title: 'Withdrawal Requested',
+      amount: numAmount,
+      status: 'Pending',
+      txHash: 'Pending approval',
+    });
     showPopup("✅ Withdrawal submitted! Pending admin approval.");
     setAddress("");
     setAmount("");

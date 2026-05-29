@@ -14,6 +14,13 @@ import Language from "./pages/Language";
 import AdminPanel from "./pages/AdminPanel";
 import Notifications from "./pages/Notifications";
 import Showcase from "./pages/Showcase";
+import Settings from "./pages/Settings";
+import Security from "./pages/Security";
+import DepositRecord from "./pages/DepositRecord";
+import WithdrawRecord from "./pages/WithdrawRecord";
+import MyHistory from "./pages/MyHistory";
+import ReserveHistory from "./pages/ReserveHistory";
+import { DEMO_HISTORY } from "./lib/history";
 import './index.css';
 
 export const TEST_MODE = true;
@@ -336,8 +343,24 @@ function BalanceProvider({ children }: { children: ReactNode }) {
 
 // ── Routes ─────────────────────────────────────────────────────────────────
 
+function initDemoData() {
+  if (!localStorage.getItem('myActivityHistory')) {
+    localStorage.setItem('myActivityHistory', JSON.stringify(DEMO_HISTORY));
+  }
+  if (!localStorage.getItem('userLevel'))     localStorage.setItem('userLevel', '2');
+  if (!localStorage.getItem('walletBalance')) localStorage.setItem('walletBalance', '111.50');
+  if (!localStorage.getItem('nftOrders'))     localStorage.setItem('nftOrders', JSON.stringify({ bought: 3, sold: 1, total: 4 }));
+  if (!localStorage.getItem('userNFTs'))      localStorage.setItem('userNFTs', JSON.stringify([
+    { id: 1, level: 2, buyPrice: 100, buyDate: '2026-05-27' },
+    { id: 2, level: 2, buyPrice: 100, buyDate: '2026-05-26' },
+  ]));
+}
+
 function Routes() {
   const [location, setLocation] = useLocation();
+
+  useEffect(() => { initDemoData(); }, []);
+
   useEffect(() => {
     const user = localStorage.getItem('user');
     if (!user && location !== '/login') setLocation('/login');
@@ -346,20 +369,26 @@ function Routes() {
 
   return (
     <Switch>
-      <Route path="/login" component={LoginPage} />
-      <Route path="/" component={Home} />
-      <Route path="/stake" component={Stake} />
-      <Route path="/reserve" component={Reserve} />
-      <Route path="/assets" component={Assets} />
-      <Route path="/my" component={My} />
-      <Route path="/deposit" component={Deposit} />
-      <Route path="/withdraw" component={Withdraw} />
-      <Route path="/tutorials" component={Tutorials} />
-      <Route path="/service" component={Service} />
-      <Route path="/language" component={Language} />
-      <Route path="/showcase" component={Showcase} />
-      <Route path="/admin" component={AdminPanel} />
-      <Route path="/notifications" component={Notifications} />
+      <Route path="/login"          component={LoginPage} />
+      <Route path="/"               component={Home} />
+      <Route path="/stake"          component={Stake} />
+      <Route path="/reserve"        component={Reserve} />
+      <Route path="/assets"         component={Assets} />
+      <Route path="/my"             component={My} />
+      <Route path="/deposit"        component={Deposit} />
+      <Route path="/withdraw"       component={Withdraw} />
+      <Route path="/tutorials"      component={Tutorials} />
+      <Route path="/service"        component={Service} />
+      <Route path="/language"       component={Language} />
+      <Route path="/showcase"       component={Showcase} />
+      <Route path="/admin"          component={AdminPanel} />
+      <Route path="/notifications"  component={Notifications} />
+      <Route path="/settings"       component={Settings} />
+      <Route path="/security"       component={Security} />
+      <Route path="/deposit-record" component={DepositRecord} />
+      <Route path="/withdraw-record" component={WithdrawRecord} />
+      <Route path="/my-history"     component={MyHistory} />
+      <Route path="/reserve-history" component={ReserveHistory} />
     </Switch>
   );
 }

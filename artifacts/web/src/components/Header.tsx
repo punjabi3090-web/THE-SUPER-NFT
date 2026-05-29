@@ -20,7 +20,8 @@ export default function Header() {
   const tapTimes = useRef<number[]>([]);
 
   const { notifications, markNotificationRead, markAllRead } = useBalance();
-  const unread = notifications.filter(n => !n.read).length;
+  const adminNotifs = notifications.filter(n => n.type === 'admin');
+  const unread = adminNotifs.filter(n => !n.read).length;
 
   // Close both dropdowns on outside click
   useEffect(() => {
@@ -81,28 +82,28 @@ export default function Header() {
               {/* Drawer header */}
               <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50">
                 <span className="font-bold text-slate-800 text-sm">
-                  Notifications{unread > 0 && <span className="text-emerald-500 ml-1">({unread} new)</span>}
+                  Announcements{unread > 0 && <span className="ml-1" style={{ color: '#1E3A8A' }}>({unread} new)</span>}
                 </span>
                 {unread > 0 && (
-                  <button onClick={markAllRead} className="flex items-center gap-1 text-xs text-emerald-600 font-semibold">
+                  <button onClick={markAllRead} className="flex items-center gap-1 text-xs font-semibold" style={{ color: '#1E3A8A' }}>
                     <CheckCheck size={13} /> Mark all read
                   </button>
                 )}
               </div>
 
-              {/* Notification list */}
+              {/* Notification list — admin announcements only */}
               <div className="max-h-64 overflow-y-auto">
-                {notifications.length === 0 ? (
+                {adminNotifs.length === 0 ? (
                   <div className="py-8 text-center text-slate-400">
-                    <p className="text-2xl mb-1">🔔</p>
-                    <p className="text-xs">No notifications yet</p>
+                    <p className="text-2xl mb-1">📣</p>
+                    <p className="text-xs">No announcements yet</p>
                   </div>
                 ) : (
-                  notifications.slice(0, 10).map(n => (
+                  adminNotifs.slice(0, 10).map(n => (
                     <button
                       key={n.id}
                       onClick={() => markNotificationRead(n.id)}
-                      className={`w-full text-left px-4 py-3 flex gap-3 items-start border-b border-slate-50 hover:bg-slate-50 transition-colors ${!n.read ? 'bg-emerald-50/60' : ''}`}
+                      className={`w-full text-left px-4 py-3 flex gap-3 items-start border-b border-slate-50 hover:bg-slate-50 transition-colors ${!n.read ? 'bg-blue-50/60' : ''}`}
                     >
                       <span className="text-base leading-none mt-0.5 shrink-0">{NOTIF_ICON[n.type] ?? '📣'}</span>
                       <div className="flex-1 min-w-0">
@@ -110,7 +111,7 @@ export default function Header() {
                         <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">{n.message}</p>
                         <p className="text-[10px] text-slate-300 mt-0.5">{new Date(n.date).toLocaleString()}</p>
                       </div>
-                      {!n.read && <span className="w-2 h-2 rounded-full bg-emerald-400 mt-1.5 shrink-0" />}
+                      {!n.read && <span className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ background: '#1E3A8A' }} />}
                     </button>
                   ))
                 )}
@@ -119,9 +120,10 @@ export default function Header() {
               {/* View all link → /notifications page */}
               <button
                 onClick={() => { setNotifOpen(false); setLocation('/notifications'); }}
-                className="w-full py-2.5 text-xs text-emerald-600 font-semibold bg-slate-50 hover:bg-slate-100 border-t border-slate-100 text-center"
+                className="w-full py-2.5 text-xs font-semibold bg-slate-50 hover:bg-slate-100 border-t border-slate-100 text-center"
+                style={{ color: '#1E3A8A' }}
               >
-                View all notifications →
+                View all announcements →
               </button>
             </div>
           )}

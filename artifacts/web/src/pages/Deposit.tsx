@@ -3,6 +3,7 @@ import { ArrowLeft, Copy, Check, Plus } from "lucide-react";
 import { useLocation } from "wouter";
 import { useBalance } from "../App";
 import { TEST_MODE } from "../App";
+import { addToHistory } from "../lib/history";
 
 const networks = [
   { name: "TRC20", address: "TXaBcDeFgHiJkLmNoPqRsTuVwXyZ123456" },
@@ -30,8 +31,18 @@ export default function Deposit() {
   const handleSubmit = () => {
     const num = parseFloat(amount);
     if (!num || num <= 0) { setPopup("error"); setTimeout(() => setPopup(null), 2500); return; }
-    console.log('deposit submit', { network: activeNet.name, amount: num });
     addDeposit(num, activeNet.name);
+    addToHistory('deposit', {
+      title: 'Deposit Successful',
+      amount: num,
+      status: 'Completed',
+      txHash: `0x${Math.random().toString(16).slice(2, 10)}...`,
+    });
+    addToHistory('reward', {
+      title: 'Deposit Bonus Received',
+      amount: +(num * 0.1).toFixed(2),
+      rewardType: 'Deposit Reward',
+    });
     setPopup("success");
     setAmount("");
     setTimeout(() => setPopup(null), 2500);
