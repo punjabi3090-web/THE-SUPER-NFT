@@ -2,7 +2,7 @@ import { useState } from "react";
 import Header from "../components/Header";
 import BottomNav from "../components/BottomNav";
 import { useBalance } from "../App";
-import { addToUserHistory, getCurrentUserId } from "../lib/store";
+import { addToUserHistory, getCurrentUserId } from "../lib/api";
 
 type TabKey = "today" | "reserve" | "collection";
 type UserNFT = { id: number; level: number; buyPrice: number; buyDate: string };

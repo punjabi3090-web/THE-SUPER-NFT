@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { ArrowLeft, AlertCircle, Shield, MapPin } from "lucide-react";
+import { ArrowLeft, AlertCircle } from "lucide-react";
 import { useLocation } from "wouter";
 import { useBalance } from "../App";
-import { getCurrentUser, updateUser, addToUserHistory, getCurrentUserId } from "../lib/store";
 
 const quickAmounts = [10, 50, 100, 500];
 
@@ -10,6 +9,7 @@ export default function Withdraw() {
   const [, setLocation] = useLocation();
   const { balance, requestWithdraw, refresh, user } = useBalance();
   const [amount, setAmount] = useState("");
+  const [loading, setLoading] = useState(false);
   const [popup, setPopup]   = useState<string | null>(null);
 
   const numAmount = parseFloat(amount) || 0;
@@ -19,19 +19,26 @@ export default function Withdraw() {
     setTimeout(() => setPopup(null), 3500);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!numAmount || numAmount <= 0) { showPopup("❌ Please enter amount"); return; }
-    const result = requestWithdraw(numAmount);
-    refresh();
-    if (result === 'disabled')         showPopup("⚠️ Withdrawals are currently disabled");
-    else if (result === 'no_auth')     showPopup("⚠️ Please bind Google Authenticator first");
-    else if (result === 'no_address')  showPopup("⚠️ Please bind your withdrawal address first");
-    else if (result === 'delay')       showPopup("⚠️ Address was just bound — wait 24 hours before withdrawing");
-    else if (result === 'time_restricted') showPopup("⚠️ Withdrawals are outside the allowed time window");
-    else if (result === 'min')         showPopup("⚠️ Minimum withdrawal is $10 USDT");
-    else if (result === 'max')         showPopup("⚠️ Maximum withdrawal limit exceeded");
-    else if (result === 'insufficient') showPopup("❌ Insufficient balance");
-    else { showPopup("✅ Withdrawal submitted! Pending admin approval."); setAmount(""); }
+    setLoading(true);
+    try {
+      const result = await requestWithdraw(numAmount);
+      refresh();
+      if (result === 'disabled')         showPopup("⚠️ Withdrawals are currently disabled");
+      else if (result === 'no_auth')     showPopup("⚠️ Please bind Google Authenticator first");
+      else if (result === 'no_address')  showPopup("⚠️ Please bind your withdrawal address first");
+      else if (result === 'delay')       showPopup("⚠️ Address was just bound — wait 24 hours before withdrawing");
+      else if (result === 'time_restricted') showPopup("⚠️ Withdrawals are outside the allowed time window");
+      else if (result === 'min')         showPopup("⚠️ Minimum withdrawal is $10 USDT");
+      else if (result === 'max')         showPopup("⚠️ Maximum withdrawal limit exceeded");
+      else if (result === 'insufficient') showPopup("❌ Insufficient balance");
+      else { showPopup("✅ Withdrawal submitted! Pending admin approval."); setAmount(""); }
+    } catch {
+      showPopup("❌ Withdrawal failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const wdAddress = user?.withdrawalAddress;
@@ -51,69 +58,49 @@ export default function Withdraw() {
       </div>
 
       <div className="px-4 py-4 space-y-4">
-        {/* Balance */}
         <div className="bg-white rounded-2xl p-4 shadow-sm">
           <p className="text-xs text-slate-400 mb-1">Available Balance</p>
           <p className="text-2xl font-bold text-[#1E293B]">${balance.toFixed(2)} USDT</p>
         </div>
 
-        {/* Withdrawal address */}
-        <div className={`bg-white rounded-2xl p-4 shadow-sm border-l-4 ${wdAddress ? 'border-emerald-400' : 'border-orange-400'}`}>
-          <div className="flex items-center gap-2 mb-2">
-            <MapPin size={16} className={wdAddress ? 'text-emerald-500' : 'text-orange-500'} />
-            <p className="text-sm font-semibold text-slate-700">Withdrawal Address (TRC20)</p>
-          </div>
+        <div className="bg-white rounded-2xl p-4 shadow-sm">
+          <p className="text-xs text-slate-500 font-semibold mb-2">Withdrawal Address (TRC20)</p>
           {wdAddress ? (
-            <p className="text-xs text-slate-600 font-mono bg-slate-50 px-3 py-2 rounded-lg break-all">{wdAddress}</p>
+            <div className="bg-slate-50 rounded-xl px-3 py-2.5">
+              <p className="text-xs text-slate-600 font-mono break-all">{wdAddress}</p>
+            </div>
           ) : (
-            <div>
-              <p className="text-xs text-orange-600 mb-2">No address bound. Please set it in Security settings.</p>
-              <button onClick={() => setLocation('/security')} className="text-xs font-semibold px-4 py-2 rounded-lg text-white" style={{ background: '#1E3A8A' }}>
-                Bind Address →
-              </button>
+            <div className="flex items-start gap-2 bg-orange-50 border border-orange-200 rounded-xl p-3">
+              <AlertCircle size={16} className="text-orange-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-semibold text-orange-700">No address bound</p>
+                <button onClick={() => setLocation('/security')} className="text-xs text-blue-600 underline mt-0.5">
+                  Bind in Security →
+                </button>
+              </div>
             </div>
           )}
         </div>
 
-        {/* Amount */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm">
-          <p className="text-sm font-semibold text-slate-700 mb-3">Amount (USDT)</p>
-          <input
-            type="number"
-            value={amount}
-            onChange={e => setAmount(e.target.value)}
-            placeholder="Enter amount"
-            className="w-full bg-[#EFF6FF] border border-[#BFDBFE] rounded-xl px-4 py-3 text-slate-800 outline-none focus:border-[#1E3A8A] text-base"
-          />
-          <div className="flex gap-2 mt-3">
-            {quickAmounts.map(q => (
-              <button key={q} onClick={() => setAmount(q.toString())}
-                className="flex-1 py-1.5 rounded-lg text-xs font-semibold border border-[#BFDBFE] text-slate-600 hover:bg-[#EFF6FF]">
-                ${q}
+        <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
+          <p className="text-xs text-slate-500 font-semibold">Amount (USDT)</p>
+          <input type="number" value={amount} onChange={e => setAmount(e.target.value)}
+            placeholder="Enter amount (min $10)"
+            className="w-full bg-[#EFF6FF] border border-[#BFDBFE] rounded-xl px-4 py-3 text-slate-800 outline-none focus:border-[#1E3A8A] text-lg font-bold" />
+          <div className="grid grid-cols-4 gap-2">
+            {quickAmounts.map(a => (
+              <button key={a} onClick={() => setAmount(String(a))}
+                className="py-2 rounded-xl text-sm font-semibold border border-[#BFDBFE] text-[#1E3A8A] hover:bg-[#EFF6FF]">
+                ${a}
               </button>
             ))}
           </div>
-          {numAmount > 0 && (
-            <p className="text-xs text-slate-500 mt-2">
-              You will receive: <strong>${Math.max(0, numAmount - 1).toFixed(2)} USDT</strong>
-              <span className="text-slate-400 ml-1">(after $1 fee)</span>
-            </p>
-          )}
-        </div>
-
-        <button onClick={handleSubmit}
-          disabled={!wdAddress || numAmount <= 0}
-          className="w-full py-3 rounded-xl text-white font-bold text-base shadow-md disabled:opacity-40"
-          style={{ background: '#1E3A8A' }}>
-          Submit Withdrawal Request
-        </button>
-
-        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-1.5">
-          <p className="text-xs text-slate-500 font-semibold">📋 Withdrawal Notes</p>
-          <p className="text-xs text-slate-400">• Minimum: $10 USDT · Fee: $1</p>
-          <p className="text-xs text-slate-400">• Requests are processed within 24 hours</p>
-          <p className="text-xs text-slate-400">• Make sure your address is correct — cannot be reversed</p>
-          {!user?.googleAuthBound && <p className="text-xs text-orange-500">• Bind Google Auth to enable withdrawals</p>}
+          <button onClick={handleSubmit} disabled={!numAmount || numAmount <= 0 || !wdAddress || loading}
+            className="w-full py-3.5 rounded-xl text-white font-bold text-base shadow-lg disabled:opacity-50 transition-all"
+            style={{ background: '#1E3A8A' }}>
+            {loading ? "Submitting..." : "Withdraw USDT"}
+          </button>
+          <p className="text-xs text-slate-400 text-center">Min: $10 USDT · Processed within 24h</p>
         </div>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { seedAdmin } from "./routes/nft";
 
 const rawPort = process.env["PORT"];
 
@@ -20,6 +21,6 @@ app.listen(port, (err) => {
     logger.error({ err }, "Error listening on port");
     process.exit(1);
   }
-
   logger.info({ port }, "Server listening");
+  seedAdmin().then(() => logger.info("Admin seeded")).catch(e => logger.error({ err: e }, "Seed failed"));
 });

@@ -4,7 +4,7 @@ import { useLocation } from "wouter";
 import Header from "../components/Header";
 import BottomNav from "../components/BottomNav";
 import { useBalance } from "../App";
-import { logoutUser } from "../lib/store";
+import { logoutUser } from "../lib/api";
 
 function QuickBtn({ icon, label, onClick }: { icon: string; label: string; onClick: () => void }) {
   return (

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Eye, EyeOff } from "lucide-react";
-import { registerUser, loginUser, setCurrentUser } from "../lib/store";
+import { registerUser, loginUser, setCurrentUser } from "../lib/api";
 
 type PopupType = { show: boolean; message: string; type: string };
 
@@ -76,39 +76,49 @@ export default function LoginPage() {
 
   const inp = "w-full bg-white text-[#1E293B] px-4 py-3 rounded-lg border border-[#BFDBFE] focus:border-[#1E3A8A] outline-none text-base placeholder:text-slate-400";
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (form.email !== form.confirmEmail) { showMsg("Emails do not match"); return; }
     if (form.password !== form.confirmPassword) { showMsg("Passwords do not match"); return; }
     if (form.password.length < 6) { showMsg("Password must be at least 6 characters"); return; }
     setLoading(true);
-    setTimeout(() => {
-      const result = registerUser({
-        name: form.fullName, email: form.email,
+    try {
+      const result = await registerUser({
+        name: form.fullName,
+        email: form.email,
         phone: `${form.countryCode}${form.phone}`,
-        password: form.password, country: form.countryCode,
-        referralCode: form.referralCode,
+        password: form.password,
+        country: form.countryCode,
+        referralCode: form.referralCode || undefined,
       });
-      setLoading(false);
-      if (result === 'email_exists') { showMsg("Email already registered. Please login."); return; }
-      setCurrentUser(result.userId);
+      if (result === 'email_exists') {
+        showMsg("Email already registered. Please login."); return;
+      }
+      setCurrentUser(result.id);
       showMsg("Registration successful! Welcome to THE SUPER NFT", "success");
       setTimeout(() => setLocation('/showcase'), 1500);
-    }, 600);
+    } catch {
+      showMsg("Registration failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => {
-      const result = loginUser(form.email, form.password);
-      setLoading(false);
+    try {
+      const result = await loginUser(form.email, form.password);
       if (result === 'blocked') { showMsg("Your account has been blocked. Contact support."); return; }
       if (result === 'invalid') { showMsg("Wrong email or password"); return; }
-      setCurrentUser(result.userId);
+      setCurrentUser(result.id);
       showMsg("Login successful!", "success");
       setTimeout(() => setLocation('/showcase'), 800);
-    }, 600);
+    } catch {
+      showMsg("Login failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -124,7 +134,7 @@ export default function LoginPage() {
         {page === "register" && (
           <form onSubmit={handleRegister} className="space-y-3">
             <input type="text" placeholder="Full Name" value={form.fullName} onChange={e => setForm({...form, fullName: e.target.value})} className={inp} required />
-            <input type="text" placeholder="Username" value={form.username} onChange={e => setForm({...form, username: e.target.value})} className={inp} required />
+            <input type="text" placeholder="Username" value={form.username} onChange={e => setForm({...form, username: e.target.value})} className={inp} />
             <input type="email" placeholder="Email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} className={inp} required />
             <input type="email" placeholder="Confirm Email" value={form.confirmEmail} onChange={e => setForm({...form, confirmEmail: e.target.value})} className={inp} required />
             <div className="flex gap-2">
@@ -132,7 +142,7 @@ export default function LoginPage() {
                 className="w-24 bg-white text-[#1E293B] px-2 py-3 rounded-lg border border-[#BFDBFE] focus:border-[#1E3A8A] outline-none text-sm">
                 {countries.map(c => <option key={c.code+c.name} value={c.code}>{c.flag} {c.code}</option>)}
               </select>
-              <input type="tel" placeholder="Phone Number" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} className="flex-1 bg-white text-[#1E293B] px-4 py-3 rounded-lg border border-[#BFDBFE] focus:border-[#1E3A8A] outline-none text-base placeholder:text-slate-400" required />
+              <input type="tel" placeholder="Phone Number" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} className="flex-1 bg-white text-[#1E293B] px-4 py-3 rounded-lg border border-[#BFDBFE] focus:border-[#1E3A8A] outline-none text-base placeholder:text-slate-400" />
             </div>
             <div className="relative">
               <input type={showPw ? "text" : "password"} placeholder="Password (min 6 chars)" value={form.password} onChange={e => setForm({...form, password: e.target.value})} className={inp} required />

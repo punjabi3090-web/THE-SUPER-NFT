@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 import { Switch, Route, useLocation } from "wouter";
 import LoginPage from "./pages/LoginPage";
 import Home from "./pages/Home";
@@ -22,21 +22,20 @@ import MyHistory from "./pages/MyHistory";
 import ReserveHistory from "./pages/ReserveHistory";
 import MyTeam from "./pages/MyTeam";
 import {
-  initializeApp, getCurrentUser, getCurrentUserId,
-  processDeposit, submitWithdrawalRequest, WithdrawResult,
-  getAdminNotifications, markNotifRead, markAllNotifsRead,
-  type AdminNotif, type User,
-} from "./lib/store";
+  getCurrentUserId, getCurrentUser, submitWithdrawalRequest,
+  getNotifications, markNotifRead, markAllNotifsRead,
+  type AdminNotif, type User, type WithdrawResult,
+} from "./lib/api";
 import './index.css';
 
-// ── Context ────────────────────────────────────────────────────────────────
+// ── Context ─────────────────────────────────────────────────────────────────
 
 interface AppCtx {
   user: User | null;
   balance: number;
   refresh: () => void;
   addDeposit: (amount: number, network: string) => void;
-  requestWithdraw: (amount: number) => WithdrawResult;
+  requestWithdraw: (amount: number) => Promise<WithdrawResult>;
   notifications: AdminNotif[];
   unreadCount: number;
   markNotificationRead: (id: number) => void;
@@ -51,56 +50,56 @@ export function useBalance() {
   return ctx;
 }
 
-// legacy helpers still referenced in a few places
+// legacy shim referenced by a few pages
 export const TEST_MODE = false;
 export const testUser  = { uid: 'SUPER000000', name: 'User', team: { rewards:0, valid:0, a:0, bc:0 }, orders: { total:0, processing:0, bought:0, sold:0 } };
 
-// ── Provider ───────────────────────────────────────────────────────────────
+// ── Provider ─────────────────────────────────────────────────────────────────
 
 function AppProvider({ children }: { children: ReactNode }) {
   const [tick, setTick] = useState(0);
+  const [user, setUser] = useState<User | null>(null);
+  const [notifications, setNotifications] = useState<AdminNotif[]>([]);
+
   const refresh = useCallback(() => setTick(t => t + 1), []);
 
-  const user  = useMemo(() => getCurrentUser(), [tick]);
-  const balance = user?.walletBalance ?? 0;
+  useEffect(() => {
+    getCurrentUser().then(u => setUser(u));
+  }, [tick]);
 
+  useEffect(() => {
+    getNotifications().then(n => setNotifications(n));
+  }, [tick]);
+
+  const balance = user?.walletBalance ?? 0;
   const uid = getCurrentUserId();
 
-  const notifications = useMemo(() => {
-    const n = getAdminNotifications();
-    if (!uid) return n;
-    return n;
-  }, [tick, uid]);
+  const unreadCount = notifications.filter(n => !n.read.includes("_all_")).length;
 
-  const unreadCount = useMemo(() => {
-    if (!uid) return 0;
-    return notifications.filter(n => !n.read.includes(uid)).length;
-  }, [notifications, uid]);
+  const addDeposit = useCallback((_amount: number, _network: string) => {
+    // Admin handles deposits from the admin panel
+  }, []);
 
-  const addDeposit = useCallback((amount: number, network: string) => {
-    const id = getCurrentUserId();
-    if (!id) return;
-    processDeposit(id, amount, network);
-    refresh();
-  }, [refresh]);
-
-  const requestWithdraw = useCallback((amount: number): WithdrawResult => {
+  const requestWithdraw = useCallback(async (amount: number): Promise<WithdrawResult> => {
     const id = getCurrentUserId();
     if (!id) return 'insufficient';
-    const result = submitWithdrawalRequest(id, amount);
+    const result = await submitWithdrawalRequest(id, amount);
     if (result === 'ok') refresh();
     return result;
   }, [refresh]);
 
   const markNotificationRead = useCallback((id: number) => {
-    const userId = getCurrentUserId();
-    if (userId) { markNotifRead(id, userId); refresh(); }
-  }, [refresh]);
+    markNotifRead(id);
+    setNotifications(prev => prev.map(n =>
+      n.id === id ? { ...n, read: ['_all_'] } : n
+    ));
+  }, []);
 
   const markAllRead = useCallback(() => {
-    const userId = getCurrentUserId();
-    if (userId) { markAllNotifsRead(userId); refresh(); }
-  }, [refresh]);
+    const ids = notifications.map(n => n.id);
+    markAllNotifsRead(ids);
+    setNotifications(prev => prev.map(n => ({ ...n, read: ['_all_'] })));
+  }, [notifications]);
 
   return (
     <AppContext.Provider value={{
@@ -114,17 +113,12 @@ function AppProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// ── Routes ─────────────────────────────────────────────────────────────────
+// ── Routes ───────────────────────────────────────────────────────────────────
 
 function Routes() {
   const [location, setLocation] = useLocation();
 
   useEffect(() => {
-    initializeApp();
-  }, []);
-
-  useEffect(() => {
-    // Skip auth check for admin routes
     if (location.startsWith('/admin')) return;
     const uid = getCurrentUserId();
     if (!uid && location !== '/login') setLocation('/login');

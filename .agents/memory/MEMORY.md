@@ -1,0 +1,1 @@
+- [NFT DB Migration](nft-db-migration.md) — app uses PostgreSQL for all user/admin data; store.ts re-exports api.ts for compat
