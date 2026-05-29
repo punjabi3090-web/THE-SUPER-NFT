@@ -21,7 +21,7 @@ export default function Assets() {
           <button
             onClick={() => setLocation('/deposit')}
             className="flex-1 text-white py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5"
-            style={{ background: '#1A1A1A' }}
+            style={{ background: '#1E3A8A' }}
           >
             <ArrowDownCircle size={18} /> Deposit
           </button>

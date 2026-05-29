@@ -1,0 +1,90 @@
+6 MAJOR UPDATES - DARK BLUE THEME + LOGIN BG + DEMO MODE
+
+====================================
+TASK 1: COLOR SCHEME - DARK BLUE REPLACE
+====================================
+BLACK COLORS → DARK BLUE
+
+REMOVE: #000000, #1A1A1A, #2D2D2D, #333333
+ADD: 
+- Primary: #1E3A8A    ← Buttons, Active
+- Dark: #1E293B       ← Text
+- Hover: #1E40AF      ← Button hover
+- Light BG: #EFF6FF   ← Cards
+- Border: #BFDBFE     ← Inputs
+
+REPLACE ALL:
+Buttons, Active Tab, ROI %, My Order Numbers → #1E3A8A
+KEEP: Blue #4285F4, Orange #FBBC04, Red #EA4335
+
+====================================
+TASK 2: LOGIN PAGE - DARK BLUE GRADIENT BG
+====================================
+LOGIN PAGE KA WHITE BACKGROUND HATAO
+
+NEW BACKGROUND:
+background: linear-gradient(135deg, #1E3A8A 0%, #1E40AF 50%, #2563EB 100%);
+
+DESIGN:
+- Full screen gradient dark blue
+- Center me white card rahega login form ke liye
+- Card: background #FFFFFF, border-radius: 16px, padding: 32px
+- Shadow: 0 20px 60px rgba(30, 58, 138, 0.3)
+
+WRITING TOOLS CLEAR DIKHEN:
+- Logo: White ya #FFFFFF
+- Heading "Login": #1E293B, 24px, font-weight 700
+- Labels: #1E293B, 14px, font-weight 600
+- Input fields: 
+    - Border: 1px solid #BFDBFE
+    - Focus border: #1E3A8A
+    - Text: #1E293B
+    - Placeholder: #94A3B8
+- Login Button: BG #1E3A8A, text #FFFFFF
+- Link text "Forgot password": #1E40AF
+- Error text: #EA4335
+
+ENSURE CONTRAST:
+- White card ke upar sab text dark blue #1E293B
+- Background gradient ke upar sirf white card
+- Sab kuch clearly readable hona chahiye
+
+MOBILE RESPONSIVE:
+- Card width: 90%, max-width: 400px
+- Margin: 20px auto
+
+====================================
+TASK 3: HOME PAGE - LEVEL + MY ORDER
+====================================
+1. Level Badge: Text #1E293B, Border #BFDBFE
+2. My Order: Numbers #1E3A8A
+   DEMO: Total 4 | Bought 3 | Sold 1
+
+====================================
+TASK 4: ASSETS PAGE
+====================================
+- "My NFTs" delete
+- "History" + 200px khali
+
+====================================
+TASK 5: BOTTOM NAV - FIXED
+====================================
+Active: #1E3A8A, fixed bottom
+
+====================================
+TASK 6: RESERVE PAGE - DEMO NFT
+====================================
+DEMO MODE: LocalStorage
+- Confirm/Sell Button: #1E3A8A
+- ROI %: #1E3A8A
+- Buy/Sell → My Order update
+
+DEMO DATA:
+localStorage.setItem('userLevel', '2');
+localStorage.setItem('walletBalance', '111.50');
+localStorage.setItem('nftOrders', JSON.stringify({bought: 3, sold: 1, total: 4}));
+localStorage.setItem('userNFTs', JSON.stringify([
+  {id: 1, level: 2, buyPrice: 100, buyDate: '2026-05-27'},
+  {id: 2, level: 2, buyPrice: 100, buyDate: '2026-05-26'}
+]));
+====================================

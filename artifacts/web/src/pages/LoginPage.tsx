@@ -338,17 +338,17 @@ export default function LoginPage() {
     }
   };
 
-  const inputClass = "w-full bg-slate-50 text-slate-900 px-4 py-3 rounded-lg border border-slate-300 focus:border-slate-400 outline-none text-base";
+  const inputClass = "w-full bg-white text-[#1E293B] px-4 py-3 rounded-lg border border-[#BFDBFE] focus:border-[#1E3A8A] outline-none text-base placeholder:text-slate-400";
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-8" style={{background: 'linear-gradient(135deg, #f8fafc 0%, #d1fae5 100%)'}}>
+    <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #1E3A8A 0%, #1E40AF 50%, #2563EB 100%)', padding: '20px' }}>
       <Popup popup={popup} />
 
-      <div className="bg-white p-6 md:p-8 rounded-2xl shadow-2xl w-full max-w-md border border-slate-200">
+      <div style={{ background: '#FFFFFF', borderRadius: 16, padding: 32, boxShadow: '0 20px 60px rgba(30,58,138,0.3)', width: '90%', maxWidth: 400 }}>
         <div className="text-center mb-6">
-          <img src="/logo.png" alt="Logo" className="w-16 h-16 mx-auto mb-3 rounded-xl object-cover" />
-          <h1 className="text-3xl font-bold text-slate-900">THE SUPER NFT</h1>
-          <p className="text-[#333333] text-sm mt-1 font-medium">Welcome to Community World</p>
+          <img src="/images/logo.png" alt="Logo" className="w-16 h-16 mx-auto mb-3 rounded-xl object-cover" />
+          <h1 className="text-3xl font-bold" style={{ color: '#1E293B' }}>THE SUPER NFT</h1>
+          <p className="text-sm mt-1 font-medium" style={{ color: '#1E293B' }}>Welcome to Community World</p>
         </div>
 
         {page === "register" && (
@@ -361,13 +361,13 @@ export default function LoginPage() {
               <select
                 value={formData.countryCode}
                 onChange={(e) => setFormData({...formData, countryCode: e.target.value})}
-                className="w-24 bg-slate-50 text-slate-900 px-2 py-3 rounded-lg border border-slate-300 focus:border-slate-400 outline-none text-sm"
+                className="w-24 bg-white text-[#1E293B] px-2 py-3 rounded-lg border border-[#BFDBFE] focus:border-[#1E3A8A] outline-none text-sm"
               >
                 {countries.map(c => (
                   <option key={c.code + c.name} value={c.code}>{c.flag} {c.code}</option>
                 ))}
               </select>
-              <input type="tel" placeholder="Phone Number" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="flex-1 bg-slate-50 text-slate-900 px-4 py-3 rounded-lg border border-slate-300 focus:border-slate-400 outline-none text-base" required />
+              <input type="tel" placeholder="Phone Number" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="flex-1 bg-white text-[#1E293B] px-4 py-3 rounded-lg border border-[#BFDBFE] focus:border-[#1E3A8A] outline-none text-base placeholder:text-slate-400" required />
             </div>
             <div className="relative">
               <input type={showPassword ? "text" : "password"} placeholder="Password" value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} className={inputClass} required />
@@ -387,7 +387,7 @@ export default function LoginPage() {
             </button>
             <p className="text-center text-sm text-slate-600">
               Already have account?{" "}
-              <button type="button" onClick={() => setPage("login")} className="text-[#1A1A1A] font-semibold">Login Accounts</button>
+              <button type="button" onClick={() => setPage("login")} className="font-semibold" style={{ color: '#1E40AF' }}>Login Accounts</button>
             </p>
           </form>
         )}
@@ -423,14 +423,14 @@ export default function LoginPage() {
               </button>
             </div>
             <div className="text-right">
-              <button type="button" onClick={() => setPage("forgot")} className="text-sm text-[#333333] hover:text-[#1A1A1A]">Forgot Password?</button>
+              <button type="button" onClick={() => setPage("forgot")} className="text-sm" style={{ color: '#1E40AF' }}>Forgot Password?</button>
             </div>
             <button type="submit" disabled={loading} className="w-full btn-green py-3 rounded-lg font-semibold shadow-lg disabled:opacity-50 text-base">
               {loading ? "Logging In..." : "Login Accounts"}
             </button>
             <p className="text-center text-sm text-slate-600">
               Don't have account?{" "}
-              <button type="button" onClick={() => setPage("register")} className="text-[#1A1A1A] font-semibold">Register Now</button>
+              <button type="button" onClick={() => setPage("register")} className="font-semibold" style={{ color: '#1E40AF' }}>Register Now</button>
             </p>
           </form>
         )}

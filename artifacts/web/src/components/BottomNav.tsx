@@ -48,7 +48,7 @@ export default function BottomNav() {
               gap: 2,
               background: 'none',
               border: 'none',
-              borderTop: active ? '2px solid #1A1A1A' : '2px solid transparent',
+              borderTop: active ? '2px solid #1E3A8A' : '2px solid transparent',
               cursor: 'pointer',
               padding: '8px 0',
               marginTop: active ? -2 : 0,
@@ -57,12 +57,12 @@ export default function BottomNav() {
             <Icon
               size={22}
               strokeWidth={active ? 2.5 : 2}
-              color={active ? '#1A1A1A' : '#999999'}
+              color={active ? '#1E3A8A' : '#999999'}
             />
             <span style={{
               fontSize: 11,
               fontWeight: active ? 600 : 500,
-              color: active ? '#1A1A1A' : '#999999',
+              color: active ? '#1E3A8A' : '#999999',
             }}>
               {n.label}
             </span>

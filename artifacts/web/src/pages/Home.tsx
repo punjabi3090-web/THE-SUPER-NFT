@@ -14,19 +14,19 @@ export default function Home() {
       {TEST_MODE && <div className="bg-yellow-100 text-yellow-800 text-xs text-center py-1 font-medium">🧪 Test Mode</div>}
 
       {/* Wallet Balance Card */}
-      <div className="mx-4 mt-4 rounded-2xl p-5 text-white shadow-md" style={{ background: 'linear-gradient(135deg, #1A1A1A 0%, #2D2D2D 100%)' }}>
+      <div className="mx-4 mt-4 rounded-2xl p-5 text-white shadow-md" style={{ background: 'linear-gradient(135deg, #1E3A8A 0%, #1E40AF 100%)' }}>
         <p className="text-sm opacity-90">Wallet Balance (USDT)</p>
         <h1 className="text-3xl font-bold mt-1">${balance.toFixed(2)}</h1>
         {/* Level Badge — pill shape */}
         <div style={{
           display: 'inline-flex', alignItems: 'center', gap: 6,
-          background: '#FFFFFF', border: '1px solid #E0E0E0',
+          background: '#FFFFFF', border: '1px solid #BFDBFE',
           borderRadius: 20, padding: '6px 14px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.08)', marginTop: 8,
+          boxShadow: '0 1px 3px rgba(30,58,138,0.12)', marginTop: 8,
         }}>
-          <Trophy size={18} color="#333333" />
-          <span style={{ fontSize: 13, fontWeight: 500, color: '#333333' }}>Level 0</span>
-          <ChevronRight size={14} color="#333333" />
+          <Trophy size={18} color="#1E293B" />
+          <span style={{ fontSize: 13, fontWeight: 500, color: '#1E293B' }}>Level 0</span>
+          <ChevronRight size={14} color="#1E293B" />
         </div>
       </div>
 
@@ -72,15 +72,14 @@ export default function Home() {
           <h3 className="font-semibold text-slate-800">My Orders</h3>
           <button onClick={() => console.log('check orders')} className="text-sm text-gray-400">Check Orders &gt;</button>
         </div>
-        <div className="grid grid-cols-4 text-center gap-2 mb-4">
+        <div className="grid grid-cols-3 text-center gap-2 mb-4">
           {[
-            { val: testUser.orders.total, label: "Orders" },
-            { val: testUser.orders.processing, label: "Processing" },
-            { val: testUser.orders.bought, label: "Bought" },
-            { val: testUser.orders.sold, label: "Sold" },
+            { val: 4, label: "Total" },
+            { val: 3, label: "Bought" },
+            { val: 1, label: "Sold" },
           ].map(item => (
             <div key={item.label}>
-              <p className="text-lg font-bold text-slate-800">{item.val}</p>
+              <p className="text-lg font-bold" style={{ color: '#1E3A8A' }}>{item.val}</p>
               <p className="text-gray-400 text-xs mt-0.5">{item.label}</p>
             </div>
           ))}

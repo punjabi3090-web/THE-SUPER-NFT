@@ -1,28 +1,48 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Header from "../components/Header";
 import BottomNav from "../components/BottomNav";
 import { TEST_MODE, useBalance } from "../App";
 
 type TabKey = "today" | "reserve" | "collection";
 
+type UserNFT = { id: number; level: number; buyPrice: number; buyDate: string };
+
+function initDemoData() {
+  if (!localStorage.getItem('userLevel'))    localStorage.setItem('userLevel', '2');
+  if (!localStorage.getItem('walletBalance')) localStorage.setItem('walletBalance', '111.50');
+  if (!localStorage.getItem('nftOrders'))
+    localStorage.setItem('nftOrders', JSON.stringify({ bought: 3, sold: 1, total: 4 }));
+  if (!localStorage.getItem('userNFTs'))
+    localStorage.setItem('userNFTs', JSON.stringify([
+      { id: 1, level: 2, buyPrice: 100, buyDate: '2026-05-27' },
+      { id: 2, level: 2, buyPrice: 100, buyDate: '2026-05-26' },
+    ]));
+}
+
 const STATS = (balance: number) => [
-  { label: "Today Earnings",        value: "0",          border: "#4285F4" },
-  { label: "Cumulative Income",     value: "0",          border: "#2D2D2D" },
-  { label: "Team Benefits",         value: "0",          border: "#9AA0A6" },
-  { label: "Reservation range",     value: "1 ~ 1,000",  border: "#FBBC04" },
-  { label: "Wallet Balance",        value: `$${balance.toFixed(2)}`, border: "#00BCD4" },
+  { label: "Today Earnings",          value: "0",                   border: "#4285F4" },
+  { label: "Cumulative Income",       value: "0",                   border: "#1E3A8A" },
+  { label: "Team Benefits",           value: "0",                   border: "#9AA0A6" },
+  { label: "Reservation range",       value: "1 ~ 1,000",           border: "#FBBC04" },
+  { label: "Wallet Balance",          value: `$${balance.toFixed(2)}`, border: "#00BCD4" },
   { label: "Balance for Reservation", value: `$${balance.toFixed(2)}`, border: "#202124" },
 ];
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "today",      label: "Today's"   },
   { key: "reserve",    label: "Reserve"   },
-  { key: "collection", label: "Collection"},
+  { key: "collection", label: "Collection" },
 ];
 
 export default function Reserve() {
   const { balance } = useBalance();
-  const [tab, setTab] = useState<TabKey>("today");
+  const [tab, setTab]         = useState<TabKey>("today");
+  const [userNFTs, setUserNFTs] = useState<UserNFT[]>([]);
+
+  useEffect(() => {
+    initDemoData();
+    setUserNFTs(JSON.parse(localStorage.getItem('userNFTs') || '[]'));
+  }, []);
 
   return (
     <div className="pb-20 max-w-md mx-auto bg-gray-50 min-h-screen">
@@ -33,7 +53,7 @@ export default function Reserve() {
         </div>
       )}
 
-      {/* ── 6 Stats Cards — 2x3 grid ─────────────────────────────────── */}
+      {/* ── 6 Stats Cards — 2×3 grid ─────────────────────────────────── */}
       <div className="px-4 mt-4" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         {STATS(balance).map(stat => (
           <div
@@ -47,7 +67,7 @@ export default function Reserve() {
             }}
           >
             <p style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>{stat.label}</p>
-            <p style={{ fontSize: 24, fontWeight: 700, color: '#000', lineHeight: 1.1 }}>{stat.value}</p>
+            <p style={{ fontSize: 22, fontWeight: 700, color: '#1E293B', lineHeight: 1.1 }}>{stat.value}</p>
           </div>
         ))}
       </div>
@@ -65,8 +85,8 @@ export default function Reserve() {
                 padding: '12px 0',
                 fontSize: 14,
                 fontWeight: tab === t.key ? 600 : 400,
-                color: tab === t.key ? '#1a73e8' : '#666',
-                borderBottom: tab === t.key ? '2px solid #1a73e8' : '2px solid transparent',
+                color: tab === t.key ? '#1E3A8A' : '#666',
+                borderBottom: tab === t.key ? '2px solid #1E3A8A' : '2px solid transparent',
                 background: 'none',
                 cursor: 'pointer',
                 transition: 'color 0.15s',
@@ -77,8 +97,33 @@ export default function Reserve() {
           ))}
         </div>
 
-        {/* Tab content — completely empty */}
-        <div style={{ height: 200 }} />
+        {/* Tab content */}
+        {tab === 'collection' && userNFTs.length > 0 ? (
+          <div className="p-4 space-y-3">
+            {userNFTs.map(nft => (
+              <div key={nft.id} className="flex items-center justify-between bg-[#EFF6FF] rounded-xl p-4 border border-[#BFDBFE]">
+                <div>
+                  <p className="font-semibold text-[#1E293B] text-sm">NFT #{nft.id} · Level {nft.level}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Bought: {new Date(nft.buyDate).toLocaleDateString()}</p>
+                  <p className="text-xs font-semibold mt-0.5" style={{ color: '#1E3A8A' }}>
+                    ROI: 12% APY
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="font-bold text-[#1E293B]">${nft.buyPrice}</p>
+                  <button
+                    className="mt-2 px-4 py-1.5 rounded-lg text-white text-xs font-bold"
+                    style={{ background: '#1E3A8A' }}
+                  >
+                    Sell
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ height: 200 }} />
+        )}
       </div>
 
       <BottomNav />

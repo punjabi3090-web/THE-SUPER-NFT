@@ -42,7 +42,7 @@ export default function Deposit() {
       {TEST_MODE && <div className="bg-yellow-100 text-yellow-800 text-xs text-center py-1 font-medium">🧪 Test Mode</div>}
 
       {popup === "success" && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 text-white px-6 py-3 rounded-xl shadow-lg font-semibold text-sm" style={{ background: '#1A1A1A' }}>
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 text-white px-6 py-3 rounded-xl shadow-lg font-semibold text-sm" style={{ background: '#1E3A8A' }}>
           ✅ Deposit successful! Balance updated.
         </div>
       )}
@@ -67,13 +67,13 @@ export default function Deposit() {
       <div className="flex mx-4 mt-4 mb-4 bg-white rounded-xl overflow-hidden shadow-sm">
         <button
           onClick={() => setActiveTab("deposit")}
-          className={`flex-1 py-2.5 text-sm font-semibold transition-all ${activeTab === "deposit" ? "bg-[#1A1A1A] text-white" : "text-slate-500"}`}
+          className={`flex-1 py-2.5 text-sm font-semibold transition-all ${activeTab === "deposit" ? "bg-[#1E3A8A] text-white" : "text-slate-500"}`}
         >
           Deposit
         </button>
         <button
           onClick={() => setActiveTab("records")}
-          className={`flex-1 py-2.5 text-sm font-semibold transition-all ${activeTab === "records" ? "bg-[#1A1A1A] text-white" : "text-slate-500"}`}
+          className={`flex-1 py-2.5 text-sm font-semibold transition-all ${activeTab === "records" ? "bg-[#1E3A8A] text-white" : "text-slate-500"}`}
         >
           Records ({deposits.length})
         </button>
@@ -88,7 +88,7 @@ export default function Deposit() {
                 key={net.name}
                 onClick={() => setActiveNet(net)}
                 className={`flex-1 py-2 rounded-full text-sm font-semibold transition-all ${
-                  activeNet.name === net.name ? "bg-[#1A1A1A] text-white shadow-md" : "bg-white text-slate-500 border border-slate-200"
+                  activeNet.name === net.name ? "bg-[#1E3A8A] text-white shadow-md" : "bg-white text-slate-500 border border-slate-200"
                 }`}
               >
                 {net.name}
@@ -109,7 +109,7 @@ export default function Deposit() {
             <p className="text-xs font-mono text-slate-600 break-all px-2 mb-3">{activeNet.address.substring(0, 26)}...</p>
             <button
               onClick={handleCopy}
-              className="flex items-center gap-2 mx-auto bg-slate-100 hover:bg-slate-200 text-[#1A1A1A] text-sm font-semibold px-5 py-2 rounded-full"
+              className="flex items-center gap-2 mx-auto bg-[#EFF6FF] hover:bg-[#BFDBFE] text-[#1E3A8A] text-sm font-semibold px-5 py-2 rounded-full"
             >
               {copied ? <Check size={15} /> : <Copy size={15} />}
               {copied ? "Copied!" : "Copy Address"}
@@ -126,7 +126,7 @@ export default function Deposit() {
                   key={q}
                   onClick={() => { setAmount(String(q)); console.log('quick amount', q); }}
                   className={`flex-1 py-1.5 rounded-lg text-sm font-semibold border transition-all ${
-                    amount === String(q) ? "bg-[#1A1A1A] text-white border-[#1A1A1A]" : "bg-slate-50 text-slate-600 border-slate-200"
+                    amount === String(q) ? "bg-[#1E3A8A] text-white border-[#1E3A8A]" : "bg-slate-50 text-slate-600 border-slate-200"
                   }`}
                 >
                   ${q}
@@ -150,7 +150,7 @@ export default function Deposit() {
           <div className="px-4 pb-6">
             <button
               onClick={handleSubmit}
-              className="w-full text-white font-bold py-3.5 rounded-2xl shadow-lg flex items-center justify-center gap-2" style={{ background: '#1A1A1A' }}
+              className="w-full text-white font-bold py-3.5 rounded-2xl shadow-lg flex items-center justify-center gap-2" style={{ background: '#1E3A8A' }}
             >
               <Plus size={18} /> Confirm Deposit
             </button>

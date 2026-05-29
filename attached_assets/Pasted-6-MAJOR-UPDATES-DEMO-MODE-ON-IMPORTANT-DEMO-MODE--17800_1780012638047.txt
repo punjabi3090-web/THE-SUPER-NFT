@@ -1,0 +1,97 @@
+6 MAJOR UPDATES - DEMO MODE ON
+
+====================================
+IMPORTANT: DEMO MODE
+====================================
+ABHI KE LIYE SAB KUCH DEMO/TEST MODE ME BANANA HAI
+- Real wallet se paise deduct nahi honge
+- Dummy data use karna hai
+- Local state ya localStorage me save karna hai
+- Baad me real API connect karenge
+
+====================================
+TASK 1: HOME PAGE - LEVEL + MY ORDER
+====================================
+1. LEVEL BADGE: Wallet ke neeche "Level 2 >" pill
+   - Abhi hardcoded Level 2 dikhana hai
+   - LocalStorage: userLevel = 2
+
+2. MY ORDER CARD:
+   - Total Order | Bought | Sold
+   - DEMO DATA: Total: 4, Bought: 3, Sold: 1
+   - LocalStorage me save: nftOrders = {bought: 3, sold: 1}
+   - Real-time update hona chahiye jab buy/sell ho
+
+====================================
+TASK 2: ASSETS PAGE
+====================================
+- "My NFTs" delete karo
+- "History" title + 200px khali space
+
+====================================
+TASK 3: BOTTOM NAV - FIXED
+====================================
+Home | Reserve | Stake | Asset | My
+- Fixed bottom, no scroll, equal space
+
+====================================
+TASK 4: RESERVE PAGE - DEMO NFT SYSTEM
+====================================
+TABS: Today's | Reserve | Collection
+
+DEMO MODE LOGIC:
+
+RESERVE TAB:
+1. Level dropdown: LocalStorage se read karo, default LV2
+   - Disabled rahega, user change nahi kar sakta
+2. ROI Display: LV2 = 2.1-2.3%
+3. Token: USDT selected
+4. Confirm Button Click:
+
+   DEMO BUY FLOW:
+   - Alert/Modal: "Purchase Successful"
+   - Dummy NFT create karo: {id: 1, level: 2, buyPrice: 100, buyDate: now}
+   - LocalStorage me add: userNFTs.push(nft)
+   - Wallet Balance se $100 minus KARO SIRF UI ME, real nahi
+   - My Order update: Bought +1, Total +1
+   - Success modal dikhao + "Go to Collection" button
+
+COLLECTION TAB:
+1. LocalStorage se userNFTs read karo
+2. Har NFT card dikhao:
+   - Level: LV2
+   - Buy Price: $100
+   - Current Value: Calculate karo
+     DEMO FORMULA: $100 + ($100 * 2.2% * 1 day) = $102.20
+   - [Sell Now] button
+
+   DEMO SELL FLOW:
+   - Confirm: "Sell for $102.20?"
+   - Yes pe:
+     1. NFT localStorage se delete
+     2. Wallet Balance UI me +$102.20 add karo
+     3. My Order update: Sold +1, Total +1
+     4. Toast: "Sold Successfully +$2.20 Profit"
+
+ROI GREEN → #1A1A1A karna hai
+
+====================================
+TASK 5: GREEN COLOR GLOBAL
+====================================
+Green → #1A1A1A
+
+====================================
+TASK 6: DEMO DATA SETUP
+====================================
+Page load pe ye dummy data set karo localStorage me:
+
+localStorage.setItem('userLevel', '2');
+localStorage.setItem('walletBalance', '111.50');
+localStorage.setItem('nftOrders', JSON.stringify({bought: 3, sold: 1, total: 4}));
+localStorage.setItem('userNFTs', JSON.stringify([
+  {id: 1, level: 2, buyPrice: 100, buyDate: '2026-05-27'},
+  {id: 2, level: 2, buyPrice: 100, buyDate: '2026-05-26'}
+]));
+
+TAKEE TEST KARTE WAQT PEHLE SE 2 NFT COLLECTION ME HON
+====================================
