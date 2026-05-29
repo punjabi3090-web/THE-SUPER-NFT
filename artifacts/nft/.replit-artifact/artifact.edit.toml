@@ -1,0 +1,17 @@
+kind = "web"
+previewPath = "/nft"
+title = "THE SUPER NFT"
+version = "1.0.0"
+id = "artifacts/nft"
+router = "path"
+
+[[services]]
+name = "nft"
+paths = [ "/nft" ]
+localPort = 3456
+
+[services.development]
+run = "pnpm --filter @workspace/nft run dev"
+
+[services.env]
+PORT = "3456"

@@ -219,19 +219,18 @@ function showToast(msg, type) {
 // ═══════════════════════════════════════════════
 let _page = 'login';
 let _params = {};
-let _isAdminMode = false;
 
 function navigate(page, params) {
   _page = page;
   _params = params || {};
-  if (page.startsWith('admin')) _isAdminMode = true;
   renderApp();
 }
 
 function renderApp() {
   const root = document.getElementById('root');
   if (!root) return;
-  root.innerHTML = _isAdminMode ? buildAdminPage(_page) : buildUserPage(_page);
+  const isAdminArea = window.location.pathname.includes('admin') || _page.startsWith('admin');
+  root.innerHTML = isAdminArea ? buildAdminPage(_page) : buildUserPage(_page);
   bindEvents();
 }
 
@@ -969,10 +968,7 @@ function deleteUser(userId) {
 
 function adminLogout() {
   localStorage.removeItem('adminLoggedIn');
-  _isAdminMode = false;
-  window.location.hash = '';
-  _page = 'login';
-  renderApp();
+  navigate('admin-login');
 }
 
 // ═══════════════════════════════════════════════
@@ -1021,8 +1017,6 @@ function bindEvents() {
       const email = val('a-email'), pass = val('a-pass');
       if (email === ADMIN_EMAIL && pass === ADMIN_PASS) {
         localStorage.setItem('adminLoggedIn', 'true');
-        window.location.hash = '#admin';
-        _isAdminMode = true;
         navigate('admin-dashboard');
       } else {
         showToast('Invalid credentials','error');
@@ -1207,9 +1201,9 @@ function togglePw(inputId, btnId) {
 //  INIT
 // ═══════════════════════════════════════════════
 (function init() {
-  const isAdmin = window.location.hash.includes('admin') || window.location.pathname.includes('admin') || window.location.search.includes('admin=1');
+  const path = window.location.pathname;
+  const isAdmin = path.includes('admin');
   if (isAdmin) {
-    _isAdminMode = true;
     if (localStorage.getItem('adminLoggedIn')) navigate('admin-dashboard');
     else navigate('admin-login');
   } else {
@@ -1217,11 +1211,6 @@ function togglePw(inputId, btnId) {
     if (uid && getUsers().find(u => u.userId === uid)) navigate('home');
     else navigate('login');
   }
-  window.addEventListener('hashchange', () => {
-    const nowAdmin = window.location.hash.includes('admin');
-    if (nowAdmin && !_isAdminMode) { _isAdminMode = true; navigate('admin-login'); }
-    else if (!nowAdmin && _isAdminMode) { _isAdminMode = false; navigate('login'); }
-  });
 })();
 </script>
 </body>
