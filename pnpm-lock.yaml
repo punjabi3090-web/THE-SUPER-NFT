@@ -414,6 +414,8 @@ importers:
         specifier: 'catalog:'
         version: 3.25.76
 
+  artifacts/nft: {}
+
   artifacts/web:
     devDependencies:
       '@hookform/resolvers':

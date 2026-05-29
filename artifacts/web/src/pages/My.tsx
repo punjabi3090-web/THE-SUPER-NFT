@@ -32,10 +32,11 @@ export default function My() {
   const [copied, setCopied] = useState(false);
   const { balance, user } = useBalance();
 
-  const handleCopyRef = () => {
-    if (user?.referralCode) {
-      navigator.clipboard.writeText(user.referralCode);
-      setCopied(true); setTimeout(() => setCopied(false), 2000);
+  const handleCopyUID = () => {
+    if (user?.userId) {
+      navigator.clipboard.writeText(user.userId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     }
   };
 
@@ -56,15 +57,13 @@ export default function My() {
           </div>
           <div>
             <p className="font-semibold text-slate-800">{user?.name || 'User'}</p>
-            <p className="text-xs text-slate-400">{user?.email || '—'}</p>
-            {user?.referralCode && (
-              <div className="flex items-center gap-1 mt-0.5">
-                <p className="text-xs text-blue-600 font-medium">Ref: {user.referralCode}</p>
-                <button onClick={handleCopyRef} style={{ color: '#1E3A8A' }}>
-                  {copied ? <Check size={12} /> : <Copy size={12} />}
-                </button>
-              </div>
-            )}
+            <div className="flex items-center gap-1 mt-0.5">
+              <p className="text-xs text-gray-400">UID: {user?.userId || '—'}</p>
+              <button onClick={handleCopyUID} className="text-slate-400 hover:text-blue-600 transition-colors ml-0.5">
+                {copied ? <Check size={11} className="text-emerald-500" /> : <Copy size={11} />}
+              </button>
+              {copied && <span className="text-[10px] text-emerald-500 font-medium">Copied!</span>}
+            </div>
           </div>
           <div className="ml-auto text-right">
             <p className="text-xs text-slate-400">Level</p>

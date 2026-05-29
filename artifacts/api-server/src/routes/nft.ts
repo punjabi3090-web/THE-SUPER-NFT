@@ -2,6 +2,7 @@ import { Router, type IRouter, type Request, type Response, type NextFunction } 
 import { eq, desc, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import nodemailer from "nodemailer";
 import {
   db,
   nftUsers, nftSettings, nftReferrals, nftWithdrawals,
@@ -119,7 +120,19 @@ router.post("/auth/register", async (req: Request, res: Response): Promise<void>
 
   const passwordHash = await bcrypt.hash(password, 10);
   const myReferralCode = await genReferralCode(name);
-  const joinedWithCode = referralCode?.trim() || null;
+
+  // Accept ?ref=userId (all digits) OR ?ref=referralCode (alphanumeric)
+  let joinedWithCode: string | null = null;
+  const refParam = referralCode?.trim();
+  if (refParam) {
+    if (/^\d+$/.test(refParam)) {
+      const [referrer] = await db.select({ myReferralCode: nftUsers.myReferralCode })
+        .from(nftUsers).where(eq(nftUsers.id, parseInt(refParam)));
+      if (referrer) joinedWithCode = referrer.myReferralCode;
+    } else {
+      joinedWithCode = refParam;
+    }
+  }
 
   const [user] = await db.insert(nftUsers).values({
     email: email.toLowerCase(),
@@ -169,6 +182,90 @@ router.post("/auth/login", async (req: Request, res: Response): Promise<void> =>
 
   req.log.info({ userId: user.id, email }, "NFT user logged in");
   res.json({ user: mapUser({ ...user, lastLogin: new Date() }) });
+});
+
+// POST /api/nft/auth/forgot-password
+router.post("/auth/forgot-password", async (req: Request, res: Response): Promise<void> => {
+  const { email } = req.body;
+  if (!email?.trim()) { res.status(400).json({ error: "Email required" }); return; }
+
+  const [user] = await db.select({ id: nftUsers.id, email: nftUsers.email, name: nftUsers.name })
+    .from(nftUsers).where(eq(nftUsers.email, email.toLowerCase().trim()));
+
+  // Always return ok — never reveal if email exists
+  if (!user) { res.json({ ok: true }); return; }
+
+  const token = crypto.randomBytes(32).toString("hex");
+  const expiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+  await db.update(nftUsers)
+    .set({ resetToken: token, resetTokenExpiry: expiry })
+    .where(eq(nftUsers.id, user.id));
+
+  const appUrl = process.env["APP_URL"] || "https://34us.pike.replit.dev";
+  const resetUrl = `${appUrl}/reset-password?token=${token}`;
+
+  const emailUser = process.env["EMAIL_USER"];
+  const emailPass = process.env["EMAIL_PASS"];
+
+  if (emailUser && emailPass) {
+    try {
+      const transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: { user: emailUser, pass: emailPass },
+      });
+      await transporter.sendMail({
+        from: `"THE SUPER NFT" <${emailUser}>`,
+        to: user.email,
+        subject: "Password Reset - THE SUPER NFT",
+        html: `
+          <div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;background:#f8f9fa;border-radius:12px;padding:32px;">
+            <h2 style="color:#1E3A8A;text-align:center;">THE SUPER NFT</h2>
+            <p style="color:#333;">Hi <strong>${user.name}</strong>,</p>
+            <p style="color:#555;">We received a request to reset your password. Click the button below to set a new password:</p>
+            <div style="text-align:center;margin:28px 0;">
+              <a href="${resetUrl}" style="background:#1E3A8A;color:white;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:16px;">Reset Password</a>
+            </div>
+            <p style="color:#888;font-size:13px;">This link expires in <strong>1 hour</strong>. If you didn't request this, you can safely ignore this email.</p>
+            <hr style="border:none;border-top:1px solid #eee;margin:24px 0;" />
+            <p style="color:#bbb;font-size:11px;text-align:center;">THE SUPER NFT · Community World</p>
+          </div>
+        `,
+      });
+      req.log.info({ userId: user.id }, "Password reset email sent");
+    } catch (e) {
+      req.log.error({ err: e }, "Failed to send reset email");
+      req.log.info({ resetUrl }, "Reset URL fallback (email failed)");
+    }
+  } else {
+    req.log.warn({ resetUrl }, "EMAIL_USER/EMAIL_PASS not set — reset URL logged only");
+  }
+
+  res.json({ ok: true });
+});
+
+// POST /api/nft/auth/reset-password
+router.post("/auth/reset-password", async (req: Request, res: Response): Promise<void> => {
+  const { token, password } = req.body;
+  if (!token?.trim() || !password) { res.status(400).json({ error: "Token and password required" }); return; }
+  if (password.length < 6) { res.status(400).json({ error: "Password must be at least 6 characters" }); return; }
+
+  const [user] = await db.select({
+    id: nftUsers.id, resetToken: nftUsers.resetToken, resetTokenExpiry: nftUsers.resetTokenExpiry,
+  }).from(nftUsers).where(eq(nftUsers.resetToken, token.trim()));
+
+  if (!user) { res.status(400).json({ error: "Invalid or expired reset link" }); return; }
+  if (!user.resetTokenExpiry || user.resetTokenExpiry < new Date()) {
+    res.status(400).json({ error: "Reset link has expired. Please request a new one." }); return;
+  }
+
+  const hash = await bcrypt.hash(password, 10);
+  await db.update(nftUsers)
+    .set({ passwordHash: hash, resetToken: null, resetTokenExpiry: null })
+    .where(eq(nftUsers.id, user.id));
+
+  req.log.info({ userId: user.id }, "Password reset successful");
+  res.json({ ok: true });
 });
 
 // ══════════════════════════════════════════════════════════════════════════════

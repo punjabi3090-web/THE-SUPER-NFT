@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Bell, Menu, Globe, Send, Headphones, X, CheckCheck, ChevronRight } from "lucide-react";
 import { useLocation } from "wouter";
 import { useBalance } from "../App";
+import { isAdminLoggedIn } from "../lib/api";
 
 const LOGO_TAPS = 5;
 const TAP_WINDOW = 2000;
@@ -12,7 +13,10 @@ export default function Header() {
   const [, setLocation]           = useLocation();
   const menuRef  = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
-  const tapTimes = useRef<number[]>([]);
+
+  // 5-click stealth admin access
+  const [tapCount, setTapCount] = useState(0);
+  const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { notifications, unreadCount, markNotificationRead, markAllRead, user } = useBalance();
   const userId = user?.userId ?? '';
@@ -27,9 +31,21 @@ export default function Header() {
   }, []);
 
   const handleLogoTap = () => {
-    const now = Date.now();
-    tapTimes.current = [...tapTimes.current.filter(t => now - t < TAP_WINDOW), now];
-    if (tapTimes.current.length >= LOGO_TAPS) { tapTimes.current = []; setLocation('/admin'); }
+    if (tapTimer.current) clearTimeout(tapTimer.current);
+    const next = tapCount + 1;
+    setTapCount(next);
+    tapTimer.current = setTimeout(() => setTapCount(0), TAP_WINDOW);
+
+    if (next >= LOGO_TAPS) {
+      setTapCount(0);
+      if (tapTimer.current) clearTimeout(tapTimer.current);
+      // Only navigate to admin if admin token exists (already logged in as admin)
+      // OR if the user's account has isAdmin flag
+      if (isAdminLoggedIn() || user?.isAdmin) {
+        setLocation('/admin');
+      }
+      // For regular users: 5 taps does nothing (silent)
+    }
   };
 
   const menuItems = [

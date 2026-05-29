@@ -21,6 +21,7 @@ import WithdrawRecord from "./pages/WithdrawRecord";
 import MyHistory from "./pages/MyHistory";
 import ReserveHistory from "./pages/ReserveHistory";
 import MyTeam from "./pages/MyTeam";
+import ResetPassword from "./pages/ResetPassword";
 import {
   getCurrentUserId, getCurrentUser, submitWithdrawalRequest,
   getNotifications, markNotifRead, markAllNotifsRead,
@@ -119,7 +120,7 @@ function Routes() {
   const [location, setLocation] = useLocation();
 
   useEffect(() => {
-    if (location.startsWith('/admin')) return;
+    if (location.startsWith('/admin') || location.startsWith('/reset-password')) return;
     const uid = getCurrentUserId();
     if (!uid && location !== '/login') setLocation('/login');
     if (uid  && location === '/login')  setLocation('/showcase');
@@ -148,6 +149,7 @@ function Routes() {
       <Route path="/my-history"      component={MyHistory} />
       <Route path="/reserve-history" component={ReserveHistory} />
       <Route path="/team"            component={MyTeam} />
+      <Route path="/reset-password"  component={ResetPassword} />
     </Switch>
   );
 }

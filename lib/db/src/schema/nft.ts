@@ -24,6 +24,8 @@ export const nftUsers = pgTable("nft_users", {
   googleAuthBound:   boolean("google_auth_bound").default(false).notNull(),
   withdrawalAddress: text("withdrawal_address"),
   addressBindDate:   timestamp("address_bind_date"),
+  resetToken:        text("reset_token"),
+  resetTokenExpiry:  timestamp("reset_token_expiry"),
   registeredAt:      timestamp("registered_at").defaultNow().notNull(),
   lastLogin:         timestamp("last_login").defaultNow().notNull(),
 });
