@@ -26,8 +26,22 @@ export const nftUsers = pgTable("nft_users", {
   addressBindDate:   timestamp("address_bind_date"),
   resetToken:        text("reset_token"),
   resetTokenExpiry:  timestamp("reset_token_expiry"),
+  otpCode:           text("otp_code"),
+  otpExpiry:         timestamp("otp_expiry"),
+  isVerified:        boolean("is_verified").default(false).notNull(),
   registeredAt:      timestamp("registered_at").defaultNow().notNull(),
   lastLogin:         timestamp("last_login").defaultNow().notNull(),
+});
+
+export const nftOrders = pgTable("nft_orders", {
+  id:       serial("id").primaryKey(),
+  userId:   integer("user_id").notNull(),
+  nftName:  text("nft_name").notNull(),
+  nftImage: text("nft_image").notNull(),
+  nftPrice: numeric("nft_price", { precision: 14, scale: 2 }).notNull(),
+  status:   varchar("status", { length: 20 }).default("bought").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  soldAt:   timestamp("sold_at"),
 });
 
 export const nftSettings = pgTable("nft_settings", {

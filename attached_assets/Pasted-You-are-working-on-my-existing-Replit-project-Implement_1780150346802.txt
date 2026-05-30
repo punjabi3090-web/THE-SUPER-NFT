@@ -1,0 +1,50 @@
+You are working on my existing Replit project. Implement ALL 7 tasks below exactly as described. Don't break existing features. Use EmailJS that's already integrated for emails. Keep the design same.
+
+TASK 1 - SIGNUP FLOW WITH EMAIL OTP + LOGIN REDIRECT:
+On SignUp page when users create account:
+1. After user enters email + password, send 6-digit OTP to user's REAL email using existing EmailJS
+2. Code: emailjs.send("SERVICE_ID", "TEMPLATE_ID", {to_email: userEmail, otp_code: otp})
+3. EmailJS Template "To Email" field must be {{to_email}} so OTP goes to correct address
+4. Show OTP input field on same SignUp page, don't redirect
+5. User must enter OTP to verify
+6. After OTP verify success: Show "Account Created Successfully" message on SignUp page
+7. Then AUTO REDIRECT to LOGIN PAGE, NOT to dashboard
+8. User must login with email + password on Login page
+9. After successful login, then redirect to Dashboard
+10. Save userEmail in localStorage only after OTP verify
+
+TASK 2 - FORGOT PASSWORD WITH OTP CODE:
+Change forgot password system:
+1. Remove "reset password link" system completely
+2. When user clicks "Forgot Password", show email input field
+3. Send 6-digit OTP to that REAL email using EmailJS: {to_email: userEmail, otp_code: otp}
+4. EmailJS Template "To Email" field must be {{to_email}}
+5. Show OTP input + New Password input on same page
+6. If OTP matches, update password in localStorage and show "Password Changed Successfully"
+7. Never send any link to email, only 6-digit code
+
+TASK 3 - UNIQUE 6-DIGIT UID ON MY PAGE:
+In Dashboard > My page:
+1. Display 6-digit UID directly below Username
+2. Generate UID from email: let hash = 0; for(let i=0;i<email.length;i++){hash=email.charCodeAt(i)+((hash<<5)-hash);} const uid = Math.abs(hash) % 1000000; const uidFinal = uid.toString().padStart(6,'0');
+3. Every user gets different UID based on email
+4. Save as 'userUID' in localStorage on first login
+5. Display format: UID: 452891
+
+TASK 4 - HOME PAGE MY TEAM TABLE UPDATE:
+In Dashboard > Home page > My Team table:
+1. Delete entire "Rewards community" column
+2. Add new first column: "Total Register Members" 
+3. Create localStorage array 'allUsers' to store all registered users
+4. When new user signs up with referral code, find referrer and +1 their "Total Register Members"
+5. Make all My Team tools working: Total Members, Active Members, Inactive Members. Count from 'allUsers' array real-time
+6. If 'allUsers' doesn't exist, create empty array first
+
+TASK 5 - ASSETS PAGE + MY ORDER TABLE WORKING:
+In Dashboard > Assets page:
+1. Make "Reserve" button fully working: On click, check user balance >= NFT price. If yes, deduct balance, add NFT to "Collection" section, add to userOrders array
+2. In "Collection" section, every NFT must show "Sell" button
+3. On "Sell" click: Add NFT price to user balance, remove NFT from Collection, update order status to "Sold" in userOrders
+4. Delete "History" section from Assets page completely
+5. Add 6 small NFT card images in 3x2 grid below. Use: https://placehold.co/150x150/1a1a1a/fff?text=NFT+1 to NFT+6
+6. In Dashboard > Home page > My Order table: Show working counts. Total Orders = userOrders.length, Bought = count where status='bought', Sold = count

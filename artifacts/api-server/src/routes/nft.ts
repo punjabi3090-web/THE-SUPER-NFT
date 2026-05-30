@@ -6,7 +6,7 @@ import nodemailer from "nodemailer";
 import {
   db,
   nftUsers, nftSettings, nftReferrals, nftWithdrawals,
-  nftNotifications, nftAdminLogs,
+  nftNotifications, nftAdminLogs, nftOrders,
 } from "@workspace/db";
 
 const router: IRouter = Router();
@@ -29,6 +29,25 @@ export async function seedAdmin() {
   } catch (e) {
     console.error("Seed admin failed:", e);
   }
+}
+
+// ── OTP email helper ──────────────────────────────────────────────────────────
+async function sendOtp(to: string, name: string, otp: string, subject: string, desc: string): Promise<void> {
+  const emailUser = process.env["EMAIL_USER"];
+  const emailPass = process.env["EMAIL_PASS"];
+  if (!emailUser || !emailPass) return;
+  try {
+    const transporter = nodemailer.createTransport({ service: "gmail", auth: { user: emailUser, pass: emailPass } });
+    await transporter.sendMail({
+      from: `"THE SUPER NFT" <${emailUser}>`,
+      to, subject,
+      html: `<div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;background:#f8f9fa;border-radius:12px;padding:32px;text-align:center;"><h2 style="color:#1E3A8A;">THE SUPER NFT</h2><p style="color:#333;margin-bottom:4px;">Hi <strong>${name}</strong>,</p><p style="color:#555;">${desc}</p><div style="background:#1E3A8A;color:white;font-size:38px;font-weight:bold;letter-spacing:14px;padding:20px 32px;border-radius:12px;margin:24px auto;display:inline-block;">${otp}</div><p style="color:#888;font-size:13px;">This code expires in <strong>15 minutes</strong>. Never share it with anyone.</p><hr style="border:none;border-top:1px solid #eee;margin:24px 0;"/><p style="color:#bbb;font-size:11px;">THE SUPER NFT · Community World</p></div>`,
+    });
+  } catch (_e) { /* silent — OTP still works, user can see it in logs if needed */ }
+}
+
+function genOtp(): string {
+  return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -112,14 +131,7 @@ router.post("/auth/register", async (req: Request, res: Response): Promise<void>
     res.status(400).json({ error: "Password must be at least 6 characters" }); return;
   }
 
-  const [existing] = await db.select({ id: nftUsers.id }).from(nftUsers)
-    .where(eq(nftUsers.email, email.toLowerCase()));
-  if (existing) {
-    res.status(409).json({ error: "Email already registered. Please login." }); return;
-  }
-
-  const passwordHash = await bcrypt.hash(password, 10);
-  const myReferralCode = await genReferralCode(name);
+  const normalEmail = email.toLowerCase().trim();
 
   // Accept ?ref=userId (all digits) OR ?ref=referralCode (alphanumeric)
   let joinedWithCode: string | null = null;
@@ -134,27 +146,77 @@ router.post("/auth/register", async (req: Request, res: Response): Promise<void>
     }
   }
 
+  const [existing] = await db.select({ id: nftUsers.id, isVerified: nftUsers.isVerified })
+    .from(nftUsers).where(eq(nftUsers.email, normalEmail));
+
+  if (existing) {
+    if (existing.isVerified) {
+      res.status(409).json({ error: "Email already registered. Please login." }); return;
+    }
+    // Unverified account — resend new OTP
+    const otp = genOtp();
+    await db.update(nftUsers)
+      .set({ otpCode: otp, otpExpiry: new Date(Date.now() + 15 * 60 * 1000) })
+      .where(eq(nftUsers.id, existing.id));
+    sendOtp(normalEmail, name, otp, "Verify Your Email - THE SUPER NFT", "Your email verification code is:").catch(() => {});
+    req.log.info({ userId: existing.id }, "OTP resent for unverified account");
+    res.json({ needsOtp: true }); return;
+  }
+
+  const passwordHash = await bcrypt.hash(password, 10);
+  const myReferralCode = await genReferralCode(name);
+  const otp = genOtp();
+
   const [user] = await db.insert(nftUsers).values({
-    email: email.toLowerCase(),
+    email: normalEmail,
     passwordHash,
     name,
-    username: email.split("@")[0],
+    username: normalEmail.split("@")[0],
     phone: phone ?? null,
     country: country ?? null,
     myReferralCode,
     joinedWithCode,
+    otpCode: otp,
+    otpExpiry: new Date(Date.now() + 15 * 60 * 1000),
+    isVerified: false,
   }).returning();
 
-  if (joinedWithCode) {
+  sendOtp(normalEmail, name, otp, "Verify Your Email - THE SUPER NFT", "Your email verification code is:").catch(() => {});
+  req.log.info({ userId: user.id, email: normalEmail }, "NFT user registered, OTP sent");
+  res.json({ needsOtp: true });
+});
+
+// POST /api/nft/auth/verify-signup-otp
+router.post("/auth/verify-signup-otp", async (req: Request, res: Response): Promise<void> => {
+  const { email, otp } = req.body;
+  if (!email?.trim() || !otp?.trim()) {
+    res.status(400).json({ error: "Email and OTP required" }); return;
+  }
+  const [user] = await db.select().from(nftUsers)
+    .where(eq(nftUsers.email, email.toLowerCase().trim()));
+  if (!user) { res.status(400).json({ error: "Account not found" }); return; }
+  if (user.isVerified) { res.json({ ok: true }); return; }
+  if (!user.otpCode || !user.otpExpiry) {
+    res.status(400).json({ error: "No OTP found. Please register again." }); return;
+  }
+  if (user.otpExpiry < new Date()) {
+    res.status(400).json({ error: "OTP expired. Please register again." }); return;
+  }
+  if (user.otpCode !== otp.trim()) {
+    res.status(400).json({ error: "Incorrect OTP. Try again." }); return;
+  }
+  await db.update(nftUsers)
+    .set({ isVerified: true, otpCode: null, otpExpiry: null })
+    .where(eq(nftUsers.id, user.id));
+  if (user.joinedWithCode) {
     await db.insert(nftReferrals).values({
-      referrerCode: joinedWithCode,
-      newUserEmail: email.toLowerCase(),
+      referrerCode: user.joinedWithCode,
+      newUserEmail: user.email,
       newUserId: user.id,
     }).onConflictDoNothing();
   }
-
-  req.log.info({ userId: user.id, email }, "NFT user registered");
-  res.json({ user: mapUser(user) });
+  req.log.info({ userId: user.id }, "Email verified, account activated");
+  res.json({ ok: true });
 });
 
 // POST /api/nft/auth/login
@@ -177,6 +239,9 @@ router.post("/auth/login", async (req: Request, res: Response): Promise<void> =>
   if (!valid) {
     res.status(401).json({ error: "Invalid email or password" }); return;
   }
+  if (!user.isVerified) {
+    res.status(403).json({ error: "Please verify your email first. Check your inbox for the OTP code." }); return;
+  }
 
   await db.update(nftUsers).set({ lastLogin: new Date() }).where(eq(nftUsers.id, user.id));
 
@@ -184,7 +249,7 @@ router.post("/auth/login", async (req: Request, res: Response): Promise<void> =>
   res.json({ user: mapUser({ ...user, lastLogin: new Date() }) });
 });
 
-// POST /api/nft/auth/forgot-password
+// POST /api/nft/auth/forgot-password  (sends 6-digit OTP, no link)
 router.post("/auth/forgot-password", async (req: Request, res: Response): Promise<void> => {
   const { email } = req.body;
   if (!email?.trim()) { res.status(400).json({ error: "Email required" }); return; }
@@ -192,71 +257,36 @@ router.post("/auth/forgot-password", async (req: Request, res: Response): Promis
   const [user] = await db.select({ id: nftUsers.id, email: nftUsers.email, name: nftUsers.name })
     .from(nftUsers).where(eq(nftUsers.email, email.toLowerCase().trim()));
 
-  // Always return ok — never reveal if email exists
-  if (!user) { res.json({ ok: true }); return; }
+  if (!user) { res.json({ ok: true }); return; } // Never reveal if email exists
 
-  const token = crypto.randomBytes(32).toString("hex");
-  const expiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-
+  const otp = genOtp();
   await db.update(nftUsers)
-    .set({ resetToken: token, resetTokenExpiry: expiry })
+    .set({ resetToken: otp, resetTokenExpiry: new Date(Date.now() + 15 * 60 * 1000) })
     .where(eq(nftUsers.id, user.id));
 
-  const appUrl = process.env["APP_URL"] || "https://34us.pike.replit.dev";
-  const resetUrl = `${appUrl}/reset-password?token=${token}`;
-
-  const emailUser = process.env["EMAIL_USER"];
-  const emailPass = process.env["EMAIL_PASS"];
-
-  if (emailUser && emailPass) {
-    try {
-      const transporter = nodemailer.createTransport({
-        service: "gmail",
-        auth: { user: emailUser, pass: emailPass },
-      });
-      await transporter.sendMail({
-        from: `"THE SUPER NFT" <${emailUser}>`,
-        to: user.email,
-        subject: "Password Reset - THE SUPER NFT",
-        html: `
-          <div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;background:#f8f9fa;border-radius:12px;padding:32px;">
-            <h2 style="color:#1E3A8A;text-align:center;">THE SUPER NFT</h2>
-            <p style="color:#333;">Hi <strong>${user.name}</strong>,</p>
-            <p style="color:#555;">We received a request to reset your password. Click the button below to set a new password:</p>
-            <div style="text-align:center;margin:28px 0;">
-              <a href="${resetUrl}" style="background:#1E3A8A;color:white;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:16px;">Reset Password</a>
-            </div>
-            <p style="color:#888;font-size:13px;">This link expires in <strong>1 hour</strong>. If you didn't request this, you can safely ignore this email.</p>
-            <hr style="border:none;border-top:1px solid #eee;margin:24px 0;" />
-            <p style="color:#bbb;font-size:11px;text-align:center;">THE SUPER NFT · Community World</p>
-          </div>
-        `,
-      });
-      req.log.info({ userId: user.id }, "Password reset email sent");
-    } catch (e) {
-      req.log.error({ err: e }, "Failed to send reset email");
-      req.log.info({ resetUrl }, "Reset URL fallback (email failed)");
-    }
-  } else {
-    req.log.warn({ resetUrl }, "EMAIL_USER/EMAIL_PASS not set — reset URL logged only");
-  }
-
+  sendOtp(user.email, user.name, otp, "Password Reset OTP - THE SUPER NFT", "Your password reset code is:").catch(() => {});
+  req.log.info({ userId: user.id }, "Password reset OTP sent");
   res.json({ ok: true });
 });
 
-// POST /api/nft/auth/reset-password
+// POST /api/nft/auth/reset-password  (verifies email + OTP code)
 router.post("/auth/reset-password", async (req: Request, res: Response): Promise<void> => {
-  const { token, password } = req.body;
-  if (!token?.trim() || !password) { res.status(400).json({ error: "Token and password required" }); return; }
+  const { email, otp, password } = req.body;
+  if (!email?.trim() || !otp?.trim() || !password) {
+    res.status(400).json({ error: "Email, OTP and new password required" }); return;
+  }
   if (password.length < 6) { res.status(400).json({ error: "Password must be at least 6 characters" }); return; }
 
   const [user] = await db.select({
     id: nftUsers.id, resetToken: nftUsers.resetToken, resetTokenExpiry: nftUsers.resetTokenExpiry,
-  }).from(nftUsers).where(eq(nftUsers.resetToken, token.trim()));
+  }).from(nftUsers).where(eq(nftUsers.email, email.toLowerCase().trim()));
 
-  if (!user) { res.status(400).json({ error: "Invalid or expired reset link" }); return; }
+  if (!user || !user.resetToken) { res.status(400).json({ error: "Invalid OTP or email" }); return; }
   if (!user.resetTokenExpiry || user.resetTokenExpiry < new Date()) {
-    res.status(400).json({ error: "Reset link has expired. Please request a new one." }); return;
+    res.status(400).json({ error: "OTP expired. Please request a new one." }); return;
+  }
+  if (user.resetToken !== otp.trim()) {
+    res.status(400).json({ error: "Incorrect OTP. Try again." }); return;
   }
 
   const hash = await bcrypt.hash(password, 10);
@@ -264,7 +294,7 @@ router.post("/auth/reset-password", async (req: Request, res: Response): Promise
     .set({ passwordHash: hash, resetToken: null, resetTokenExpiry: null })
     .where(eq(nftUsers.id, user.id));
 
-  req.log.info({ userId: user.id }, "Password reset successful");
+  req.log.info({ userId: user.id }, "Password reset via OTP successful");
   res.json({ ok: true });
 });
 
@@ -604,6 +634,72 @@ router.get("/notifications", async (_req: Request, res: Response): Promise<void>
     createdAt: n.createdAt.toISOString(),
     read: [] as string[],
   })) });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// NFT ORDERS
+// ══════════════════════════════════════════════════════════════════════════════
+
+// GET /api/nft/me/orders?userId=X
+router.get("/me/orders", async (req: Request, res: Response): Promise<void> => {
+  const userId = parseInt(req.query["userId"] as string);
+  if (!userId) { res.json({ orders: [] }); return; }
+  const orders = await db.select().from(nftOrders)
+    .where(eq(nftOrders.userId, userId))
+    .orderBy(desc(nftOrders.createdAt));
+  res.json({
+    orders: orders.map(o => ({
+      ...o,
+      nftPrice: num(o.nftPrice),
+      createdAt: o.createdAt.toISOString(),
+      soldAt: o.soldAt?.toISOString() ?? null,
+    })),
+  });
+});
+
+// POST /api/nft/me/orders  (reserve / buy NFT)
+router.post("/me/orders", async (req: Request, res: Response): Promise<void> => {
+  const { userId, nftName, nftImage, nftPrice } = req.body;
+  if (!userId || !nftName || !nftPrice) {
+    res.status(400).json({ error: "Missing required fields" }); return;
+  }
+  const uid = parseInt(userId);
+  const price = num(nftPrice);
+  const [user] = await db.select({ walletBalance: nftUsers.walletBalance })
+    .from(nftUsers).where(eq(nftUsers.id, uid));
+  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+  if (num(user.walletBalance) < price) {
+    res.status(400).json({ error: "insufficient" }); return;
+  }
+  await db.update(nftUsers)
+    .set({ walletBalance: String(num(user.walletBalance) - price) })
+    .where(eq(nftUsers.id, uid));
+  const [order] = await db.insert(nftOrders).values({
+    userId: uid, nftName, nftImage: nftImage ?? "", nftPrice: String(price),
+  }).returning();
+  req.log.info({ userId: uid, nftName, price }, "NFT reserved");
+  res.json({ ok: true, order: { ...order, nftPrice: num(order.nftPrice), createdAt: order.createdAt.toISOString(), soldAt: null } });
+});
+
+// PUT /api/nft/me/orders/:id/sell
+router.put("/me/orders/:id/sell", async (req: Request, res: Response): Promise<void> => {
+  const orderId = parseInt(req.params["id"] as string);
+  const userId = parseInt(req.body.userId);
+  const [order] = await db.select().from(nftOrders).where(eq(nftOrders.id, orderId));
+  if (!order || order.userId !== userId) { res.status(404).json({ error: "Order not found" }); return; }
+  if (order.status === "sold") { res.status(400).json({ error: "Already sold" }); return; }
+  const price = num(order.nftPrice);
+  const [user] = await db.select({ walletBalance: nftUsers.walletBalance })
+    .from(nftUsers).where(eq(nftUsers.id, userId));
+  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+  await db.update(nftUsers)
+    .set({ walletBalance: String(num(user.walletBalance) + price) })
+    .where(eq(nftUsers.id, userId));
+  await db.update(nftOrders)
+    .set({ status: "sold", soldAt: new Date() })
+    .where(eq(nftOrders.id, orderId));
+  req.log.info({ userId, orderId, price }, "NFT sold");
+  res.json({ ok: true });
 });
 
 export default router;

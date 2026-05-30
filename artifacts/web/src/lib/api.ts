@@ -66,6 +66,17 @@ export interface AdminNotif {
   read: string[];
 }
 
+export interface NftOrder {
+  id: number;
+  userId: number;
+  nftName: string;
+  nftImage: string;
+  nftPrice: number;
+  status: "bought" | "sold";
+  createdAt: string;
+  soldAt: string | null;
+}
+
 export interface AdminLog {
   id: number;
   admin: string;
@@ -156,13 +167,13 @@ async function apiFetch<T>(
 export async function registerUser(data: {
   name: string; email: string; phone?: string;
   password: string; country?: string; referralCode?: string;
-}): Promise<User | "email_exists"> {
+}): Promise<"email_exists" | "otp_sent"> {
   try {
-    const r = await apiFetch<{ user: User }>("/auth/register", {
+    await apiFetch<{ needsOtp: boolean }>("/auth/register", {
       method: "POST",
       body: JSON.stringify(data),
     });
-    return r.user;
+    return "otp_sent";
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "";
     if (msg.includes("already")) return "email_exists";
@@ -170,7 +181,21 @@ export async function registerUser(data: {
   }
 }
 
-export async function loginUser(email: string, password: string): Promise<User | "blocked" | "invalid"> {
+export async function verifySignupOtp(email: string, otp: string): Promise<"ok" | "invalid" | "expired"> {
+  try {
+    await apiFetch("/auth/verify-signup-otp", {
+      method: "POST",
+      body: JSON.stringify({ email, otp }),
+    });
+    return "ok";
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "";
+    if (msg.toLowerCase().includes("expired")) return "expired";
+    return "invalid";
+  }
+}
+
+export async function loginUser(email: string, password: string): Promise<User | "blocked" | "invalid" | "unverified"> {
   try {
     const r = await apiFetch<{ user: User }>("/auth/login", {
       method: "POST",
@@ -180,6 +205,28 @@ export async function loginUser(email: string, password: string): Promise<User |
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "";
     if (msg.toLowerCase().includes("block")) return "blocked";
+    if (msg.toLowerCase().includes("verify")) return "unverified";
+    return "invalid";
+  }
+}
+
+export async function forgotPasswordOtp(email: string): Promise<void> {
+  await apiFetch("/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function resetPasswordOtp(email: string, otp: string, password: string): Promise<"ok" | "invalid" | "expired"> {
+  try {
+    await apiFetch("/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ email, otp, password }),
+    });
+    return "ok";
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "";
+    if (msg.toLowerCase().includes("expired")) return "expired";
     return "invalid";
   }
 }
@@ -405,6 +452,38 @@ export async function rejectWithdrawal(id: number, reason: string): Promise<void
     method: "PATCH",
     adminAuth: true,
     body: JSON.stringify({ reason }),
+  });
+}
+
+export async function getMyOrders(userId: string | number): Promise<NftOrder[]> {
+  try {
+    const r = await apiFetch<{ orders: NftOrder[] }>(`/me/orders?userId=${userId}`);
+    return r.orders;
+  } catch {
+    return [];
+  }
+}
+
+export async function reserveNft(
+  userId: string | number, nftName: string, nftImage: string, nftPrice: number
+): Promise<"ok" | "insufficient"> {
+  try {
+    await apiFetch("/me/orders", {
+      method: "POST",
+      body: JSON.stringify({ userId: String(userId), nftName, nftImage, nftPrice }),
+    });
+    return "ok";
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "";
+    if (msg === "insufficient") return "insufficient";
+    return "insufficient";
+  }
+}
+
+export async function sellNft(userId: string | number, orderId: number): Promise<void> {
+  await apiFetch(`/me/orders/${orderId}/sell`, {
+    method: "PUT",
+    body: JSON.stringify({ userId: String(userId) }),
   });
 }
 

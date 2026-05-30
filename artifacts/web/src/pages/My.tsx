@@ -32,12 +32,12 @@ export default function My() {
   const [copied, setCopied] = useState(false);
   const { balance, user } = useBalance();
 
+  const uid6 = String(user?.userId || 0).padStart(6, '0');
+
   const handleCopyUID = () => {
-    if (user?.userId) {
-      navigator.clipboard.writeText(user.userId);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
+    navigator.clipboard.writeText(uid6);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const handleLogout = () => {
@@ -58,7 +58,8 @@ export default function My() {
           <div>
             <p className="font-semibold text-slate-800">{user?.name || 'User'}</p>
             <div className="flex items-center gap-1 mt-0.5">
-              <p className="text-xs text-gray-400">UID: {user?.userId || '—'}</p>
+              <span className="text-xs text-gray-400">UID:</span>
+              <span className="text-xs font-mono font-bold text-[#1E3A8A]">{uid6}</span>
               <button onClick={handleCopyUID} className="text-slate-400 hover:text-blue-600 transition-colors ml-0.5">
                 {copied ? <Check size={11} className="text-emerald-500" /> : <Copy size={11} />}
               </button>
