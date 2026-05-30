@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Header from "../components/Header";
 import BottomNav from "../components/BottomNav";
 import { useBalance } from "../App";
@@ -14,10 +14,24 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "collection", label: "Collection" },
 ];
 
+const RESERVE_COOLDOWN = 24 * 60 * 60 * 1000;
+
 function getOrders(): ReserveOrder[] {
   try { return JSON.parse(localStorage.getItem('userOrders') || '[]'); } catch { return []; }
 }
 function saveOrders(o: ReserveOrder[]) { localStorage.setItem('userOrders', JSON.stringify(o)); }
+
+function getLastReserveTs(): number {
+  return parseInt(localStorage.getItem('lastReserveTimestamp') || '0', 10);
+}
+
+function fmtCountdown(ms: number): string {
+  if (ms <= 0) return "00:00:00";
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  const s = Math.floor((ms % 60000) / 1000);
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
 
 export default function Reserve() {
   const { balance, refresh } = useBalance();
@@ -27,35 +41,52 @@ export default function Reserve() {
     JSON.parse(localStorage.getItem('userNFTs') || '[]')
   );
   const [toast, setToast] = useState<{ text: string; ok: boolean } | null>(null);
+  const [remaining, setRemaining] = useState<number>(() => {
+    const last = getLastReserveTs();
+    if (!last) return 0;
+    return Math.max(0, RESERVE_COOLDOWN - (Date.now() - last));
+  });
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    timerRef.current = setInterval(() => {
+      const last = getLastReserveTs();
+      if (!last) { setRemaining(0); return; }
+      const r = Math.max(0, RESERVE_COOLDOWN - (Date.now() - last));
+      setRemaining(r);
+    }, 1000);
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, []);
 
   const showToast = (text: string, ok = true) => {
     setToast({ text, ok });
     setTimeout(() => setToast(null), 2500);
   };
 
+  const canReserve = remaining === 0;
+
   const reserveOrders = orders.filter(o => o.type === 'reserve');
-  const totalReserve  = reserveOrders.length;
-  const activeCount   = reserveOrders.filter(o => o.status === 'active').length;
+  const totalReserve   = reserveOrders.length;
+  const activeCount    = reserveOrders.filter(o => o.status === 'active').length;
   const completedCount = reserveOrders.filter(o => o.status === 'completed').length;
 
   const stats = [
-    { label: "Total Reserve",          value: String(totalReserve),         border: "#4285F4" },
-    { label: "Active",                  value: String(activeCount),          border: "#1E3A8A" },
-    { label: "Completed",               value: String(completedCount),       border: "#34A853" },
-    { label: "Reservation Range",       value: "1 ~ 1,000",                  border: "#FBBC04" },
-    { label: "Wallet Balance",          value: `$${balance.toFixed(2)}`,     border: "#00BCD4" },
-    { label: "Balance for Reservation", value: `$${balance.toFixed(2)}`,     border: "#202124" },
+    { label: "Total Reserve",          value: String(totalReserve),     border: "#4285F4" },
+    { label: "Active",                  value: String(activeCount),      border: "#1E3A8A" },
+    { label: "Completed",               value: String(completedCount),   border: "#34A853" },
+    { label: "Reservation Range",       value: "1 ~ 1,000",              border: "#FBBC04" },
+    { label: "Wallet Balance",          value: `$${balance.toFixed(2)}`, border: "#00BCD4" },
+    { label: "Balance for Reservation", value: `$${balance.toFixed(2)}`, border: "#202124" },
   ];
 
   const handleReserveNow = () => {
-    const today = new Date().toDateString();
-    const lastDate = localStorage.getItem('lastReserveDate');
-    if (lastDate === today) {
-      showToast("You have already reserved today. Come back tomorrow!", false);
-      return;
-    }
+    if (!canReserve) return;
+    const now = Date.now();
+    localStorage.setItem('lastReserveTimestamp', String(now));
+    setRemaining(RESERVE_COOLDOWN);
+
     const newOrder: ReserveOrder = {
-      id: Date.now(),
+      id: now,
       type: 'reserve',
       status: 'active',
       date: new Date().toISOString(),
@@ -63,21 +94,14 @@ export default function Reserve() {
     const updated = [...orders, newOrder];
     setOrders(updated);
     saveOrders(updated);
-    localStorage.setItem('lastReserveDate', today);
 
     const uid = getCurrentUserId();
     if (uid) {
       addToUserHistory(uid, {
-        type: 'reserve',
-        title: 'Daily Reservation',
-        amount: 0,
-        status: 'active',
-        date: new Date().toLocaleString(),
-        icon: '📌',
-        color: '#1E3A8A',
+        type: 'reserve', title: 'Daily Reservation', amount: 0,
+        status: 'active', date: new Date().toLocaleString(), icon: '📌', color: '#1E3A8A',
       });
     }
-
     showToast("Reservation Successful! ✅");
   };
 
@@ -85,14 +109,9 @@ export default function Reserve() {
     const uid = getCurrentUserId();
     if (uid) {
       addToUserHistory(uid, {
-        type: 'sell',
-        title: `NFT #${nft.id} Sold`,
-        amount: nft.buyPrice,
-        nftLevel: nft.level,
-        status: 'Completed',
-        date: new Date().toLocaleString(),
-        icon: '🖼️',
-        color: '#34A853',
+        type: 'sell', title: `NFT #${nft.id} Sold`, amount: nft.buyPrice,
+        nftLevel: nft.level, status: 'Completed',
+        date: new Date().toLocaleString(), icon: '🖼️', color: '#34A853',
       });
     }
     const updated = userNFTs.filter(n => n.id !== nft.id);
@@ -101,14 +120,10 @@ export default function Reserve() {
     refresh();
   };
 
-  const todayStr = new Date().toDateString();
-  const alreadyReservedToday = localStorage.getItem('lastReserveDate') === todayStr;
-
   return (
     <div className="pb-20 max-w-md mx-auto bg-gray-50 min-h-screen">
       <Header />
 
-      {/* Toast */}
       {toast && (
         <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl shadow-lg text-sm font-semibold text-white ${toast.ok ? 'bg-emerald-500' : 'bg-red-500'}`}>
           {toast.text}
@@ -125,27 +140,37 @@ export default function Reserve() {
         ))}
       </div>
 
-      {/* Dark blue Reserve Now strip */}
-      <div style={{ background: '#0a1172', padding: '15px', textAlign: 'center', margin: '15px 16px 0', borderRadius: 12 }}>
+      {/* Reserve Button + 24hr Countdown */}
+      <div style={{ background: '#0a1172', padding: '18px 16px', textAlign: 'center', margin: '15px 16px 0', borderRadius: 12 }}>
         <button
           onClick={handleReserveNow}
-          disabled={alreadyReservedToday}
+          disabled={!canReserve}
           style={{
-            background: alreadyReservedToday ? '#555' : '#1a237e',
+            background: canReserve ? '#1a237e' : '#374151',
             color: 'white',
             padding: '12px 40px',
             border: 'none',
             borderRadius: 8,
             fontSize: 16,
-            cursor: alreadyReservedToday ? 'not-allowed' : 'pointer',
+            cursor: canReserve ? 'pointer' : 'not-allowed',
             fontWeight: 700,
-            opacity: alreadyReservedToday ? 0.7 : 1,
+            opacity: canReserve ? 1 : 0.85,
+            width: '100%',
+            maxWidth: 280,
           }}
         >
-          {alreadyReservedToday ? '✅ Reserved Today' : 'Reserve Now'}
+          {canReserve ? 'Reserve Now' : '✅ Reserved'}
         </button>
-        {alreadyReservedToday && (
-          <p style={{ color: '#aaa', fontSize: 12, marginTop: 8 }}>Next reservation available tomorrow</p>
+        {!canReserve && (
+          <div style={{ marginTop: 10 }}>
+            <p style={{ color: '#93c5fd', fontSize: 12, marginBottom: 4 }}>Next reserve available in:</p>
+            <p style={{ color: '#ffffff', fontSize: 22, fontWeight: 800, letterSpacing: 2, fontFamily: 'monospace' }}>
+              {fmtCountdown(remaining)}
+            </p>
+          </div>
+        )}
+        {canReserve && (
+          <p style={{ color: '#93c5fd', fontSize: 12, marginTop: 8 }}>Tap to claim your daily reservation</p>
         )}
       </div>
 

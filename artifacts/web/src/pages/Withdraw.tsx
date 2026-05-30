@@ -1,9 +1,30 @@
-import { useState } from "react";
-import { ArrowLeft, AlertCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ArrowLeft, AlertCircle, Clock } from "lucide-react";
 import { useLocation } from "wouter";
 import { useBalance } from "../App";
+import { getPlatformSettings } from "../lib/api";
 
 const quickAmounts = [10, 50, 100, 500];
+
+function parseTime(t: string): { h: number; m: number } {
+  const [hStr, mStr] = t.split(":");
+  return { h: parseInt(hStr ?? "0", 10), m: parseInt(mStr ?? "0", 10) };
+}
+
+function isWithinWindow(openTime: string, closeTime: string, allowedDays: string): boolean {
+  const now = new Date();
+  const day = now.getDay();
+  const days = allowedDays.split(",").map(d => parseInt(d.trim(), 10));
+  if (days.length > 0 && !days.includes(day)) return false;
+  const { h: oh, m: om } = parseTime(openTime);
+  const { h: ch, m: cm } = parseTime(closeTime);
+  const nowMins = now.getHours() * 60 + now.getMinutes();
+  const openMins = oh * 60 + om;
+  const closeMins = ch * 60 + cm;
+  return nowMins >= openMins && nowMins < closeMins;
+}
+
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export default function Withdraw() {
   const [, setLocation] = useLocation();
@@ -12,6 +33,19 @@ export default function Withdraw() {
   const [loading, setLoading] = useState(false);
   const [popup, setPopup]   = useState<string | null>(null);
 
+  const [wdOpen, setWdOpen]   = useState("00:00");
+  const [wdClose, setWdClose] = useState("23:59");
+  const [wdDays, setWdDays]   = useState("0,1,2,3,4,5,6");
+  const [timingLoaded, setTimingLoaded] = useState(false);
+
+  useEffect(() => {
+    getPlatformSettings().then(s => {
+      if (s.withdraw_open_time)  setWdOpen(s.withdraw_open_time);
+      if (s.withdraw_close_time) setWdClose(s.withdraw_close_time);
+      if (s.withdraw_days)       setWdDays(s.withdraw_days);
+    }).catch(() => {}).finally(() => setTimingLoaded(true));
+  }, []);
+
   const numAmount = parseFloat(amount) || 0;
 
   const showPopup = (msg: string) => {
@@ -19,19 +53,24 @@ export default function Withdraw() {
     setTimeout(() => setPopup(null), 3500);
   };
 
+  const allowed = timingLoaded ? isWithinWindow(wdOpen, wdClose, wdDays) : true;
+
+  const allowedDayNames = wdDays.split(",").map(d => DAY_NAMES[parseInt(d.trim(), 10)] ?? "").filter(Boolean).join(", ");
+
   const handleSubmit = async () => {
     if (!numAmount || numAmount <= 0) { showPopup("❌ Please enter amount"); return; }
+    if (!allowed) { showPopup(`⚠️ Withdrawals are only available ${allowedDayNames} from ${wdOpen} to ${wdClose}`); return; }
     setLoading(true);
     try {
       const result = await requestWithdraw(numAmount);
       refresh();
-      if (result === 'disabled')         showPopup("⚠️ Withdrawals are currently disabled");
-      else if (result === 'no_auth')     showPopup("⚠️ Please bind Google Authenticator first");
-      else if (result === 'no_address')  showPopup("⚠️ Please bind your withdrawal address first");
-      else if (result === 'delay')       showPopup("⚠️ Address was just bound — wait 24 hours before withdrawing");
-      else if (result === 'time_restricted') showPopup("⚠️ Withdrawals are outside the allowed time window");
-      else if (result === 'min')         showPopup("⚠️ Minimum withdrawal is $10 USDT");
-      else if (result === 'max')         showPopup("⚠️ Maximum withdrawal limit exceeded");
+      if (result === 'disabled')          showPopup("⚠️ Withdrawals are currently disabled");
+      else if (result === 'no_auth')      showPopup("⚠️ Please bind Google Authenticator first");
+      else if (result === 'no_address')   showPopup("⚠️ Please bind your withdrawal address first");
+      else if (result === 'delay')        showPopup("⚠️ Address was just bound — wait 24 hours before withdrawing");
+      else if (result === 'time_restricted') showPopup(`⚠️ Withdrawals are only open ${allowedDayNames} from ${wdOpen}–${wdClose}`);
+      else if (result === 'min')          showPopup("⚠️ Minimum withdrawal is $10 USDT");
+      else if (result === 'max')          showPopup("⚠️ Maximum withdrawal limit exceeded");
       else if (result === 'insufficient') showPopup("❌ Insufficient balance");
       else { showPopup("✅ Withdrawal submitted! Pending admin approval."); setAmount(""); }
     } catch {
@@ -62,6 +101,21 @@ export default function Withdraw() {
           <p className="text-xs text-slate-400 mb-1">Available Balance</p>
           <p className="text-2xl font-bold text-[#1E293B]">${balance.toFixed(2)} USDT</p>
         </div>
+
+        {/* Withdraw timing info */}
+        {timingLoaded && (
+          <div className={`rounded-2xl p-3 flex items-start gap-2 border ${allowed ? 'bg-emerald-50 border-emerald-200' : 'bg-orange-50 border-orange-200'}`}>
+            <Clock size={15} className={`mt-0.5 shrink-0 ${allowed ? 'text-emerald-600' : 'text-orange-500'}`} />
+            <div>
+              <p className={`text-xs font-semibold ${allowed ? 'text-emerald-700' : 'text-orange-700'}`}>
+                {allowed ? '✅ Withdrawals are open now' : '⏰ Withdrawals currently closed'}
+              </p>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Hours: {wdOpen} – {wdClose} · Days: {allowedDayNames || "All days"}
+              </p>
+            </div>
+          </div>
+        )}
 
         <div className="bg-white rounded-2xl p-4 shadow-sm">
           <p className="text-xs text-slate-500 font-semibold mb-2">Withdrawal Address (TRC20)</p>
@@ -95,10 +149,11 @@ export default function Withdraw() {
               </button>
             ))}
           </div>
-          <button onClick={handleSubmit} disabled={!numAmount || numAmount <= 0 || !wdAddress || loading}
+          <button onClick={handleSubmit}
+            disabled={!numAmount || numAmount <= 0 || !wdAddress || loading || !allowed}
             className="w-full py-3.5 rounded-xl text-white font-bold text-base shadow-lg disabled:opacity-50 transition-all"
             style={{ background: '#1E3A8A' }}>
-            {loading ? "Submitting..." : "Withdraw USDT"}
+            {loading ? "Submitting..." : !allowed ? "Outside Withdrawal Hours" : "Withdraw USDT"}
           </button>
           <p className="text-xs text-slate-400 text-center">Min: $10 USDT · Processed within 24h</p>
         </div>

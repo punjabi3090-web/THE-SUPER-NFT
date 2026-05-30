@@ -13,6 +13,8 @@ const router: IRouter = Router();
 
 // ── In-memory admin sessions ──────────────────────────────────────────────────
 const adminSessions = new Set<string>();
+const adminOtpStore = new Map<string, { otp: string; expires: number }>();
+const ADMIN_EMAILS_LIST = ["businesstech10002@gmail.com", "thesupernftref88rk56@gmail.com"];
 
 // ── Seed admin credentials on first run ──────────────────────────────────────
 export async function seedAdmin() {
@@ -508,6 +510,66 @@ router.patch("/admin/password", adminMiddleware, async (req: Request, res: Respo
   }
 
   await logAdmin("Change Admin Password", "admin", 0, "Password/email updated");
+  res.json({ ok: true });
+});
+
+// GET /api/nft/public/settings — public platform settings (no admin auth needed)
+router.get("/public/settings", async (_req: Request, res: Response): Promise<void> => {
+  const rows = await db.select().from(nftSettings);
+  const map: Record<string, string> = {};
+  rows.forEach(s => { map[s.key] = s.value; });
+  const safeKeys = [
+    "platform_bep20_address", "withdraw_open_time", "withdraw_close_time", "withdraw_days",
+    "deposit_bonus_pct", "referral_reward_pct", "reserve_reward_pct", "extra_bonus_pct",
+  ];
+  const result: Record<string, string> = {};
+  safeKeys.forEach(k => { if (map[k] !== undefined) result[k] = map[k]; });
+  res.json({ settings: result });
+});
+
+// POST /api/nft/admin/forgot-password
+router.post("/admin/forgot-password", async (req: Request, res: Response): Promise<void> => {
+  const { email } = req.body as { email?: string };
+  if (!email) { res.status(400).json({ error: "Email required" }); return; }
+  const normalEmail = email.toLowerCase().trim();
+  const [dbAdminEmail] = await db.select({ value: nftSettings.value })
+    .from(nftSettings).where(eq(nftSettings.key, "admin_email"));
+  if (!ADMIN_EMAILS_LIST.includes(normalEmail) && dbAdminEmail?.value?.toLowerCase() !== normalEmail) {
+    res.status(403).json({ error: "Not an authorized admin email" }); return;
+  }
+  const otp = genOtp();
+  adminOtpStore.set(normalEmail, { otp, expires: Date.now() + 15 * 60 * 1000 });
+  sendOtp(normalEmail, "Admin", otp, "Admin Panel Password Reset - THE SUPER NFT", "Your admin password reset code is:").catch(() => {});
+  res.json({ ok: true });
+});
+
+// POST /api/nft/admin/reset-password
+router.post("/admin/reset-password", async (req: Request, res: Response): Promise<void> => {
+  const { email, otp, newPassword } = req.body as { email?: string; otp?: string; newPassword?: string };
+  if (!email || !otp || !newPassword) { res.status(400).json({ error: "All fields required" }); return; }
+  const normalEmail = email.toLowerCase().trim();
+  const stored = adminOtpStore.get(normalEmail);
+  if (!stored) { res.status(400).json({ error: "OTP not found. Request a new one." }); return; }
+  if (Date.now() > stored.expires) { adminOtpStore.delete(normalEmail); res.status(400).json({ error: "expired" }); return; }
+  if (stored.otp !== otp) { res.status(400).json({ error: "invalid" }); return; }
+  adminOtpStore.delete(normalEmail);
+  const hash = await bcrypt.hash(newPassword, 12);
+  await db.insert(nftSettings).values({ key: "admin_password", value: hash })
+    .onConflictDoUpdate({ target: nftSettings.key, set: { value: hash, updatedAt: new Date() } });
+  res.json({ ok: true });
+});
+
+// PATCH /api/nft/admin/settings — save multiple settings at once
+router.patch("/admin/settings", adminMiddleware, async (req: Request, res: Response): Promise<void> => {
+  const updates = req.body as Record<string, string>;
+  for (const [key, value] of Object.entries(updates)) {
+    if (typeof key === "string" && value !== undefined) {
+      const v = String(value);
+      await db.insert(nftSettings).values({ key, value: v })
+        .onConflictDoUpdate({ target: nftSettings.key, set: { value: v, updatedAt: new Date() } });
+    }
+  }
+  await logAdmin("Update Platform Settings", "admin", 0, Object.keys(updates).join(", "));
   res.json({ ok: true });
 });
 

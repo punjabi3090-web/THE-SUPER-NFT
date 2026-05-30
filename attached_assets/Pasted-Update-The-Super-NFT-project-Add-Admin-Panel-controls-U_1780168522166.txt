@@ -1,0 +1,94 @@
+Update The Super NFT project. Add Admin Panel controls + User Dashboard fixes. Keep localStorage working. Don't break existing OTP/Referral logic.
+
+========== TASK-1: ADMIN PANEL UPDATES ==========
+
+1. FORGOT PASSWORD IN ADMIN PANEL:
+   - Admin login page me "Forgot Password?" link add karo
+   - Logic: Admin emails = businesstech10002@gmail.com, thesupernftref88rk56@gmail.com
+   - Click pe OTP bhej do same Nodemailer SMTP se
+   - OTP verify > New Password set > Update localStorage adminData
+   - 5-click trigger se admin panel khulta hai, wo same rahe
+
+2. BEP20 WALLET ADDRESS BIND:
+   - Admin Dashboard me section banao: "Platform Wallet Settings"
+   - Field: "BEP20 Deposit Address" + Save button
+   - Save hone pe localStorage me save: platformWalletAddress
+   - User Dashboard > Deposit page me ye address show karo: "Send USDT BEP20 to: {platformWalletAddress}"
+   - QR code bhi generate karo same address ka
+   - Default address blank rakho, admin set kare
+
+3. PERCENTAGE CONTROL SYSTEM:
+   - Admin Dashboard me section: "Rewards & Bonus Settings"
+   - 4 input fields with % sign:
+     a) Deposit Activation Bonus: ___% 
+     b) Referral Reward: ___%
+     c) Daily Reserve Reward: ___%
+     d) Extra Bonus: ___%
+   - Save button > localStorage me save: adminSettings.rewards
+   - User Dashboard me ye % use karo:
+     - Deposit pe activation bonus calculate karo
+     - Referral pe referrer ko % do
+     - Daily Reserve pe ye % add karo balance me
+   - Default sab 0% rakho, admin set kare
+
+4. WITHDRAW TIMING CONTROL:
+   - Admin Dashboard me section: "Withdraw Settings"
+   - Fields:
+     a) Withdraw Open Time: [Time picker] e.g. 10:00 AM
+     b) Withdraw Close Time: [Time picker] e.g. 06:00 PM 
+     c) Withdraw Days: [Checkbox] Mon,Tue,Wed,Thu,Fri,Sat,Sun
+   - Save > localStorage: adminSettings.withdrawTiming
+   - User Dashboard > Withdraw page:
+     - Agar time/day match nahi karta: Button disable + Message: "Withdrawals open from 10:00 AM to 06:00 PM, Mon-Fri"
+     - Time match karta hai to button enable
+
+========== TASK-2: USER DASHBOARD UPDATES ==========
+
+1. HEADER LOGO CHANGE:
+   - User Dashboard ke top header me purana logo remove karo
+   - Naya logo add karo: [PASTE_YOUR_NEW_LOGO_IMAGE_URL_HERE]
+   - Same position, same size rakho taki header na toote
+   - Logo clickable - Dashboard home pe le jaye
+
+2. RESERVE PAGE - 24HR TIMER:
+   - Reserve page > Dark blue box ke andar "Reserve" button hai
+   - Logic update karo:
+     a) Click pe check karo localStorage: lastReserveTime
+     b) Agar Date.now() - lastReserveTime < 24*60*60*1000:
+        - Button disable + Text: "Next Reserve in: 23:45:12" countdown show karo
+        - Live countdown chale
+     c) Agar 24hr ho gaye:
+        - Button enable + Text: "Reserve Now"
+        - Click pe: lastReserveTime = Date.now() set karo
+        - Admin se set % ke hisaab se reward add karo balance me
+        - History me add karo
+        - totalReserves +1 karo
+     d) Page refresh pe bhi timer chalti rahe
+
+3. ASSET PAGE - NFT CARDS REPLACE:
+   - Asset page me saare purane NFT cards delete karo
+   - 5 naye demo cards add karo with these details:
+     Card 1: "Bronze NFT" - Price: $10 - Status: Locked
+     Card 2: "Silver NFT" - Price: $50 - Status: Locked 
+     Card 3: "Gold NFT" - Price: $100 - Status: Locked
+     Card 4: "Diamond NFT" - Price: $500 - Status: Locked
+     Card 5: "Platinum NFT" - Price: $1000 - Status: Locked
+   - Sab cards disabled rakho, click pe "Coming Soon" alert
+   - Design same rakhna, sirf content change
+
+4. STAKE PAGE - COMING SOON MOVE:
+   - Stake page me neeche "Coming Soon" green strip hata do
+   - "Stake $0 7day" wale button ke upar ya button pe hi "Coming Soon" badge add karo
+   - Button disable kar do, click pe "Staking will start soon" alert
+   - Matlab poora stake feature filhal band
+
+========== CRITICAL RULES ==========
+
+1. Sab data localStorage me save hoga - users, adminSettings, lastReserveTime
+2. Admin panel access: 5-click trigger + admin email login same rakho
+3. Nodemailer SMTP use karo Forgot Password ke liye
+4. User Dashboard me admin ki set ki hui % aur timing use karo
+5. Responsive design na toote
+6. Pehle backup lo, phir implement karo
+
+IMPLEMENT ALL TASKS. Show me updated admin.js and user dashboard files.

@@ -487,6 +487,51 @@ export async function sellNft(userId: string | number, orderId: number): Promise
   });
 }
 
+export async function getPlatformSettings(): Promise<Record<string, string>> {
+  try {
+    const r = await apiFetch<{ settings: Record<string, string> }>("/public/settings");
+    return r.settings;
+  } catch {
+    return {};
+  }
+}
+
+export async function saveAdminSettings(updates: Record<string, string>): Promise<void> {
+  await apiFetch("/admin/settings", {
+    method: "PATCH",
+    adminAuth: true,
+    body: JSON.stringify(updates),
+  });
+}
+
+export async function adminForgotPassword(email: string): Promise<"ok" | "not_admin"> {
+  try {
+    await apiFetch("/admin/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+    return "ok";
+  } catch {
+    return "not_admin";
+  }
+}
+
+export async function adminResetPassword(
+  email: string, otp: string, newPassword: string
+): Promise<"ok" | "invalid" | "expired"> {
+  try {
+    await apiFetch("/admin/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ email, otp, newPassword }),
+    });
+    return "ok";
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "";
+    if (msg === "expired") return "expired";
+    return "invalid";
+  }
+}
+
 // ── Stubs kept for import compatibility ───────────────────────────────────────
 export function initializeApp() { /* no-op: DB is seeded on server */ }
 export function addToUserHistory(_uid: string, _item: unknown) { /* no-op */ }

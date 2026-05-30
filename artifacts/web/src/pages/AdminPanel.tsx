@@ -11,6 +11,7 @@ import {
   approveWithdrawal, rejectWithdrawal, editUserBalance,
   blockUser, deleteUser, sendAdminNotification, sendAirdrop,
   updateUserReferralCode, changeAdminPassword,
+  getAdminSettings, saveAdminSettings, adminForgotPassword, adminResetPassword,
   type User, type WithdrawalRequest, type AdminNotif, type AdminLog,
 } from "../lib/api";
 
@@ -76,6 +77,26 @@ export default function AdminPanel() {
   const [pwSaved, setPwSaved]             = useState(false);
   const [pwErr, setPwErr]                 = useState("");
 
+  // Forgot password flow
+  const [fpStep, setFpStep]           = useState<'login' | 'forgot' | 'otp'>('login');
+  const [fpEmail, setFpEmail]         = useState("");
+  const [fpOtp, setFpOtp]             = useState("");
+  const [fpNewPw, setFpNewPw]         = useState("");
+  const [fpConfirmPw, setFpConfirmPw] = useState("");
+  const [fpErr, setFpErr]             = useState("");
+  const [fpLoading, setFpLoading]     = useState(false);
+
+  // Platform settings
+  const [bep20, setBep20]           = useState("");
+  const [depositPct, setDepositPct] = useState("10");
+  const [referralPct, setReferralPct] = useState("5");
+  const [reservePct, setReservePct] = useState("3");
+  const [extraPct, setExtraPct]     = useState("2");
+  const [wdOpen, setWdOpen]         = useState("09:00");
+  const [wdClose, setWdClose]       = useState("21:00");
+  const [wdDays, setWdDays]         = useState("1,2,3,4,5");
+  const [settingsSaving, setSettingsSaving] = useState(false);
+
   // Computed
   const pending    = requests.filter(r => r.status === 'pending');
   const totalBal   = users.reduce((s, u) => s + u.walletBalance, 0);
@@ -104,6 +125,20 @@ export default function AdminPanel() {
     if (authed) doRefresh();
   }, [authed, doRefresh]);
 
+  useEffect(() => {
+    if (!authed) return;
+    getAdminSettings().then(s => {
+      if (s.platform_bep20_address) setBep20(s.platform_bep20_address);
+      if (s.deposit_bonus_pct)      setDepositPct(s.deposit_bonus_pct);
+      if (s.referral_reward_pct)    setReferralPct(s.referral_reward_pct);
+      if (s.reserve_reward_pct)     setReservePct(s.reserve_reward_pct);
+      if (s.extra_bonus_pct)        setExtraPct(s.extra_bonus_pct);
+      if (s.withdraw_open_time)     setWdOpen(s.withdraw_open_time);
+      if (s.withdraw_close_time)    setWdClose(s.withdraw_close_time);
+      if (s.withdraw_days)          setWdDays(s.withdraw_days);
+    }).catch(() => {});
+  }, [authed]);
+
   // ── Admin login ───────────────────────────────────────────────────────────────
   const handleLogin = async () => {
     setLoginErr(""); setLoginLoading(true);
@@ -121,21 +156,99 @@ export default function AdminPanel() {
         </div>
         <h1 className="text-2xl font-bold text-white mb-1">Admin Panel</h1>
         <p className="text-slate-400 text-sm mb-8">THE SUPER NFT · Restricted Area</p>
-        <div className="w-full bg-slate-800 rounded-2xl p-6 shadow-2xl border border-slate-700 space-y-3">
-          <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-            className="w-full bg-slate-700 border border-slate-600 text-white rounded-xl px-4 py-3 outline-none focus:border-emerald-500 placeholder:text-slate-500"
-            placeholder="Admin email" />
-          <input type="password" value={pw} onChange={e => { setPw(e.target.value); setLoginErr(""); }}
-            onKeyDown={e => e.key === 'Enter' && handleLogin()}
-            className="w-full bg-slate-700 border border-slate-600 text-white rounded-xl px-4 py-3 outline-none focus:border-emerald-500 placeholder:text-slate-500"
-            placeholder="Password" autoFocus />
-          {loginErr && <p className="text-red-400 text-xs bg-red-900/20 px-3 py-2 rounded-lg">{loginErr}</p>}
-          <button onClick={handleLogin} disabled={loginLoading}
-            className="w-full bg-gradient-to-r from-emerald-500 to-blue-500 text-white font-bold py-3 rounded-xl disabled:opacity-60">
-            {loginLoading ? "Verifying..." : "Unlock Admin Panel"}
-          </button>
-          <p className="text-slate-500 text-xs text-center">Authorized admins only</p>
-        </div>
+
+        {/* ── LOGIN ── */}
+        {fpStep === 'login' && (
+          <div className="w-full bg-slate-800 rounded-2xl p-6 shadow-2xl border border-slate-700 space-y-3">
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+              className="w-full bg-slate-700 border border-slate-600 text-white rounded-xl px-4 py-3 outline-none focus:border-emerald-500 placeholder:text-slate-500"
+              placeholder="Admin email" />
+            <input type="password" value={pw} onChange={e => { setPw(e.target.value); setLoginErr(""); }}
+              onKeyDown={e => e.key === 'Enter' && handleLogin()}
+              className="w-full bg-slate-700 border border-slate-600 text-white rounded-xl px-4 py-3 outline-none focus:border-emerald-500 placeholder:text-slate-500"
+              placeholder="Password" autoFocus />
+            {loginErr && <p className="text-red-400 text-xs bg-red-900/20 px-3 py-2 rounded-lg">{loginErr}</p>}
+            <button onClick={handleLogin} disabled={loginLoading}
+              className="w-full bg-gradient-to-r from-emerald-500 to-blue-500 text-white font-bold py-3 rounded-xl disabled:opacity-60">
+              {loginLoading ? "Verifying..." : "Unlock Admin Panel"}
+            </button>
+            <button onClick={() => { setFpStep('forgot'); setFpErr(""); setFpEmail(email); }}
+              className="w-full text-center text-slate-400 text-xs hover:text-slate-200 pt-1">
+              Forgot Password?
+            </button>
+          </div>
+        )}
+
+        {/* ── FORGOT — enter email ── */}
+        {fpStep === 'forgot' && (
+          <div className="w-full bg-slate-800 rounded-2xl p-6 shadow-2xl border border-slate-700 space-y-3">
+            <p className="text-white font-semibold text-sm">Reset Admin Password</p>
+            <p className="text-slate-400 text-xs">Enter your admin email. We'll send a 6-digit OTP.</p>
+            <input type="email" value={fpEmail} onChange={e => { setFpEmail(e.target.value); setFpErr(""); }}
+              className="w-full bg-slate-700 border border-slate-600 text-white rounded-xl px-4 py-3 outline-none focus:border-emerald-500 placeholder:text-slate-500"
+              placeholder="Admin email" autoFocus />
+            {fpErr && <p className="text-red-400 text-xs bg-red-900/20 px-3 py-2 rounded-lg">{fpErr}</p>}
+            <button onClick={async () => {
+              if (!fpEmail.trim()) { setFpErr("Enter your admin email"); return; }
+              setFpLoading(true); setFpErr("");
+              const r = await adminForgotPassword(fpEmail.trim());
+              setFpLoading(false);
+              if (r === 'not_admin') { setFpErr("This email is not an admin account"); return; }
+              setFpStep('otp');
+            }} disabled={fpLoading}
+              className="w-full bg-gradient-to-r from-blue-500 to-emerald-500 text-white font-bold py-3 rounded-xl disabled:opacity-60">
+              {fpLoading ? "Sending OTP..." : "Send OTP to Email"}
+            </button>
+            <button onClick={() => { setFpStep('login'); setFpErr(""); }}
+              className="w-full text-center text-slate-400 text-xs hover:text-slate-200 pt-1">
+              ← Back to Login
+            </button>
+          </div>
+        )}
+
+        {/* ── OTP VERIFY + NEW PASSWORD ── */}
+        {fpStep === 'otp' && (
+          <div className="w-full bg-slate-800 rounded-2xl p-6 shadow-2xl border border-slate-700 space-y-3">
+            <p className="text-white font-semibold text-sm">Enter OTP & New Password</p>
+            <p className="text-slate-400 text-xs">OTP sent to <span className="text-emerald-400">{fpEmail}</span></p>
+            <input type="text" value={fpOtp} onChange={e => { setFpOtp(e.target.value.replace(/\D/g, '').slice(0, 6)); setFpErr(""); }}
+              className="w-full bg-slate-700 border border-slate-600 text-white rounded-xl px-4 py-3 outline-none focus:border-emerald-500 placeholder:text-slate-500 text-center text-xl tracking-[12px] font-bold"
+              placeholder="000000" maxLength={6} autoFocus />
+            <input type="password" value={fpNewPw} onChange={e => { setFpNewPw(e.target.value); setFpErr(""); }}
+              className="w-full bg-slate-700 border border-slate-600 text-white rounded-xl px-4 py-3 outline-none focus:border-emerald-500 placeholder:text-slate-500"
+              placeholder="New password (min 6 chars)" />
+            <input type="password" value={fpConfirmPw} onChange={e => { setFpConfirmPw(e.target.value); setFpErr(""); }}
+              className="w-full bg-slate-700 border border-slate-600 text-white rounded-xl px-4 py-3 outline-none focus:border-emerald-500 placeholder:text-slate-500"
+              placeholder="Confirm new password" />
+            {fpErr && <p className="text-red-400 text-xs bg-red-900/20 px-3 py-2 rounded-lg">{fpErr}</p>}
+            <button onClick={async () => {
+              if (fpOtp.length !== 6) { setFpErr("Enter the 6-digit OTP"); return; }
+              if (!fpNewPw || fpNewPw.length < 6) { setFpErr("Password must be at least 6 characters"); return; }
+              if (fpNewPw !== fpConfirmPw) { setFpErr("Passwords do not match"); return; }
+              setFpLoading(true); setFpErr("");
+              const r = await adminResetPassword(fpEmail, fpOtp, fpNewPw);
+              setFpLoading(false);
+              if (r === 'expired') { setFpErr("OTP expired. Request a new one."); setFpStep('forgot'); return; }
+              if (r === 'invalid') { setFpErr("Incorrect OTP. Try again."); return; }
+              setFpStep('login'); setFpOtp(""); setFpNewPw(""); setFpConfirmPw("");
+              setLoginErr("✅ Password reset! Login with new password.");
+            }} disabled={fpLoading}
+              className="w-full bg-gradient-to-r from-emerald-500 to-blue-500 text-white font-bold py-3 rounded-xl disabled:opacity-60">
+              {fpLoading ? "Resetting..." : "Reset Password"}
+            </button>
+            <div className="flex gap-3">
+              <button onClick={() => { setFpStep('forgot'); setFpOtp(""); setFpErr(""); }}
+                className="flex-1 text-center text-slate-400 text-xs hover:text-slate-200">
+                Resend OTP
+              </button>
+              <button onClick={() => { setFpStep('login'); setFpErr(""); }}
+                className="flex-1 text-center text-slate-400 text-xs hover:text-slate-200">
+                ← Back to Login
+              </button>
+            </div>
+          </div>
+        )}
+
         <button onClick={() => setLocation('/')} className="flex items-center gap-2 text-slate-400 text-sm mt-6 hover:text-slate-200">
           <ArrowLeft size={16} /> Back to app
         </button>
@@ -544,31 +657,22 @@ export default function AdminPanel() {
         {/* ── SETTINGS ── */}
         {tab === 'settings' && (
           <div className="space-y-4">
-            {/* Change Admin Credentials */}
+            {/* 1. Change Admin Credentials */}
             <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
               <div className="flex items-center gap-2 mb-1">
                 <KeyRound size={16} className="text-blue-600" />
                 <p className="font-bold text-slate-800">Admin Credentials</p>
               </div>
               <p className="text-xs text-slate-400">Change the admin email and/or password for panel access.</p>
-              <input
-                value={newAdminEmail}
-                onChange={e => { setNewAdminEmail(e.target.value); setPwErr(""); }}
+              <input value={newAdminEmail} onChange={e => { setNewAdminEmail(e.target.value); setPwErr(""); }}
                 placeholder="New admin email (leave blank to keep)"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none"
-              />
-              <input type="password"
-                value={newAdminPw}
-                onChange={e => { setNewAdminPw(e.target.value); setPwErr(""); }}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none" />
+              <input type="password" value={newAdminPw} onChange={e => { setNewAdminPw(e.target.value); setPwErr(""); }}
                 placeholder="New password (leave blank to keep)"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none"
-              />
-              <input type="password"
-                value={confirmPw}
-                onChange={e => { setConfirmPw(e.target.value); setPwErr(""); }}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none" />
+              <input type="password" value={confirmPw} onChange={e => { setConfirmPw(e.target.value); setPwErr(""); }}
                 placeholder="Confirm new password"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none"
-              />
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none" />
               {pwErr && <p className="text-red-500 text-xs">{pwErr}</p>}
               {pwSaved && <p className="text-emerald-600 text-xs font-semibold">✅ Credentials updated! Use new details next login.</p>}
               <button onClick={async () => {
@@ -579,13 +683,127 @@ export default function AdminPanel() {
                 try {
                   await changeAdminPassword(newAdminPw || "", newAdminEmail || undefined);
                   setNewAdminPw(""); setConfirmPw(""); setNewAdminEmail("");
-                  setPwSaved(true);
-                  setTimeout(() => setPwSaved(false), 4000);
-                } catch (e: unknown) {
-                  setPwErr(e instanceof Error ? e.message : "Failed to update");
-                }
+                  setPwSaved(true); setTimeout(() => setPwSaved(false), 4000);
+                } catch (e: unknown) { setPwErr(e instanceof Error ? e.message : "Failed to update"); }
               }} className="w-full py-3 rounded-xl bg-blue-600 text-white font-bold text-sm">
                 Save Credentials
+              </button>
+            </div>
+
+            {/* 2. Platform BEP20 Wallet Address */}
+            <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-lg">💳</span>
+                <p className="font-bold text-slate-800">Platform Deposit Address (BEP20)</p>
+              </div>
+              <p className="text-xs text-slate-400">This address will be shown to users on the Deposit page for BEP20 network. Set your platform wallet address here.</p>
+              <input value={bep20} onChange={e => setBep20(e.target.value)}
+                placeholder="Enter BEP20 wallet address (0x... or bnb1...)"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none font-mono" />
+              {bep20 && (
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-2 text-center">
+                  <img src={`https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(bep20)}&size=100x100&margin=4`}
+                    alt="QR" className="w-[100px] h-[100px] mx-auto rounded-lg" />
+                  <p className="text-[10px] text-slate-400 mt-1">Live QR preview</p>
+                </div>
+              )}
+              <button onClick={async () => {
+                if (!bep20.trim()) { showToast("❌ Enter a wallet address"); return; }
+                setSettingsSaving(true);
+                try {
+                  await saveAdminSettings({ platform_bep20_address: bep20.trim() });
+                  showToast("✅ BEP20 address saved!");
+                } catch { showToast("❌ Failed to save"); }
+                finally { setSettingsSaving(false); }
+              }} disabled={settingsSaving}
+                className="w-full py-3 rounded-xl bg-emerald-600 disabled:opacity-50 text-white font-bold text-sm">
+                {settingsSaving ? "Saving..." : "💾 Save BEP20 Address"}
+              </button>
+            </div>
+
+            {/* 3. Rewards & Bonus Percentages */}
+            <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-lg">📊</span>
+                <p className="font-bold text-slate-800">Rewards & Bonus Percentages</p>
+              </div>
+              <p className="text-xs text-slate-400">Control all reward percentages across the platform.</p>
+              {[
+                { label: "Deposit Bonus %", value: depositPct, set: setDepositPct, key: "deposit_bonus_pct" },
+                { label: "Referral Reward %", value: referralPct, set: setReferralPct, key: "referral_reward_pct" },
+                { label: "Reserve Reward %", value: reservePct, set: setReservePct, key: "reserve_reward_pct" },
+                { label: "Extra Bonus %", value: extraPct, set: setExtraPct, key: "extra_bonus_pct" },
+              ].map(item => (
+                <div key={item.key} className="flex items-center gap-3">
+                  <label className="text-xs text-slate-600 font-medium w-36 shrink-0">{item.label}</label>
+                  <div className="flex-1 relative">
+                    <input type="number" min="0" max="100" value={item.value}
+                      onChange={e => item.set(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none pr-8" />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">%</span>
+                  </div>
+                </div>
+              ))}
+              <button onClick={async () => {
+                setSettingsSaving(true);
+                try {
+                  await saveAdminSettings({
+                    deposit_bonus_pct: depositPct,
+                    referral_reward_pct: referralPct,
+                    reserve_reward_pct: reservePct,
+                    extra_bonus_pct: extraPct,
+                  });
+                  showToast("✅ Reward settings saved!");
+                } catch { showToast("❌ Failed to save"); }
+                finally { setSettingsSaving(false); }
+              }} disabled={settingsSaving}
+                className="w-full py-3 rounded-xl bg-purple-600 disabled:opacity-50 text-white font-bold text-sm">
+                {settingsSaving ? "Saving..." : "💾 Save Reward Settings"}
+              </button>
+            </div>
+
+            {/* 4. Withdraw Timing Control */}
+            <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-lg">⏰</span>
+                <p className="font-bold text-slate-800">Withdraw Timing Control</p>
+              </div>
+              <p className="text-xs text-slate-400">Set the daily time window and allowed days for withdrawals.</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-slate-500 font-medium block mb-1">Open Time</label>
+                  <input type="time" value={wdOpen} onChange={e => setWdOpen(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none" />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-500 font-medium block mb-1">Close Time</label>
+                  <input type="time" value={wdClose} onChange={e => setWdClose(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-slate-500 font-medium block mb-2">Allowed Days (comma-separated day numbers: 0=Sun, 1=Mon…6=Sat)</label>
+                <input value={wdDays} onChange={e => setWdDays(e.target.value)}
+                  placeholder="e.g. 1,2,3,4,5 (Mon–Fri)"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none" />
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Preview: {wdDays.split(",").map(d => (["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][parseInt(d.trim(),10)] ?? "")).filter(Boolean).join(", ") || "All days"}
+                </p>
+              </div>
+              <button onClick={async () => {
+                setSettingsSaving(true);
+                try {
+                  await saveAdminSettings({
+                    withdraw_open_time: wdOpen,
+                    withdraw_close_time: wdClose,
+                    withdraw_days: wdDays,
+                  });
+                  showToast("✅ Withdraw timing saved!");
+                } catch { showToast("❌ Failed to save"); }
+                finally { setSettingsSaving(false); }
+              }} disabled={settingsSaving}
+                className="w-full py-3 rounded-xl bg-orange-600 disabled:opacity-50 text-white font-bold text-sm">
+                {settingsSaving ? "Saving..." : "💾 Save Withdraw Timing"}
               </button>
             </div>
 
