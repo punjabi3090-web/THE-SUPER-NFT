@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Copy, Check, ChevronRight, Shield, Settings, Headphones, Info, LogOut, Globe, History } from "lucide-react";
+import { Copy, Check, ChevronRight, Shield, Settings, Headphones, Info, LogOut, Globe, History, Link } from "lucide-react";
 import { useLocation } from "wouter";
 import Header from "../components/Header";
 import BottomNav from "../components/BottomNav";
@@ -29,15 +29,28 @@ function MenuItem({ icon: Icon, label, onClick }: { icon: React.ElementType; lab
 
 export default function My() {
   const [, setLocation] = useLocation();
-  const [copied, setCopied] = useState(false);
+  const [copiedUID, setCopiedUID] = useState(false);
+  const [copiedRef, setCopiedRef] = useState(false);
   const { balance, user } = useBalance();
 
-  const uid6 = String(user?.userId || 0).padStart(6, '0');
+  // UID = last 6 digits of phone number; fallback to DB id
+  const phoneDigits = (user?.phone || '').replace(/\D/g, '');
+  const uid6 = phoneDigits.length >= 6
+    ? phoneDigits.slice(-6).padStart(6, '0')
+    : String(user?.userId || 0).padStart(6, '0');
+
+  const referralLink = `${window.location.origin}/login?ref=${uid6}`;
 
   const handleCopyUID = () => {
     navigator.clipboard.writeText(uid6);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopiedUID(true);
+    setTimeout(() => setCopiedUID(false), 2000);
+  };
+
+  const handleCopyRef = () => {
+    navigator.clipboard.writeText(referralLink);
+    setCopiedRef(true);
+    setTimeout(() => setCopiedRef(false), 2000);
   };
 
   const handleLogout = () => {
@@ -61,9 +74,9 @@ export default function My() {
               <span className="text-xs text-gray-400">UID:</span>
               <span className="text-xs font-mono font-bold text-[#1E3A8A]">{uid6}</span>
               <button onClick={handleCopyUID} className="text-slate-400 hover:text-blue-600 transition-colors ml-0.5">
-                {copied ? <Check size={11} className="text-emerald-500" /> : <Copy size={11} />}
+                {copiedUID ? <Check size={11} className="text-emerald-500" /> : <Copy size={11} />}
               </button>
-              {copied && <span className="text-[10px] text-emerald-500 font-medium">Copied!</span>}
+              {copiedUID && <span className="text-[10px] text-emerald-500 font-medium">Copied!</span>}
             </div>
           </div>
           <div className="ml-auto text-right">
@@ -106,6 +119,22 @@ export default function My() {
         <MenuItem icon={Globe}      label="Language"    onClick={() => setLocation('/language')} />
         <MenuItem icon={Headphones} label="Service"     onClick={() => setLocation('/service')} />
         <MenuItem icon={Info}       label="About"       onClick={() => {}} />
+      </div>
+
+      {/* Referral Link */}
+      <div className="bg-white mx-4 mt-4 rounded-2xl p-4 shadow-sm">
+        <div className="flex items-center gap-2 mb-3">
+          <Link size={16} className="text-[#1E3A8A]" />
+          <p className="text-sm font-semibold text-slate-700">My Referral Link</p>
+        </div>
+        <div className="flex items-center gap-2 bg-[#EFF6FF] rounded-xl px-3 py-2 border border-[#BFDBFE]">
+          <span className="flex-1 text-xs text-slate-600 font-mono truncate">{referralLink}</span>
+          <button onClick={handleCopyRef} className="flex items-center gap-1 bg-[#1E3A8A] text-white text-xs px-3 py-1.5 rounded-lg font-semibold flex-shrink-0">
+            {copiedRef ? <Check size={12} /> : <Copy size={12} />}
+            {copiedRef ? 'Copied!' : 'Copy'}
+          </button>
+        </div>
+        <p className="text-[10px] text-slate-400 mt-2">Share this link to invite friends and earn referral rewards.</p>
       </div>
 
       <div className="mx-4 mt-4">

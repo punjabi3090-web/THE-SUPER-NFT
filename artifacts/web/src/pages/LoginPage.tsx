@@ -80,6 +80,8 @@ export default function LoginPage() {
     const ref = params.get('ref');
     if (ref) setForm(f => ({ ...f, referralCode: ref }));
     if (params.get('mode') === 'login') setPage('login');
+    // If came via referral link, stay on register page (not login)
+    if (ref && params.get('mode') !== 'login') setPage('register');
   }, []);
 
   const showMsg = (message: string, type = "error") => {
@@ -232,6 +234,11 @@ export default function LoginPage() {
                 {showCpw ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
             </div>
+            {form.referralCode && (
+              <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 text-sm text-emerald-700 font-medium">
+                ✅ Referred by: <strong>{form.referralCode}</strong>
+              </div>
+            )}
             <input type="text" placeholder="Referral Code / UID (Optional)" value={form.referralCode}
               onChange={e => setForm({...form, referralCode: e.target.value})} className={inp} />
             <button type="submit" disabled={loading}

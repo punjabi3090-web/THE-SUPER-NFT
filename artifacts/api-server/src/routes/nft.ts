@@ -133,14 +133,25 @@ router.post("/auth/register", async (req: Request, res: Response): Promise<void>
 
   const normalEmail = email.toLowerCase().trim();
 
-  // Accept ?ref=userId (all digits) OR ?ref=referralCode (alphanumeric)
+  // Accept ?ref=userId (all digits), ?ref=phoneUID (last 6 digits of phone), OR ?ref=referralCode (alphanumeric)
   let joinedWithCode: string | null = null;
   const refParam = referralCode?.trim();
   if (refParam) {
     if (/^\d+$/.test(refParam)) {
-      const [referrer] = await db.select({ myReferralCode: nftUsers.myReferralCode })
+      // Try by DB id first
+      const [byId] = await db.select({ myReferralCode: nftUsers.myReferralCode })
         .from(nftUsers).where(eq(nftUsers.id, parseInt(refParam)));
-      if (referrer) joinedWithCode = referrer.myReferralCode;
+      if (byId) {
+        joinedWithCode = byId.myReferralCode;
+      } else {
+        // Try by phone last 6 digits
+        const allPhones = await db.select({ myReferralCode: nftUsers.myReferralCode, phone: nftUsers.phone }).from(nftUsers);
+        const byPhone = allPhones.find(u => {
+          const digits = (u.phone || '').replace(/\D/g, '');
+          return digits.length >= 6 && digits.slice(-6).padStart(6, '0') === refParam.padStart(6, '0');
+        });
+        if (byPhone) joinedWithCode = byPhone.myReferralCode;
+      }
     } else {
       joinedWithCode = refParam;
     }

@@ -227,6 +227,11 @@ export default function Stake() {
         </div>
       )}
 
+      {/* Coming Soon strip */}
+      <div className="mx-4 mt-4 mb-4 rounded-2xl overflow-hidden" style={{ background: '#00c853', padding: '20px', textAlign: 'center' }}>
+        <p style={{ color: 'white', fontSize: 18, fontWeight: 700 }}>Coming Soon</p>
+      </div>
+
       <BottomNav />
     </div>
   );

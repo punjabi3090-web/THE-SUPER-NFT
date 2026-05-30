@@ -120,6 +120,12 @@ function Routes() {
   const [location, setLocation] = useLocation();
 
   useEffect(() => {
+    // Auto-redirect ?ref= links to /login so signup form pre-fills referral code
+    const search = window.location.search;
+    if (search.includes('ref=') && location !== '/login' && !location.startsWith('/admin')) {
+      setLocation('/login' + search);
+      return;
+    }
     if (location.startsWith('/admin') || location.startsWith('/reset-password')) return;
     const uid = getCurrentUserId();
     if (!uid && location !== '/login') setLocation('/login');

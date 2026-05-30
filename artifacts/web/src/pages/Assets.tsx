@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { ArrowDownCircle, ArrowUpCircle, ShoppingCart, Tag } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, Tag } from "lucide-react";
 import Header from "../components/Header";
 import BottomNav from "../components/BottomNav";
 import { useBalance } from "../App";
-import { getMyOrders, reserveNft, sellNft, type NftOrder } from "../lib/api";
+import { getMyOrders, sellNft, type NftOrder } from "../lib/api";
 
 
 const NFT_CARDS = [
@@ -35,18 +35,6 @@ export default function Assets() {
   const showMsg = (text: string, ok = true) => {
     setMsg({ text, ok });
     setTimeout(() => setMsg(null), 2500);
-  };
-
-  const handleReserve = async (card: typeof NFT_CARDS[0]) => {
-    if (!uid) return;
-    if (balance < card.price) { showMsg(`Insufficient balance. You need $${card.price}.`, false); return; }
-    setLoading(`reserve_${card.name}`);
-    try {
-      const result = await reserveNft(uid, card.name, card.image, card.price);
-      if (result === "insufficient") { showMsg("Insufficient balance", false); }
-      else { showMsg(`${card.name} reserved!`); refreshBalance(); loadOrders(); }
-    } catch { showMsg("Failed to reserve NFT", false); }
-    finally { setLoading(null); }
   };
 
   const handleSell = async (order: NftOrder) => {
@@ -90,25 +78,20 @@ export default function Assets() {
         </div>
       </div>
 
-      {/* NFT Marketplace — 3x2 Grid */}
+      {/* NFT Marketplace — 3x2 Grid (display only) */}
       <div className="mx-4 mt-5">
-        <h3 className="font-bold text-slate-800 text-base mb-3">NFT Marketplace</h3>
+        <h3 className="font-bold text-slate-800 text-base mb-1">NFT Marketplace</h3>
+        <p className="text-xs text-slate-400 mb-3">Use the <strong>Reserve page</strong> to make your daily reservation.</p>
         <div className="grid grid-cols-3 gap-3">
           {NFT_CARDS.map(card => (
-            <div key={card.name} className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100">
+            <div key={card.name} className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 relative" style={{ opacity: 0.75, pointerEvents: 'none' }}>
               <img src={card.image} alt={card.name} className="w-full aspect-square object-cover" onError={e => { (e.target as HTMLImageElement).src = `https://placehold.co/150x150/1a1a2a/fff?text=NFT`; }} />
+              <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                <span className="text-[9px] font-bold text-white bg-[#1E3A8A]/80 px-2 py-1 rounded-lg text-center leading-tight">Reserve from Reserve Page</span>
+              </div>
               <div className="p-2">
                 <p className="text-[10px] font-semibold text-slate-700 leading-tight truncate">{card.name}</p>
                 <p className="text-[10px] font-bold text-[#1E3A8A] mt-0.5">${card.price}</p>
-                <button
-                  onClick={() => handleReserve(card)}
-                  disabled={!!loading}
-                  className="w-full mt-1.5 py-1 rounded-lg text-white text-[10px] font-bold disabled:opacity-50 flex items-center justify-center gap-0.5"
-                  style={{ background: '#1E3A8A' }}
-                >
-                  <ShoppingCart size={10} />
-                  {loading === `reserve_${card.name}` ? '...' : 'Reserve'}
-                </button>
               </div>
             </div>
           ))}
