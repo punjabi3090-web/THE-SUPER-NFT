@@ -24,7 +24,7 @@ export default function AdminPanel() {
   const [tab, setTab] = useState<TabKey>('dashboard');
 
   // Login form
-  const [email, setEmail]     = useState("admin@supernft.com");
+  const [email, setEmail]     = useState("");
   const [pw, setPw]           = useState("");
   const [loginErr, setLoginErr] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
@@ -134,7 +134,7 @@ export default function AdminPanel() {
             className="w-full bg-gradient-to-r from-emerald-500 to-blue-500 text-white font-bold py-3 rounded-xl disabled:opacity-60">
             {loginLoading ? "Verifying..." : "Unlock Admin Panel"}
           </button>
-          <p className="text-slate-500 text-xs text-center">admin@supernft.com · Default: SuperAdmin@2026</p>
+          <p className="text-slate-500 text-xs text-center">Authorized admins only</p>
         </div>
         <button onClick={() => setLocation('/')} className="flex items-center gap-2 text-slate-400 text-sm mt-6 hover:text-slate-200">
           <ArrowLeft size={16} /> Back to app

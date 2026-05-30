@@ -272,20 +272,26 @@ router.post("/auth/reset-password", async (req: Request, res: Response): Promise
 // ADMIN AUTH
 // ══════════════════════════════════════════════════════════════════════════════
 
+// Authorized admin emails (both can log in with the admin password)
+const ADMIN_EMAILS = [
+  "businesstech10002@gmail.com",
+  "thesupernftref88rk56@gmail.com",
+];
+
 // POST /api/nft/admin/login
 router.post("/admin/login", async (req: Request, res: Response): Promise<void> => {
   const { email, password } = req.body;
 
-  const [emailSetting] = await db.select().from(nftSettings)
-    .where(eq(nftSettings.key, "admin_email"));
+  const inputEmail = email?.toLowerCase()?.trim() ?? "";
+  if (!ADMIN_EMAILS.includes(inputEmail)) {
+    res.status(401).json({ error: "Invalid admin credentials" }); return;
+  }
+
   const [passSetting] = await db.select().from(nftSettings)
     .where(eq(nftSettings.key, "admin_password"));
 
-  if (!emailSetting || !passSetting) {
+  if (!passSetting) {
     res.status(500).json({ error: "Admin not configured" }); return;
-  }
-  if (email?.toLowerCase() !== emailSetting.value.toLowerCase()) {
-    res.status(401).json({ error: "Invalid admin credentials" }); return;
   }
 
   const valid = await bcrypt.compare(password, passSetting.value);
@@ -295,8 +301,8 @@ router.post("/admin/login", async (req: Request, res: Response): Promise<void> =
 
   const token = crypto.randomUUID();
   adminSessions.add(token);
-  req.log.info({ email }, "Admin logged in");
-  res.json({ token, email: emailSetting.value });
+  req.log.info({ email: inputEmail }, "Admin logged in");
+  res.json({ token, email: inputEmail });
 });
 
 // POST /api/nft/admin/logout

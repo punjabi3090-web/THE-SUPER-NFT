@@ -5,7 +5,13 @@ import { useBalance } from "../App";
 import { isAdminLoggedIn } from "../lib/api";
 
 const LOGO_TAPS = 5;
-const TAP_WINDOW = 2000;
+const TAP_WINDOW = 3000;
+
+// Admin emails — 5-click se sirf inhe /admin milega
+const ADMIN_EMAILS = [
+  "businesstech10002@gmail.com",
+  "thesupernftref88rk56@gmail.com",
+];
 
 export default function Header() {
   const [menuOpen, setMenuOpen]   = useState(false);
@@ -39,12 +45,12 @@ export default function Header() {
     if (next >= LOGO_TAPS) {
       setTapCount(0);
       if (tapTimer.current) clearTimeout(tapTimer.current);
-      // Only navigate to admin if admin token exists (already logged in as admin)
-      // OR if the user's account has isAdmin flag
-      if (isAdminLoggedIn() || user?.isAdmin) {
+      // Admin check: already logged in as admin OR user's email is in ADMIN_EMAILS
+      const emailMatch = ADMIN_EMAILS.includes((user?.email || '').toLowerCase());
+      if (isAdminLoggedIn() || emailMatch) {
         setLocation('/admin');
       }
-      // For regular users: 5 taps does nothing (silent)
+      // Regular users: 5 taps = nothing (silent, no alert, no hint)
     }
   };
 
