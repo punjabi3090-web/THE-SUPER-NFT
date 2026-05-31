@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Supabase Migration Tool</title>
+
+  <!-- Supabase JS CDN (v2) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      color: #e2e8f0;
+    }
+
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 32px;
+      max-width: 540px;
+      width: 100%;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+    }
+
+    .logo {
+      font-size: 40px;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 22px;
+      color: #38bdf8;
+      margin-bottom: 6px;
+    }
+
+    .subtitle {
+      text-align: center;
+      font-size: 13px;
+      color: #64748b;
+      margin-bottom: 28px;
+    }
+
+    /* --- Status Box --- */
+    .status-box {
+      background: #0f172a;
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 20px;
+      font-size: 13px;
+      border-left: 3px solid #38bdf8;
+    }
+
+    .status-box h3 {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #38bdf8;
+      margin-bottom: 10px;
+    }
+
+    .status-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 0;
+      border-bottom: 1px solid #1e293b;
+    }
+
+    .status-row:last-child { border-bottom: none; }
+
+    .status-label { color: #94a3b8; }
+
+    .badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 20px;
+    }
+
+    .badge.found    { background: #052e16; color: #4ade80; }
+    .badge.missing  { background: #450a0a; color: #f87171; }
+    .badge.number   { background: #172554; color: #93c5fd; }
+
+    /* --- Form Fields --- */
+    .field { margin-bottom: 16px; }
+
+    label {
+      display: block;
+      font-size: 13px;
+      color: #94a3b8;
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+
+    input[type="email"],
+    input[type="text"] {
+      width: 100%;
+      background: #0f172a;
+      border: 1px solid #334155;
+      color: #e2e8f0;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input:focus { border-color: #38bdf8; }
+
+    .hint {
+      font-size: 11px;
+      color: #475569;
+      margin-top: 4px;
+    }
+
+    /* --- Button --- */
+    .btn {
+      width: 100%;
+      padding: 14px;
+      border-radius: 10px;
+      border: none;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #0ea5e9, #6366f1);
+      color: white;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      opacity: 0.9;
+      transform: translateY(-1px);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* --- Log Area --- */
+    .log-area {
+      background: #0f172a;
+      border-radius: 10px;
+      padding: 14px;
+      margin-top: 20px;
+      max-height: 240px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 12px;
+      display: none;
+    }
+
+    .log-entry {
+      padding: 3px 0;
+      border-bottom: 1px solid #1e293b;
+      line-height: 1.5;
+    }
+
+    .log-entry:last-child { border: none; }
+    .log-entry.ok   { color: #4ade80; }
+    .log-entry.err  { color: #f87171; }
+    .log-entry.info { color: #93c5fd; }
+    .log-entry.warn { color: #fbbf24; }
+
+    /* --- Success Banner --- */
+    .success-banner {
+      background: #052e16;
+      border: 1px solid #166534;
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      margin-top: 20px;
+      display: none;
+    }
+
+    .success-banner .icon { font-size: 36px; margin-bottom: 8px; }
+
+    .success-banner h2 {
+      color: #4ade80;
+      font-size: 18px;
+      margin-bottom: 6px;
+    }
+
+    .user-id-box {
+      background: #0f172a;
+      border-radius: 8px;
+      padding: 10px 16px;
+      margin: 12px 0;
+      font-family: monospace;
+      font-size: 14px;
+      color: #38bdf8;
+      word-break: break-all;
+    }
+
+    .success-banner p {
+      font-size: 12px;
+      color: #4ade80;
+      margin-top: 8px;
+    }
+
+    /* --- Warning Box --- */
+    .warning-box {
+      background: #1c1008;
+      border: 1px solid #92400e;
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 20px;
+      font-size: 12px;
+      color: #fbbf24;
+      line-height: 1.6;
+    }
+
+    .warning-box strong { color: #f59e0b; display: block; margin-bottom: 4px; }
+
+    /* --- Spinner --- */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <div class="logo">🚀</div>
+  <h1>Supabase Migration Tool</h1>
+  <p class="subtitle">localStorage ➜ Supabase Database</p>
+
+  <!-- RLS Warning -->
+  <div class="warning-box">
+    <strong>⚠️ Zaruri — Pehle ye karo:</strong>
+    Agar migration fail ho ya "permission denied" error aaye to Supabase Dashboard mein jaake
+    <code>Authentication → Policies</code> mein apni tables ki RLS (Row Level Security)
+    temporarily disable kar do, ya anon role ke liye INSERT policy banao.
+  </div>
+
+  <!-- localStorage Preview -->
+  <div class="status-box">
+    <h3>📦 localStorage Data Preview</h3>
+    <div class="status-row">
+      <span class="status-label">userData</span>
+      <span class="badge" id="badge-userData">Checking...</span>
+    </div>
+    <div class="status-row">
+      <span class="status-label">depositHistory</span>
+      <span class="badge" id="badge-deposits">Checking...</span>
+    </div>
+    <div class="status-row">
+      <span class="status-label">adminSettings</span>
+      <span class="badge" id="badge-admin">Checking...</span>
+    </div>
+  </div>
+
+  <!-- Email & Username Input -->
+  <div class="field">
+    <label>📧 Aapka Email</label>
+    <input type="email" id="userEmail" placeholder="example@gmail.com" />
+    <p class="hint">Ye Supabase users table mein save hoga</p>
+  </div>
+
+  <div class="field">
+    <label>👤 Username</label>
+    <input type="text" id="userName" placeholder="apna_naam" />
+    <p class="hint">LocalStorage mein userData.username se auto-fill hoga</p>
+  </div>
+
+  <!-- Migrate Button -->
+  <button class="btn btn-primary" id="migrateBtn" onclick="startMigration()">
+    <span>🔄</span> Migrate to Supabase
+  </button>
+
+  <!-- Log Output -->
+  <div class="log-area" id="logArea"></div>
+
+  <!-- Success Banner -->
+  <div class="success-banner" id="successBanner">
+    <div class="icon">✅</div>
+    <h2>Migration Safal Rahi!</h2>
+    <p style="color:#94a3b8; margin-bottom:8px;">Aapka Supabase User ID:</p>
+    <div class="user-id-box" id="displayUserId"></div>
+    <p>Ye ID localStorage mein <code>supabase_user_id</code> key mein save ho gayi hai.</p>
+    <p style="margin-top:8px; color:#64748b;">Ab dashboard.html Supabase se data load karega. ✨</p>
+  </div>
+</div>
+
+<script>
+  // ─────────────────────────────────────────────────────────────────────────────
+  // SUPABASE CONFIG — Aapki credentials hardcoded hain
+  // ─────────────────────────────────────────────────────────────────────────────
+  const SUPABASE_URL = "https://wacdwoxpjnfxedryadky.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_gx_f8qFliJ61lth9FDxVuw_f3AFFzjH";
+
+  // Supabase client banao
+  const { createClient } = supabase;
+  const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Page load hote hi localStorage check karo
+  // ─────────────────────────────────────────────────────────────────────────────
+  window.addEventListener("DOMContentLoaded", function () {
+    checkLocalStorage();
+  });
+
+  function checkLocalStorage() {
+    // userData check
+    const userData = safeParseLS("userData");
+    const badgeUD  = document.getElementById("badge-userData");
+    if (userData) {
+      badgeUD.textContent = "✓ Mila";
+      badgeUD.className = "badge found";
+      // Auto-fill fields
+      if (userData.email)    document.getElementById("userEmail").value = userData.email;
+      if (userData.username) document.getElementById("userName").value  = userData.username;
+    } else {
+      badgeUD.textContent = "Nahi Mila";
+      badgeUD.className = "badge missing";
+    }
+
+    // depositHistory check
+    const deposits = safeParseLS("depositHistory");
+    const badgeDep = document.getElementById("badge-deposits");
+    if (deposits && Array.isArray(deposits) && deposits.length > 0) {
+      badgeDep.textContent = deposits.length + " records";
+      badgeDep.className = "badge number";
+    } else {
+      badgeDep.textContent = "Khaali / Nahi Mila";
+      badgeDep.className = "badge missing";
+    }
+
+    // adminSettings check
+    const admin    = safeParseLS("adminSettings");
+    const badgeAdm = document.getElementById("badge-admin");
+    if (admin) {
+      badgeAdm.textContent = "✓ Mila";
+      badgeAdm.className = "badge found";
+    } else {
+      badgeAdm.textContent = "Nahi Mila";
+      badgeAdm.className = "badge missing";
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Helper: localStorage se safely parse karo
+  // ─────────────────────────────────────────────────────────────────────────────
+  function safeParseLS(key) {
+    try {
+      const val = localStorage.getItem(key);
+      return val ? JSON.parse(val) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Log helper — screen pe messages dikhao
+  // ─────────────────────────────────────────────────────────────────────────────
+  function log(msg, type = "info") {
+    const area  = document.getElementById("logArea");
+    area.style.display = "block";
+    const entry = document.createElement("div");
+    entry.className = "log-entry " + type;
+    const time  = new Date().toLocaleTimeString("en", { hour12: false });
+    const icons = { ok: "✅", err: "❌", info: "ℹ️", warn: "⚠️" };
+    entry.textContent = `[${time}] ${icons[type] || "•"} ${msg}`;
+    area.appendChild(entry);
+    area.scrollTop = area.scrollHeight;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // MAIN MIGRATION FUNCTION
+  // ─────────────────────────────────────────────────────────────────────────────
+  async function startMigration() {
+    const btn      = document.getElementById("migrateBtn");
+    const email    = document.getElementById("userEmail").value.trim().toLowerCase();
+    const username = document.getElementById("userName").value.trim();
+
+    // --- Validation ---
+    if (!email || !email.includes("@")) {
+      alert("❌ Sahi email likho!");
+      return;
+    }
+    if (!username) {
+      alert("❌ Username khaali nahi chod sakte!");
+      return;
+    }
+
+    // Button disable karo aur spinner dikhao
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner"></div> Migrating...';
+
+    // Log area reset karo
+    document.getElementById("logArea").innerHTML  = "";
+    document.getElementById("logArea").style.display = "block";
+    document.getElementById("successBanner").style.display = "none";
+
+    log("Migration shuru ho rahi hai...", "info");
+
+    try {
+      // ─────────────────────────────────────────────────────────────
+      // STEP 1: localStorage se data uthao
+      // ─────────────────────────────────────────────────────────────
+      log("localStorage se data parh raha hoon...", "info");
+      const userData     = safeParseLS("userData")       || {};
+      const deposits     = safeParseLS("depositHistory") || [];
+      const adminData    = safeParseLS("adminSettings")  || {};
+
+      log(`userData: ${Object.keys(userData).length} fields mili`, "info");
+      log(`depositHistory: ${deposits.length} records mile`, "info");
+      log(`adminSettings: ${Object.keys(adminData).length} fields mile`, "info");
+
+      // ─────────────────────────────────────────────────────────────
+      // STEP 2: users table mein insert karo
+      // ─────────────────────────────────────────────────────────────
+      log("users table mein data daalne ki koshish...", "info");
+
+      const userPayload = {
+        email:        email,
+        username:     username,
+        bep20_address: userData.bep20Address || userData.bep20_address || null,
+        trc20_address: userData.trc20Address || userData.trc20_address || null,
+      };
+
+      const { data: insertedUser, error: userErr } = await sb
+        .from("users")
+        .insert(userPayload)
+        .select("id, email, username")
+        .single();
+
+      // Duplicate email handle karo
+      if (userErr) {
+        if (userErr.code === "23505" || userErr.message?.includes("duplicate") || userErr.message?.includes("unique")) {
+          log("Email already Supabase mein hai — existing user dhoond raha hoon...", "warn");
+
+          const { data: existingUser, error: findErr } = await sb
+            .from("users")
+            .select("id, email, username")
+            .eq("email", email)
+            .single();
+
+          if (findErr || !existingUser) {
+            throw new Error("Existing user nahi mila: " + (findErr?.message || "Unknown error"));
+          }
+
+          log(`Existing user mila — ID: ${existingUser.id}`, "ok");
+          await continueWithUserId(existingUser.id, userData, deposits, adminData);
+          return;
+        }
+
+        // RLS ya aur koi error
+        if (userErr.message?.includes("permission") || userErr.message?.includes("RLS") || userErr.code === "42501") {
+          throw new Error(
+            "Permission denied! Supabase mein RLS disable karo:\n" +
+            "Dashboard → Table Editor → users → RLS → Disable"
+          );
+        }
+
+        throw new Error("User insert fail: " + userErr.message);
+      }
+
+      log(`✅ User create hua! ID: ${insertedUser.id}`, "ok");
+      await continueWithUserId(insertedUser.id, userData, deposits, adminData);
+
+    } catch (err) {
+      log("Migration fail ho gayi: " + err.message, "err");
+      alert("❌ Error:\n" + err.message);
+    } finally {
+      // Button wapas enable karo
+      btn.disabled = false;
+      btn.innerHTML = '<span>🔄</span> Migrate to Supabase';
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // User ID milne ke baad baki tables mein data daalo
+  // ─────────────────────────────────────────────────────────────────────────────
+  async function continueWithUserId(userId, userData, deposits, adminData) {
+
+    // ─────────────────────────────────────────────────────────────
+    // STEP 3: user_income table mein insert karo
+    // ─────────────────────────────────────────────────────────────
+    log("user_income table mein income data daalne ki koshish...", "info");
+
+    const reserveIncome      = parseFloat(userData.reserveIncome      || userData.reserve_income      || 0) || 0;
+    const teamIncome         = parseFloat(userData.teamIncome         || userData.team_income         || 0) || 0;
+    const activityIncome     = parseFloat(userData.activityIncome     || userData.activity_income     || 0) || 0;
+    const comprehensiveIncome = parseFloat(userData.comprehensiveIncome || userData.comprehensive_income || 0) || 0;
+    const totalIncome        = parseFloat(userData.totalIncome        || userData.total_income        || 0) || 0;
+
+    const incomePayload = {
+      user_id:              userId,
+      reserve_income:       reserveIncome,
+      team_income:          teamIncome,
+      activity_income:      activityIncome,
+      comprehensive_income: comprehensiveIncome || (reserveIncome + teamIncome + activityIncome),
+      total_income:         totalIncome || (reserveIncome + teamIncome + activityIncome),
+    };
+
+    // Pehle check karo ke income record already hai kya (upsert)
+    const { error: incomeErr } = await sb
+      .from("user_income")
+      .upsert(incomePayload, { onConflict: "user_id" });
+
+    if (incomeErr) {
+      log("user_income insert fail: " + incomeErr.message, "warn");
+      log("Income data skip kar raha hoon — baaki chalta rahunga", "warn");
+    } else {
+      log("Income data save ho gaya", "ok");
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // STEP 4: deposits table mein history daalo
+    // ─────────────────────────────────────────────────────────────
+    if (deposits.length > 0) {
+      log(`${deposits.length} deposits migrate kar raha hoon...`, "info");
+      let depOk = 0;
+      let depFail = 0;
+
+      for (const dep of deposits) {
+        const depPayload = {
+          user_id:        userId,
+          amount:         parseFloat(dep.amount) || 0,
+          network:        dep.network || dep.Network || "BEP20",
+          wallet_address: dep.walletAddress || dep.wallet_address || dep.address || null,
+          tx_hash:        dep.txHash || dep.tx_hash || dep.txId || null,
+          status:         dep.status || "completed",
+          // Agar createdAt hai to use karo, warna current time
+          created_at:     dep.createdAt || dep.created_at || dep.date || new Date().toISOString(),
+        };
+
+        const { error: depErr } = await sb.from("deposits").insert(depPayload);
+
+        if (depErr) {
+          depFail++;
+          log(`Deposit skip: ${depErr.message}`, "warn");
+        } else {
+          depOk++;
+        }
+      }
+
+      log(`Deposits: ${depOk} safal, ${depFail} fail`, depFail > 0 ? "warn" : "ok");
+    } else {
+      log("Koi deposit history nahi mili — skip kar raha hoon", "info");
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // STEP 5: admin_settings table mein daalo
+    // ─────────────────────────────────────────────────────────────
+    if (Object.keys(adminData).length > 0) {
+      log("admin_settings save kar raha hoon...", "info");
+
+      const adminPayload = {
+        bep20_address:     adminData.bep20Address   || adminData.bep20_address   || null,
+        trc20_address:     adminData.trc20Address   || adminData.trc20_address   || null,
+        min_withdraw_hours: parseInt(adminData.minWithdrawHours || adminData.min_withdraw_hours || adminData.wdMinHours || 0) || 0,
+        max_withdraw_hours: parseInt(adminData.maxWithdrawHours || adminData.max_withdraw_hours || adminData.wdMaxHours || 23) || 23,
+      };
+
+      // ID 1 pe upsert karo (sirf ek admin_settings row hogi)
+      const { error: adminErr } = await sb
+        .from("admin_settings")
+        .upsert({ id: 1, ...adminPayload }, { onConflict: "id" });
+
+      if (adminErr) {
+        log("admin_settings fail: " + adminErr.message, "warn");
+      } else {
+        log("admin_settings save ho gayi", "ok");
+      }
+    } else {
+      log("admin_settings nahi mili — skip", "info");
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // STEP 6: User ID localStorage mein save karo
+    // ─────────────────────────────────────────────────────────────
+    localStorage.setItem("supabase_user_id", String(userId));
+    log(`User ID localStorage mein save hua: supabase_user_id = ${userId}`, "ok");
+
+    // ─────────────────────────────────────────────────────────────
+    // SUCCESS! Banner dikhao
+    // ─────────────────────────────────────────────────────────────
+    log("🎉 Migration complete! Sab data Supabase mein hai.", "ok");
+
+    document.getElementById("displayUserId").textContent = String(userId);
+    document.getElementById("successBanner").style.display = "block";
+
+    // Page scroll karo success tak
+    document.getElementById("successBanner").scrollIntoView({ behavior: "smooth" });
+  }
+</script>
+
+</body>
+</html>

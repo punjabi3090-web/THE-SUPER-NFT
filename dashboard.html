@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Income Dashboard</title>
+
+  <!-- ✅ Supabase JS — Sabse pehle load hona chahiye -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0f172a;
+      --surface:  #1e293b;
+      --border:   #334155;
+      --text:     #e2e8f0;
+      --muted:    #64748b;
+      --blue:     #38bdf8;
+      --green:    #4ade80;
+      --purple:   #a78bfa;
+      --yellow:   #fbbf24;
+      --red:      #f87171;
+    }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── LOADING OVERLAY ── */
+    #loadingOverlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.95);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      gap: 16px;
+    }
+
+    #loadingOverlay.hidden { display: none; }
+
+    .spinner-lg {
+      width: 48px;
+      height: 48px;
+      border: 3px solid var(--border);
+      border-top-color: var(--blue);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #loadingOverlay p {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    /* ── ERROR SCREEN ── */
+    #errorScreen {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+      text-align: center;
+      padding: 24px;
+    }
+
+    #errorScreen.show { display: flex; }
+
+    #errorScreen .icon { font-size: 48px; }
+
+    #errorScreen h2 { color: var(--red); font-size: 20px; }
+
+    #errorScreen p { color: var(--muted); font-size: 14px; max-width: 340px; line-height: 1.6; }
+
+    .btn-link {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 10px 24px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--blue);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    /* ── HEADER ── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .header-left h1 {
+      font-size: 18px;
+      color: var(--blue);
+    }
+
+    .header-left p {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .header-right {
+      text-align: right;
+    }
+
+    .header-right .username {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .header-right .email {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    /* ── MAIN CONTENT ── */
+    main {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px 16px 60px;
+    }
+
+    /* ── SECTION TITLE ── */
+    .section-title {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+      font-weight: 700;
+      margin: 24px 0 12px;
+    }
+
+    /* ── INCOME CARDS ── */
+    .income-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+    }
+
+    .income-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .income-card .card-icon {
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+
+    .income-card .amount {
+      font-size: 22px;
+      font-weight: 800;
+    }
+
+    .income-card .label {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .clr-blue   { color: var(--blue); }
+    .clr-green  { color: var(--green); }
+    .clr-purple { color: var(--purple); }
+    .clr-yellow { color: var(--yellow); }
+
+    /* ── DEPOSIT FORM ── */
+    .form-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    @media (max-width: 480px) { .form-row { grid-template-columns: 1fr; } }
+
+    .field label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 600;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .field input,
+    .field select {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .field input:focus,
+    .field select:focus { border-color: var(--blue); }
+
+    .field select option { background: #1e293b; }
+
+    .btn-submit {
+      width: 100%;
+      margin-top: 12px;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #0ea5e9, #6366f1);
+      color: white;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: opacity 0.2s;
+    }
+
+    .btn-submit:hover:not(:disabled) { opacity: 0.9; }
+    .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── TOAST ── */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #052e16;
+      border: 1px solid #166534;
+      color: var(--green);
+      padding: 12px 24px;
+      border-radius: 50px;
+      font-size: 14px;
+      font-weight: 600;
+      display: none;
+      z-index: 500;
+      white-space: nowrap;
+    }
+
+    #toast.err {
+      background: #450a0a;
+      border-color: #991b1b;
+      color: var(--red);
+    }
+
+    /* ── DEPOSITS TABLE ── */
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    thead { background: rgba(56,189,248,0.08); }
+
+    th {
+      text-align: left;
+      padding: 12px 14px;
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    td {
+      padding: 11px 14px;
+      border-bottom: 1px solid rgba(51,65,85,0.5);
+      vertical-align: middle;
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    tr:hover td { background: rgba(255,255,255,0.02); }
+
+    .status-badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 20px;
+    }
+
+    .status-pending   { background: #1c1008; color: var(--yellow); }
+    .status-completed { background: #052e16; color: var(--green); }
+    .status-approved  { background: #052e16; color: var(--green); }
+    .status-rejected  { background: #450a0a; color: var(--red); }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    /* ── WALLET SECTION ── */
+    .wallet-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    @media (max-width: 480px) { .wallet-grid { grid-template-columns: 1fr; } }
+
+    .wallet-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    .wallet-card .net-label {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .wallet-card .address {
+      font-family: monospace;
+      font-size: 12px;
+      color: var(--text);
+      word-break: break-all;
+      line-height: 1.5;
+    }
+
+    .wallet-card .no-addr { color: var(--muted); font-style: italic; font-size: 12px; }
+  </style>
+</head>
+<body>
+
+<!-- ── LOADING OVERLAY ── -->
+<div id="loadingOverlay">
+  <div class="spinner-lg"></div>
+  <p id="loadingMsg">Supabase se data load ho raha hai...</p>
+</div>
+
+<!-- ── ERROR SCREEN (agar user_id nahi mila) ── -->
+<div id="errorScreen">
+  <div class="icon">🔑</div>
+  <h2>Login Required</h2>
+  <p>
+    Aapka Supabase User ID nahi mila.<br/>
+    Pehle <strong>migrate.html</strong> chalao taaki aapka data Supabase mein save ho sake.
+  </p>
+  <a href="migrate.html" class="btn-link">➜ migrate.html kholein</a>
+</div>
+
+<!-- ── HEADER ── -->
+<header>
+  <div class="header-left">
+    <h1>💹 Income Dashboard</h1>
+    <p id="headerDate">Loading...</p>
+  </div>
+  <div class="header-right">
+    <div class="username" id="headerUsername">---</div>
+    <div class="email"    id="headerEmail">---</div>
+  </div>
+</header>
+
+<!-- ── MAIN ── -->
+<main>
+
+  <!-- Income Cards -->
+  <p class="section-title">📊 Aapki Income</p>
+  <div class="income-grid">
+    <div class="income-card">
+      <div class="card-icon">🏦</div>
+      <div class="amount clr-blue"   id="reserveIncome">$0.00</div>
+      <div class="label">Reserve Income</div>
+    </div>
+    <div class="income-card">
+      <div class="card-icon">👥</div>
+      <div class="amount clr-green"  id="teamIncome">$0.00</div>
+      <div class="label">Team Income</div>
+    </div>
+    <div class="income-card">
+      <div class="card-icon">🎯</div>
+      <div class="amount clr-purple" id="activityIncome">$0.00</div>
+      <div class="label">Activity Income</div>
+    </div>
+    <div class="income-card">
+      <div class="card-icon">💰</div>
+      <div class="amount clr-yellow" id="totalIncome">$0.00</div>
+      <div class="label">Total Income</div>
+    </div>
+  </div>
+
+  <!-- Wallet Addresses -->
+  <p class="section-title">🔗 Withdrawal Addresses</p>
+  <div class="wallet-grid">
+    <div class="wallet-card">
+      <div class="net-label">🟡 BEP20 (BSC)</div>
+      <div class="address" id="bep20Addr"><span class="no-addr">Koi address nahi</span></div>
+    </div>
+    <div class="wallet-card">
+      <div class="net-label">🔴 TRC20 (TRON)</div>
+      <div class="address" id="trc20Addr"><span class="no-addr">Koi address nahi</span></div>
+    </div>
+  </div>
+
+  <!-- Deposit Form -->
+  <p class="section-title">➕ Naya Deposit Karo</p>
+  <div class="form-card">
+    <div class="form-row">
+      <div class="field">
+        <label>Amount (USDT)</label>
+        <input type="number" id="depAmount" placeholder="e.g. 100" min="1" />
+      </div>
+      <div class="field">
+        <label>Network</label>
+        <select id="depNetwork">
+          <option value="BEP20">🟡 BEP20 (BSC)</option>
+          <option value="TRC20">🔴 TRC20 (TRON)</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="field">
+        <label>Wallet Address</label>
+        <input type="text" id="depWallet" placeholder="0x... ya T..." />
+      </div>
+      <div class="field">
+        <label>TX Hash (Optional)</label>
+        <input type="text" id="depTxHash" placeholder="Transaction ID" />
+      </div>
+    </div>
+    <button class="btn-submit" id="depBtn" onclick="submitDeposit()">
+      💸 Deposit Submit Karo
+    </button>
+  </div>
+
+  <!-- Deposit History -->
+  <p class="section-title">📋 Deposit History</p>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Tarikh</th>
+          <th>Amount</th>
+          <th>Network</th>
+          <th>Status</th>
+          <th>TX Hash</th>
+        </tr>
+      </thead>
+      <tbody id="depositsBody">
+        <tr><td colspan="5" class="empty-state">⏳ Load ho raha hai...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</main>
+
+<!-- Toast Notification -->
+<div id="toast"></div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     JAVASCRIPT — Supabase Integration
+═══════════════════════════════════════════════════════════════════════════ -->
+<script>
+  // ─────────────────────────────────────────────────────────────────────────────
+  // SUPABASE CONFIG — Hardcoded credentials
+  // ─────────────────────────────────────────────────────────────────────────────
+  const SUPABASE_URL = "https://wacdwoxpjnfxedryadky.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_gx_f8qFliJ61lth9FDxVuw_f3AFFzjH";
+
+  // Supabase client initialize karo
+  const { createClient } = supabase;
+  const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Global state
+  // ─────────────────────────────────────────────────────────────────────────────
+  let currentUserId   = null;  // localStorage se milega
+  let currentUserData = null;  // Supabase se milega
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // PAGE LOAD — Supabase se data fetch karo
+  // ─────────────────────────────────────────────────────────────────────────────
+  window.addEventListener("DOMContentLoaded", async function () {
+    // Header mein aaj ki tarikh dikhao
+    document.getElementById("headerDate").textContent =
+      new Date().toLocaleDateString("hi-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+
+    // localStorage se user ID lo
+    // (migrate.html ne 'supabase_user_id' key mein save ki thi)
+    currentUserId = localStorage.getItem("supabase_user_id");
+
+    if (!currentUserId) {
+      // User ID nahi mili — error screen dikhao
+      hideLoading();
+      document.getElementById("errorScreen").classList.add("show");
+      return;
+    }
+
+    try {
+      setLoadingMsg("User info fetch ho raha hai...");
+      await loadUserData();
+
+      setLoadingMsg("Income data load ho raha hai...");
+      await loadIncomeData();
+
+      setLoadingMsg("Deposit history load ho rahi hai...");
+      await loadDeposits();
+
+      // Sab theek — loading hatao
+      hideLoading();
+    } catch (err) {
+      hideLoading();
+      showToast("❌ Data load fail: " + err.message, true);
+      console.error("Dashboard load error:", err);
+    }
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // USER DATA LOAD — Supabase users table se
+  // ─────────────────────────────────────────────────────────────────────────────
+  async function loadUserData() {
+    // Pehle localStorage mein cached hai to wahi use karo (fast)
+    // Phir bhi Supabase se fresh data lo
+    const { data, error } = await sb
+      .from("users")
+      .select("id, email, username, bep20_address, trc20_address")
+      .eq("id", currentUserId)
+      .single();
+
+    if (error) throw new Error("User nahi mila: " + error.message);
+
+    currentUserData = data;
+
+    // Header update karo
+    document.getElementById("headerUsername").textContent = data.username || "User";
+    document.getElementById("headerEmail").textContent    = data.email    || "";
+
+    // Wallet addresses
+    document.getElementById("bep20Addr").textContent =
+      data.bep20_address || "";
+    document.getElementById("bep20Addr").innerHTML =
+      data.bep20_address
+        ? data.bep20_address
+        : '<span class="no-addr">Koi address bind nahi hai</span>';
+
+    document.getElementById("trc20Addr").innerHTML =
+      data.trc20_address
+        ? data.trc20_address
+        : '<span class="no-addr">Koi address bind nahi hai</span>';
+
+    // Deposit form mein wallet auto-fill karo (network ke hisaab se)
+    document.getElementById("depNetwork").addEventListener("change", function () {
+      if (this.value === "BEP20" && data.bep20_address) {
+        document.getElementById("depWallet").value = data.bep20_address;
+      } else if (this.value === "TRC20" && data.trc20_address) {
+        document.getElementById("depWallet").value = data.trc20_address;
+      }
+    });
+
+    // Default BEP20 auto-fill
+    if (data.bep20_address) {
+      document.getElementById("depWallet").value = data.bep20_address;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // INCOME DATA LOAD — Supabase user_income table se
+  // ─────────────────────────────────────────────────────────────────────────────
+  async function loadIncomeData() {
+    const { data, error } = await sb
+      .from("user_income")
+      .select("reserve_income, team_income, activity_income, comprehensive_income, total_income")
+      .eq("user_id", currentUserId)
+      .single();
+
+    if (error && error.code !== "PGRST116") {
+      // PGRST116 = "no rows returned" — koi income nahi, okay hai
+      console.warn("Income load warning:", error.message);
+    }
+
+    // Cards update karo
+    const fmt = (val) => "$" + (parseFloat(val) || 0).toFixed(2);
+
+    document.getElementById("reserveIncome").textContent  = fmt(data?.reserve_income);
+    document.getElementById("teamIncome").textContent     = fmt(data?.team_income);
+    document.getElementById("activityIncome").textContent = fmt(data?.activity_income);
+    document.getElementById("totalIncome").textContent    = fmt(data?.total_income || data?.comprehensive_income);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // DEPOSITS LOAD — Supabase deposits table se
+  // ─────────────────────────────────────────────────────────────────────────────
+  async function loadDeposits() {
+    const { data, error } = await sb
+      .from("deposits")
+      .select("id, amount, network, wallet_address, tx_hash, status, created_at")
+      .eq("user_id", currentUserId)
+      .order("created_at", { ascending: false })
+      .limit(50);  // Zyada rows nahi chahiye
+
+    const tbody = document.getElementById("depositsBody");
+
+    if (error) {
+      tbody.innerHTML = `<tr><td colspan="5" class="empty-state" style="color:var(--red)">❌ Load fail: ${error.message}</td></tr>`;
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Koi deposit nahi mili abhi tak 🕊️</td></tr>`;
+      return;
+    }
+
+    // Table rows banao
+    tbody.innerHTML = data.map(dep => {
+      const date    = new Date(dep.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "2-digit" });
+      const time    = new Date(dep.created_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+      const txShort = dep.tx_hash ? dep.tx_hash.substring(0, 12) + "..." : "—";
+      const statusCls = "status-" + (dep.status || "pending").toLowerCase();
+
+      return `
+        <tr>
+          <td style="color:var(--muted);">${date}<br/><small>${time}</small></td>
+          <td style="font-weight:700; color:var(--green);">$${parseFloat(dep.amount).toFixed(2)}</td>
+          <td>${dep.network === "BEP20" ? "🟡 BEP20" : "🔴 TRC20"}</td>
+          <td><span class="status-badge ${statusCls}">${(dep.status || "pending").toUpperCase()}</span></td>
+          <td style="font-family:monospace; color:var(--muted); font-size:11px;" title="${dep.tx_hash || ''}">${txShort}</td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // DEPOSIT SUBMIT — Supabase deposits table mein insert karo
+  // ─────────────────────────────────────────────────────────────────────────────
+  async function submitDeposit() {
+    const amount  = parseFloat(document.getElementById("depAmount").value);
+    const network = document.getElementById("depNetwork").value;
+    const wallet  = document.getElementById("depWallet").value.trim();
+    const txHash  = document.getElementById("depTxHash").value.trim();
+
+    // Validation
+    if (!amount || amount <= 0) { showToast("❌ Sahi amount enter karo!", true); return; }
+    if (!wallet) { showToast("❌ Wallet address khaali hai!", true); return; }
+
+    const btn = document.getElementById("depBtn");
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner-lg" style="width:18px;height:18px;border-width:2px;"></div> Submit ho raha hai...';
+
+    try {
+      // Supabase mein insert karo
+      const { error } = await sb
+        .from("deposits")
+        .insert({
+          user_id:        parseInt(currentUserId),
+          amount:         amount,
+          network:        network,
+          wallet_address: wallet,
+          tx_hash:        txHash || null,
+          status:         "pending",  // Admin approve karega baad mein
+        });
+
+      if (error) throw new Error(error.message);
+
+      // Form clear karo
+      document.getElementById("depAmount").value  = "";
+      document.getElementById("depTxHash").value  = "";
+
+      showToast("✅ Deposit submit ho gayi! Admin approve karega.");
+
+      // Table refresh karo
+      await loadDeposits();
+    } catch (err) {
+      showToast("❌ Deposit fail: " + err.message, true);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = "💸 Deposit Submit Karo";
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // HELPERS
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  function setLoadingMsg(msg) {
+    document.getElementById("loadingMsg").textContent = msg;
+  }
+
+  function hideLoading() {
+    document.getElementById("loadingOverlay").classList.add("hidden");
+  }
+
+  let toastTimer;
+  function showToast(msg, isErr = false) {
+    const el = document.getElementById("toast");
+    el.textContent = msg;
+    el.className = isErr ? "err" : "";
+    el.style.display = "block";
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.style.display = "none"; }, 3000);
+  }
+</script>
+
+</body>
+</html>
