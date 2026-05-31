@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Supabase Migration Tool</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 24px 16px 60px;
+      color: #e2e8f0;
+    }
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 28px 24px;
+      max-width: 560px;
+      width: 100%;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+    }
+    .logo { font-size: 38px; text-align: center; margin-bottom: 6px; }
+    h1 { text-align: center; font-size: 21px; color: #38bdf8; margin-bottom: 4px; }
+    .subtitle { text-align: center; font-size: 12px; color: #64748b; margin-bottom: 24px; }
+
+    .warning-box {
+      background: #1c1008; border: 1px solid #92400e;
+      border-radius: 10px; padding: 12px 14px; margin-bottom: 18px;
+      font-size: 12px; color: #fbbf24; line-height: 1.7;
+    }
+    .warning-box strong { color: #f59e0b; display: block; margin-bottom: 3px; font-size: 13px; }
+    .warning-box code {
+      background: #0f172a; border-radius: 4px;
+      padding: 1px 5px; font-family: monospace; font-size: 11px;
+    }
+
+    .status-box {
+      background: #0f172a; border-radius: 10px;
+      padding: 12px 14px; margin-bottom: 18px;
+      font-size: 13px; border-left: 3px solid #38bdf8;
+    }
+    .status-box h3 {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
+      color: #38bdf8; margin-bottom: 10px;
+    }
+    .status-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 5px 0; border-bottom: 1px solid #1e293b;
+    }
+    .status-row:last-child { border-bottom: none; }
+    .status-label { color: #94a3b8; font-size: 12px; }
+    .badge {
+      font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 20px;
+    }
+    .badge.found   { background: #052e16; color: #4ade80; }
+    .badge.missing { background: #450a0a; color: #f87171; }
+    .badge.number  { background: #172554; color: #93c5fd; }
+
+    .field { margin-bottom: 14px; }
+    label { display: block; font-size: 12px; color: #94a3b8; margin-bottom: 5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    input[type="email"], input[type="text"] {
+      width: 100%; background: #0f172a; border: 1px solid #334155;
+      color: #e2e8f0; border-radius: 8px; padding: 10px 14px;
+      font-size: 14px; outline: none; transition: border-color 0.2s;
+    }
+    input:focus { border-color: #38bdf8; }
+    .hint { font-size: 11px; color: #475569; margin-top: 4px; }
+
+    .btn {
+      width: 100%; padding: 13px; border-radius: 10px; border: none;
+      font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.2s;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .btn-primary { background: linear-gradient(135deg, #0ea5e9, #6366f1); color: white; }
+    .btn-primary:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    .log-area {
+      background: #0f172a; border-radius: 10px; padding: 12px;
+      margin-top: 18px; max-height: 260px; overflow-y: auto;
+      font-family: monospace; font-size: 12px; display: none;
+      border: 1px solid #1e293b;
+    }
+    .log-entry { padding: 3px 0; border-bottom: 1px solid #0f1f30; line-height: 1.5; }
+    .log-entry:last-child { border: none; }
+    .log-entry.ok   { color: #4ade80; }
+    .log-entry.err  { color: #f87171; }
+    .log-entry.info { color: #93c5fd; }
+    .log-entry.warn { color: #fbbf24; }
+
+    .success-banner {
+      background: #052e16; border: 1px solid #166534; border-radius: 12px;
+      padding: 20px; text-align: center; margin-top: 18px; display: none;
+    }
+    .success-banner .icon { font-size: 36px; margin-bottom: 8px; }
+    .success-banner h2 { color: #4ade80; font-size: 18px; margin-bottom: 6px; }
+    .user-id-box {
+      background: #0f172a; border-radius: 8px; padding: 10px 16px;
+      margin: 10px 0; font-family: monospace; font-size: 14px;
+      color: #38bdf8; word-break: break-all;
+    }
+    .success-banner p { font-size: 12px; color: #86efac; margin-top: 6px; }
+    .success-banner small { color: #4ade80; font-size: 11px; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white; border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    .progress-bar-wrap {
+      background: #0f172a; border-radius: 6px; height: 6px;
+      margin-top: 16px; overflow: hidden; display: none;
+    }
+    .progress-bar {
+      height: 100%; width: 0%;
+      background: linear-gradient(90deg, #0ea5e9, #6366f1);
+      border-radius: 6px; transition: width 0.4s ease;
+    }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">🚀</div>
+  <h1>Supabase Migration Tool</h1>
+  <p class="subtitle">localStorage ➜ Supabase · userData · depositHistory · withdrawHistory</p>
+
+  <!-- RLS Warning -->
+  <div class="warning-box">
+    <strong>⚠️ Pehle ye karo — Warna Error Aayega</strong>
+    Agar <em>"permission denied"</em> ya <em>"violates RLS policy"</em> error mile to:<br/>
+    Supabase Dashboard → <code>Table Editor</code> → apni table → <code>RLS</code> disable karo<br/>
+    <strong>Ya:</strong> <code>Authentication → Policies</code> → anon role ke liye INSERT policy banao
+  </div>
+
+  <!-- localStorage Preview -->
+  <div class="status-box">
+    <h3>📦 localStorage Data — Abhi Jo Mila</h3>
+    <div class="status-row">
+      <span class="status-label">userData</span>
+      <span class="badge" id="badge-userData">Checking...</span>
+    </div>
+    <div class="status-row">
+      <span class="status-label">depositHistory</span>
+      <span class="badge" id="badge-deposits">Checking...</span>
+    </div>
+    <div class="status-row">
+      <span class="status-label">withdrawHistory</span>
+      <span class="badge" id="badge-withdrawals">Checking...</span>
+    </div>
+    <div class="status-row">
+      <span class="status-label">adminSettings</span>
+      <span class="badge" id="badge-admin">Checking...</span>
+    </div>
+  </div>
+
+  <!-- Email & Username -->
+  <div class="field">
+    <label>📧 Email</label>
+    <input type="email" id="userEmail" placeholder="example@gmail.com" />
+    <p class="hint">Supabase users table mein save hoga</p>
+  </div>
+  <div class="field">
+    <label>👤 Username</label>
+    <input type="text" id="userName" placeholder="apna_username" />
+    <p class="hint">userData.username se auto-fill hoga</p>
+  </div>
+
+  <!-- Progress bar -->
+  <div class="progress-bar-wrap" id="progressWrap">
+    <div class="progress-bar" id="progressBar"></div>
+  </div>
+
+  <!-- Button -->
+  <button class="btn btn-primary" id="migrateBtn" onclick="startMigration()" style="margin-top:16px;">
+    <span>🔄</span> Migrate to Supabase
+  </button>
+
+  <!-- Log -->
+  <div class="log-area" id="logArea"></div>
+
+  <!-- Success -->
+  <div class="success-banner" id="successBanner">
+    <div class="icon">✅</div>
+    <h2>Migration Safal Rahi!</h2>
+    <p style="color:#94a3b8; margin-bottom:6px;">Aapka Supabase User ID:</p>
+    <div class="user-id-box" id="displayUserId"></div>
+    <p>localStorage mein <code style="background:#0f172a;padding:1px 5px;border-radius:4px;font-size:11px;">supabase_user_id</code> save ho gayi.</p>
+    <small id="successDetails" style="display:block;margin-top:8px;color:#4ade80;"></small>
+  </div>
+</div>
+
+<script>
+  // ── Supabase Config ────────────────────────────────────────────────────────
+  const SUPABASE_URL = "https://wacdwoxpjnfxedryadky.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_gx_f8qFliJ61lth9FDxVuw_f3AFFzjH";
+
+  const { createClient } = supabase;
+  const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  // ── Page load hote hi localStorage scan karo ──────────────────────────────
+  window.addEventListener("DOMContentLoaded", checkLocalStorage);
+
+  function checkLocalStorage() {
+    setBadge("badge-userData",    safeParseLS("userData"),       true);
+    setBadge("badge-deposits",    safeParseLS("depositHistory"),  true, true);
+    setBadge("badge-withdrawals", safeParseLS("withdrawHistory"), true, true);
+    setBadge("badge-admin",       safeParseLS("adminSettings"),   true);
+
+    // Auto-fill karo agar userData mili
+    const ud = safeParseLS("userData");
+    if (ud) {
+      if (ud.email)    document.getElementById("userEmail").value = ud.email;
+      if (ud.username) document.getElementById("userName").value  = ud.username;
+    }
+  }
+
+  function setBadge(id, data, isObj, isArr) {
+    const el = document.getElementById(id);
+    if (!data) {
+      el.textContent = "Nahi Mila"; el.className = "badge missing"; return;
+    }
+    if (isArr && Array.isArray(data)) {
+      if (data.length === 0) {
+        el.textContent = "Khaali (0)"; el.className = "badge missing";
+      } else {
+        el.textContent = data.length + " records"; el.className = "badge number";
+      }
+    } else {
+      el.textContent = "✓ Mila"; el.className = "badge found";
+    }
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function safeParseLS(key) {
+    try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; }
+    catch { return null; }
+  }
+
+  function log(msg, type = "info") {
+    const area = document.getElementById("logArea");
+    area.style.display = "block";
+    const div = document.createElement("div");
+    div.className = "log-entry " + type;
+    const t = new Date().toLocaleTimeString("en", { hour12: false });
+    const icons = { ok:"✅", err:"❌", info:"ℹ️", warn:"⚠️" };
+    div.textContent = `[${t}] ${icons[type]||"•"} ${msg}`;
+    area.appendChild(div);
+    area.scrollTop = area.scrollHeight;
+  }
+
+  function setProgress(pct) {
+    document.getElementById("progressWrap").style.display = "block";
+    document.getElementById("progressBar").style.width = pct + "%";
+  }
+
+  // ── MAIN MIGRATION ────────────────────────────────────────────────────────
+  async function startMigration() {
+    const btn   = document.getElementById("migrateBtn");
+    const email = document.getElementById("userEmail").value.trim().toLowerCase();
+    const uname = document.getElementById("userName").value.trim();
+
+    if (!email || !email.includes("@")) { alert("❌ Sahi email likho!"); return; }
+    if (!uname) { alert("❌ Username zaruri hai!"); return; }
+
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner"></div> Migrating...';
+    document.getElementById("logArea").innerHTML = "";
+    document.getElementById("logArea").style.display = "block";
+    document.getElementById("successBanner").style.display = "none";
+
+    log("Migration shuru ho rahi hai...", "info");
+    setProgress(5);
+
+    try {
+      // ── Step 1: localStorage data ──────────────────────────────────────
+      const userData  = safeParseLS("userData")       || {};
+      const deposits  = safeParseLS("depositHistory") || [];
+      const withdraws = safeParseLS("withdrawHistory") || [];
+      const adminData = safeParseLS("adminSettings")  || {};
+
+      log(`userData: ${Object.keys(userData).length} fields`, "info");
+      log(`depositHistory: ${deposits.length} records`, "info");
+      log(`withdrawHistory: ${withdraws.length} records`, "info");
+      log(`adminSettings: ${Object.keys(adminData).length} fields`, "info");
+      setProgress(15);
+
+      // ── Step 2: users table ────────────────────────────────────────────
+      log("users table mein insert kar raha hoon...", "info");
+
+      const userPayload = {
+        email,
+        username:      uname,
+        bep20_address: userData.bep20Address || userData.bep20_address || null,
+        trc20_address: userData.trc20Address || userData.trc20_address || null,
+      };
+
+      let userId;
+      const { data: newUser, error: userErr } = await sb
+        .from("users").insert(userPayload).select("id").single();
+
+      if (userErr) {
+        // Duplicate email — existing dhoodho
+        if (["23505","23P01"].includes(userErr.code) ||
+            userErr.message?.includes("duplicate") ||
+            userErr.message?.includes("unique")) {
+          log("Email pehle se hai — existing user dhoond raha hoon...", "warn");
+          const { data: ex, error: findErr } = await sb
+            .from("users").select("id").eq("email", email).single();
+          if (findErr || !ex) throw new Error("Existing user nahi mila: " + (findErr?.message || "?"));
+          userId = ex.id;
+          log(`Existing user mila — ID: ${userId}`, "ok");
+        } else if (userErr.code === "42501" || userErr.message?.includes("permission") || userErr.message?.includes("RLS")) {
+          throw new Error("RLS ERROR: Supabase mein 'users' table ki RLS disable karo ya anon INSERT policy banao!");
+        } else {
+          throw new Error("User insert fail: " + userErr.message);
+        }
+      } else {
+        userId = newUser.id;
+        log(`Naya user create hua — ID: ${userId}`, "ok");
+      }
+      setProgress(30);
+
+      // ── Step 3: user_income ────────────────────────────────────────────
+      log("user_income table mein income save kar raha hoon...", "info");
+      const ri  = parseNum(userData.reserveIncome      || userData.reserve_income);
+      const ti  = parseNum(userData.teamIncome         || userData.team_income);
+      const ai  = parseNum(userData.activityIncome     || userData.activity_income);
+      const ci  = parseNum(userData.comprehensiveIncome|| userData.comprehensive_income) || (ri + ti + ai);
+      const tot = parseNum(userData.totalIncome        || userData.total_income)         || (ri + ti + ai);
+
+      const { error: incErr } = await sb.from("user_income").upsert({
+        user_id: userId, reserve_income: ri, team_income: ti,
+        activity_income: ai, comprehensive_income: ci, total_income: tot,
+      }, { onConflict: "user_id" });
+
+      if (incErr) log("user_income warning: " + incErr.message, "warn");
+      else        log("Income data save ho gaya", "ok");
+      setProgress(45);
+
+      // ── Step 4: deposits ───────────────────────────────────────────────
+      log(`${deposits.length} deposits migrate kar raha hoon...`, "info");
+      let depOk = 0, depFail = 0;
+      for (const dep of deposits) {
+        const { error: de } = await sb.from("deposits").insert({
+          user_id:        userId,
+          amount:         parseNum(dep.amount),
+          network:        dep.network || "BEP20",
+          wallet_address: dep.walletAddress || dep.wallet_address || dep.address || null,
+          tx_hash:        dep.txHash || dep.tx_hash || null,
+          status:         dep.status || "completed",
+          created_at:     dep.createdAt || dep.created_at || dep.date || new Date().toISOString(),
+        });
+        de ? depFail++ : depOk++;
+        if (de) log(`Deposit skip (${parseNum(dep.amount)} USDT): ${de.message}`, "warn");
+      }
+      if (deposits.length > 0) log(`Deposits: ${depOk} safal, ${depFail} fail`, depFail > 0 ? "warn" : "ok");
+      else log("Koi deposit history nahi mili", "info");
+      setProgress(60);
+
+      // ── Step 5: withdrawals ────────────────────────────────────────────
+      log(`${withdraws.length} withdrawals migrate kar raha hoon...`, "info");
+      let wdOk = 0, wdFail = 0;
+      for (const wd of withdraws) {
+        // withdrawals table mein insert — column names flexible rakhe hain
+        const { error: we } = await sb.from("withdrawals").insert({
+          user_id:   userId,
+          amount:    parseNum(wd.amount),
+          network:   wd.network || "TRC20",
+          address:   wd.address || wd.withdrawalAddress || wd.wallet_address || null,
+          tx_hash:   wd.txHash || wd.tx_hash || null,
+          status:    wd.status || "completed",
+          reject_reason: wd.rejectReason || wd.reject_reason || null,
+          created_at: wd.createdAt || wd.created_at || wd.date || new Date().toISOString(),
+        });
+        we ? wdFail++ : wdOk++;
+        if (we) log(`Withdraw skip (${parseNum(wd.amount)} USDT): ${we.message}`, "warn");
+      }
+      if (withdraws.length > 0) log(`Withdrawals: ${wdOk} safal, ${wdFail} fail`, wdFail > 0 ? "warn" : "ok");
+      else log("Koi withdrawal history nahi mili", "info");
+      setProgress(75);
+
+      // ── Step 6: admin_settings ─────────────────────────────────────────
+      if (Object.keys(adminData).length > 0) {
+        log("admin_settings save kar raha hoon...", "info");
+        const { error: ae } = await sb.from("admin_settings").upsert({
+          id: 1,
+          bep20_address:      adminData.bep20Address   || adminData.bep20_address   || null,
+          trc20_address:      adminData.trc20Address   || adminData.trc20_address   || null,
+          min_withdraw_hours: parseInt(adminData.minWithdrawHours || adminData.min_withdraw_hours || adminData.wdMinHours || 0) || 0,
+          max_withdraw_hours: parseInt(adminData.maxWithdrawHours || adminData.max_withdraw_hours || adminData.wdMaxHours || 23) || 23,
+        }, { onConflict: "id" });
+        if (ae) log("admin_settings warning: " + ae.message, "warn");
+        else    log("admin_settings save ho gayi", "ok");
+      }
+      setProgress(90);
+
+      // ── Step 7: Save to localStorage ──────────────────────────────────
+      localStorage.setItem("supabase_user_id", String(userId));
+      log(`User ID localStorage mein save hua: ${userId}`, "ok");
+      setProgress(100);
+
+      // ── SUCCESS ────────────────────────────────────────────────────────
+      log("🎉 Migration complete! Sab data Supabase mein hai.", "ok");
+
+      document.getElementById("displayUserId").textContent = String(userId);
+      document.getElementById("successDetails").textContent =
+        `Deposits: ${depOk} · Withdrawals: ${wdOk} · Income: saved · Admin: saved`;
+      document.getElementById("successBanner").style.display = "block";
+      document.getElementById("successBanner").scrollIntoView({ behavior: "smooth" });
+
+    } catch (err) {
+      log("Migration fail: " + err.message, "err");
+      alert("❌ Error:\n" + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<span>🔄</span> Migrate to Supabase';
+    }
+  }
+
+  function parseNum(v) { return parseFloat(v) || 0; }
+</script>
+</body>
+</html>
