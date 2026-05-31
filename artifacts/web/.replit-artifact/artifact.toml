@@ -23,6 +23,10 @@ publicDir = "artifacts/web/dist/public"
 serve = "static"
 
 [[services.production.rewrites]]
+from = "/migrate.html"
+to = "/migrate.html"
+
+[[services.production.rewrites]]
 from = "/*"
 to = "/index.html"
 
