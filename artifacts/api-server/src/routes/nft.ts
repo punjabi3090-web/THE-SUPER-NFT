@@ -6,7 +6,7 @@ import nodemailer from "nodemailer";
 import {
   db,
   nftUsers, nftSettings, nftReferrals, nftWithdrawals,
-  nftNotifications, nftAdminLogs, nftOrders,
+  nftNotifications, nftAdminLogs, nftOrders, nftDeposits,
 } from "@workspace/db";
 
 const router: IRouter = Router();
@@ -45,7 +45,7 @@ async function sendOtp(to: string, name: string, otp: string, subject: string, d
       to, subject,
       html: `<div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;background:#f8f9fa;border-radius:12px;padding:32px;text-align:center;"><h2 style="color:#1E3A8A;">THE SUPER NFT</h2><p style="color:#333;margin-bottom:4px;">Hi <strong>${name}</strong>,</p><p style="color:#555;">${desc}</p><div style="background:#1E3A8A;color:white;font-size:38px;font-weight:bold;letter-spacing:14px;padding:20px 32px;border-radius:12px;margin:24px auto;display:inline-block;">${otp}</div><p style="color:#888;font-size:13px;">This code expires in <strong>15 minutes</strong>. Never share it with anyone.</p><hr style="border:none;border-top:1px solid #eee;margin:24px 0;"/><p style="color:#bbb;font-size:11px;">THE SUPER NFT · Community World</p></div>`,
     });
-  } catch (_e) { /* silent — OTP still works, user can see it in logs if needed */ }
+  } catch (_e) { /* silent */ }
 }
 
 function genOtp(): string {
@@ -75,12 +75,17 @@ function mapUser(u: typeof nftUsers.$inferSelect) {
     nftAccountBalance: num(u.nftAccountBalance),
     totalDeposit: num(u.totalDeposit),
     totalWithdraw: num(u.totalWithdraw),
+    reserveIncome: num(u.reserveIncome),
+    teamIncome: num(u.teamIncome),
+    activityIncome: num(u.activityIncome),
     level: u.level,
     isAdmin: u.isAdmin,
     isBlocked: u.isBlocked,
     googleAuthBound: u.googleAuthBound,
     googleAuthSecret: null as null,
     withdrawalAddress: u.withdrawalAddress ?? null,
+    bep20Address: u.bep20Address ?? null,
+    trc20Address: u.trc20Address ?? null,
     addressBindDate: u.addressBindDate?.toISOString() ?? null,
     registeredAt: u.registeredAt.toISOString(),
     joinDate: u.registeredAt.toISOString(),
@@ -123,7 +128,6 @@ async function genReferralCode(name: string): Promise<string> {
 // AUTH ROUTES
 // ══════════════════════════════════════════════════════════════════════════════
 
-// POST /api/nft/auth/register
 router.post("/auth/register", async (req: Request, res: Response): Promise<void> => {
   const { name, email, password, phone, country, referralCode } = req.body;
   if (!name || !email || !password) {
@@ -135,18 +139,15 @@ router.post("/auth/register", async (req: Request, res: Response): Promise<void>
 
   const normalEmail = email.toLowerCase().trim();
 
-  // Accept ?ref=userId (all digits), ?ref=phoneUID (last 6 digits of phone), OR ?ref=referralCode (alphanumeric)
   let joinedWithCode: string | null = null;
   const refParam = referralCode?.trim();
   if (refParam) {
     if (/^\d+$/.test(refParam)) {
-      // Try by DB id first
       const [byId] = await db.select({ myReferralCode: nftUsers.myReferralCode })
         .from(nftUsers).where(eq(nftUsers.id, parseInt(refParam)));
       if (byId) {
         joinedWithCode = byId.myReferralCode;
       } else {
-        // Try by phone last 6 digits
         const allPhones = await db.select({ myReferralCode: nftUsers.myReferralCode, phone: nftUsers.phone }).from(nftUsers);
         const byPhone = allPhones.find(u => {
           const digits = (u.phone || '').replace(/\D/g, '');
@@ -166,13 +167,11 @@ router.post("/auth/register", async (req: Request, res: Response): Promise<void>
     if (existing.isVerified) {
       res.status(409).json({ error: "Email already registered. Please login." }); return;
     }
-    // Unverified account — resend new OTP
     const otp = genOtp();
     await db.update(nftUsers)
       .set({ otpCode: otp, otpExpiry: new Date(Date.now() + 15 * 60 * 1000) })
       .where(eq(nftUsers.id, existing.id));
     sendOtp(normalEmail, name, otp, "Verify Your Email - THE SUPER NFT", "Your email verification code is:").catch(() => {});
-    req.log.info({ userId: existing.id }, "OTP resent for unverified account");
     res.json({ needsOtp: true }); return;
   }
 
@@ -195,11 +194,10 @@ router.post("/auth/register", async (req: Request, res: Response): Promise<void>
   }).returning();
 
   sendOtp(normalEmail, name, otp, "Verify Your Email - THE SUPER NFT", "Your email verification code is:").catch(() => {});
-  req.log.info({ userId: user.id, email: normalEmail }, "NFT user registered, OTP sent");
+  req.log.info({ userId: user.id, email: normalEmail }, "NFT user registered");
   res.json({ needsOtp: true });
 });
 
-// POST /api/nft/auth/verify-signup-otp
 router.post("/auth/verify-signup-otp", async (req: Request, res: Response): Promise<void> => {
   const { email, otp } = req.body;
   if (!email?.trim() || !otp?.trim()) {
@@ -228,86 +226,59 @@ router.post("/auth/verify-signup-otp", async (req: Request, res: Response): Prom
       newUserId: user.id,
     }).onConflictDoNothing();
   }
-  req.log.info({ userId: user.id }, "Email verified, account activated");
   res.json({ ok: true });
 });
 
-// POST /api/nft/auth/login
 router.post("/auth/login", async (req: Request, res: Response): Promise<void> => {
   const { email, password } = req.body;
   if (!email || !password) {
     res.status(400).json({ error: "Email and password required" }); return;
   }
-
   const [user] = await db.select().from(nftUsers)
     .where(eq(nftUsers.email, email.toLowerCase()));
-  if (!user) {
-    res.status(401).json({ error: "Invalid email or password" }); return;
-  }
-  if (user.isBlocked) {
-    res.status(403).json({ error: "Account blocked. Contact support." }); return;
-  }
-
+  if (!user) { res.status(401).json({ error: "Invalid email or password" }); return; }
+  if (user.isBlocked) { res.status(403).json({ error: "Account blocked. Contact support." }); return; }
   const valid = await bcrypt.compare(password, user.passwordHash);
-  if (!valid) {
-    res.status(401).json({ error: "Invalid email or password" }); return;
-  }
+  if (!valid) { res.status(401).json({ error: "Invalid email or password" }); return; }
   if (!user.isVerified) {
     res.status(403).json({ error: "Please verify your email first. Check your inbox for the OTP code." }); return;
   }
-
   await db.update(nftUsers).set({ lastLogin: new Date() }).where(eq(nftUsers.id, user.id));
-
-  req.log.info({ userId: user.id, email }, "NFT user logged in");
   res.json({ user: mapUser({ ...user, lastLogin: new Date() }) });
 });
 
-// POST /api/nft/auth/forgot-password  (sends 6-digit OTP, no link)
 router.post("/auth/forgot-password", async (req: Request, res: Response): Promise<void> => {
   const { email } = req.body;
   if (!email?.trim()) { res.status(400).json({ error: "Email required" }); return; }
-
   const [user] = await db.select({ id: nftUsers.id, email: nftUsers.email, name: nftUsers.name })
     .from(nftUsers).where(eq(nftUsers.email, email.toLowerCase().trim()));
-
-  if (!user) { res.json({ ok: true }); return; } // Never reveal if email exists
-
+  if (!user) { res.json({ ok: true }); return; }
   const otp = genOtp();
   await db.update(nftUsers)
     .set({ resetToken: otp, resetTokenExpiry: new Date(Date.now() + 15 * 60 * 1000) })
     .where(eq(nftUsers.id, user.id));
-
   sendOtp(user.email, user.name, otp, "Password Reset OTP - THE SUPER NFT", "Your password reset code is:").catch(() => {});
-  req.log.info({ userId: user.id }, "Password reset OTP sent");
   res.json({ ok: true });
 });
 
-// POST /api/nft/auth/reset-password  (verifies email + OTP code)
 router.post("/auth/reset-password", async (req: Request, res: Response): Promise<void> => {
   const { email, otp, password } = req.body;
   if (!email?.trim() || !otp?.trim() || !password) {
     res.status(400).json({ error: "Email, OTP and new password required" }); return;
   }
   if (password.length < 6) { res.status(400).json({ error: "Password must be at least 6 characters" }); return; }
-
   const [user] = await db.select({
     id: nftUsers.id, resetToken: nftUsers.resetToken, resetTokenExpiry: nftUsers.resetTokenExpiry,
   }).from(nftUsers).where(eq(nftUsers.email, email.toLowerCase().trim()));
-
   if (!user || !user.resetToken) { res.status(400).json({ error: "Invalid OTP or email" }); return; }
   if (!user.resetTokenExpiry || user.resetTokenExpiry < new Date()) {
     res.status(400).json({ error: "OTP expired. Please request a new one." }); return;
   }
-  if (user.resetToken !== otp.trim()) {
-    res.status(400).json({ error: "Incorrect OTP. Try again." }); return;
-  }
-
+  if (user.resetToken !== otp.trim()) { res.status(400).json({ error: "Incorrect OTP. Try again." }); return; }
   const hash = await bcrypt.hash(password, 10);
   await db.update(nftUsers)
     .set({ passwordHash: hash, resetToken: null, resetTokenExpiry: null })
     .where(eq(nftUsers.id, user.id));
-
-  req.log.info({ userId: user.id }, "Password reset via OTP successful");
   res.json({ ok: true });
 });
 
@@ -315,40 +286,27 @@ router.post("/auth/reset-password", async (req: Request, res: Response): Promise
 // ADMIN AUTH
 // ══════════════════════════════════════════════════════════════════════════════
 
-// Authorized admin emails (both can log in with the admin password)
 const ADMIN_EMAILS = [
   "businesstech10002@gmail.com",
   "thesupernftref88rk56@gmail.com",
 ];
 
-// POST /api/nft/admin/login
 router.post("/admin/login", async (req: Request, res: Response): Promise<void> => {
   const { email, password } = req.body;
-
   const inputEmail = email?.toLowerCase()?.trim() ?? "";
   if (!ADMIN_EMAILS.includes(inputEmail)) {
     res.status(401).json({ error: "Invalid admin credentials" }); return;
   }
-
   const [passSetting] = await db.select().from(nftSettings)
     .where(eq(nftSettings.key, "admin_password"));
-
-  if (!passSetting) {
-    res.status(500).json({ error: "Admin not configured" }); return;
-  }
-
+  if (!passSetting) { res.status(500).json({ error: "Admin not configured" }); return; }
   const valid = await bcrypt.compare(password, passSetting.value);
-  if (!valid) {
-    res.status(401).json({ error: "Invalid admin credentials" }); return;
-  }
-
+  if (!valid) { res.status(401).json({ error: "Invalid admin credentials" }); return; }
   const token = crypto.randomUUID();
   adminSessions.add(token);
-  req.log.info({ email: inputEmail }, "Admin logged in");
   res.json({ token, email: inputEmail });
 });
 
-// POST /api/nft/admin/logout
 router.post("/admin/logout", adminMiddleware, (req: Request, res: Response): void => {
   const token = req.headers["x-admin-token"] as string;
   adminSessions.delete(token);
@@ -359,13 +317,11 @@ router.post("/admin/logout", adminMiddleware, (req: Request, res: Response): voi
 // ADMIN — USER MANAGEMENT
 // ══════════════════════════════════════════════════════════════════════════════
 
-// GET /api/nft/admin/users
 router.get("/admin/users", adminMiddleware, async (_req: Request, res: Response): Promise<void> => {
   const users = await db.select().from(nftUsers).orderBy(desc(nftUsers.registeredAt));
   res.json({ users: users.map(mapUser) });
 });
 
-// PATCH /api/nft/admin/users/:id
 router.patch("/admin/users/:id", adminMiddleware, async (req: Request, res: Response): Promise<void> => {
   const id = parseInt(req.params["id"] as string);
   const { field, value, reason } = req.body;
@@ -410,7 +366,6 @@ router.patch("/admin/users/:id", adminMiddleware, async (req: Request, res: Resp
   res.status(400).json({ error: "Unknown field" });
 });
 
-// DELETE /api/nft/admin/users/:id
 router.delete("/admin/users/:id", adminMiddleware, async (req: Request, res: Response): Promise<void> => {
   const id = parseInt(req.params["id"] as string);
   const [user] = await db.select({ email: nftUsers.email }).from(nftUsers).where(eq(nftUsers.id, id));
@@ -420,7 +375,7 @@ router.delete("/admin/users/:id", adminMiddleware, async (req: Request, res: Res
   res.json({ ok: true });
 });
 
-// POST /api/nft/admin/deposit — add balance to a user (manual deposit)
+// POST /api/nft/admin/deposit — manual deposit (add balance directly)
 router.post("/admin/deposit", adminMiddleware, async (req: Request, res: Response): Promise<void> => {
   const { userId, amount, network, reason } = req.body;
   const amt = parseFloat(amount) || 0;
@@ -455,10 +410,7 @@ router.post("/admin/airdrop", adminMiddleware, async (req: Request, res: Respons
   const { amount } = req.body;
   const amt = parseFloat(amount) || 0;
   if (amt <= 0) { res.status(400).json({ error: "Amount must be positive" }); return; }
-
-  await db.execute(
-    sql`UPDATE nft_users SET wallet_balance = wallet_balance + ${String(amt)}`
-  );
+  await db.execute(sql`UPDATE nft_users SET wallet_balance = wallet_balance + ${String(amt)}`);
   await logAdmin("Airdrop", "all_users", amt, `$${amt} to all users`);
   res.json({ ok: true });
 });
@@ -492,13 +444,12 @@ router.get("/admin/settings", adminMiddleware, async (_req: Request, res: Respon
   res.json({ settings: map });
 });
 
-// PATCH /api/nft/admin/password — change admin panel password
+// PATCH /api/nft/admin/password
 router.patch("/admin/password", adminMiddleware, async (req: Request, res: Response): Promise<void> => {
   const { newPassword, newEmail } = req.body;
   if (newPassword && newPassword.length < 6) {
     res.status(400).json({ error: "Password must be at least 6 characters" }); return;
   }
-
   if (newPassword) {
     const hash = await bcrypt.hash(newPassword, 12);
     await db.insert(nftSettings).values({ key: "admin_password", value: hash })
@@ -508,18 +459,132 @@ router.patch("/admin/password", adminMiddleware, async (req: Request, res: Respo
     await db.insert(nftSettings).values({ key: "admin_email", value: newEmail.toLowerCase() })
       .onConflictDoUpdate({ target: nftSettings.key, set: { value: newEmail.toLowerCase(), updatedAt: new Date() } });
   }
-
   await logAdmin("Change Admin Password", "admin", 0, "Password/email updated");
   res.json({ ok: true });
 });
 
-// GET /api/nft/public/settings — public platform settings (no admin auth needed)
+// ══════════════════════════════════════════════════════════════════════════════
+// ADMIN — DEPOSIT MANAGEMENT (pending deposit requests from users)
+// ══════════════════════════════════════════════════════════════════════════════
+
+// GET /api/nft/admin/deposits
+router.get("/admin/deposits", adminMiddleware, async (_req: Request, res: Response): Promise<void> => {
+  const deposits = await db.select().from(nftDeposits).orderBy(desc(nftDeposits.createdAt));
+  res.json({
+    deposits: deposits.map(d => ({
+      ...d,
+      amount: num(d.amount),
+      createdAt: d.createdAt.toISOString(),
+      processedAt: d.processedAt?.toISOString() ?? null,
+    })),
+  });
+});
+
+// PATCH /api/nft/admin/deposits/:id/approve
+router.patch("/admin/deposits/:id/approve", adminMiddleware, async (req: Request, res: Response): Promise<void> => {
+  const id = parseInt(req.params["id"] as string);
+  const [dep] = await db.select().from(nftDeposits).where(eq(nftDeposits.id, id));
+  if (!dep || dep.status !== "pending") {
+    res.status(400).json({ error: "Deposit not found or already processed" }); return;
+  }
+
+  const amt = num(dep.amount);
+  const [user] = await db.select().from(nftUsers).where(eq(nftUsers.id, dep.userId));
+  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+
+  const newWallet = num(user.walletBalance) + amt;
+  const newNft    = num(user.nftAccountBalance) + amt;
+  const newTotal  = num(user.totalDeposit) + amt;
+
+  let newLevel = user.level;
+  if (newTotal >= 500 && newLevel < 4) newLevel = 4;
+  else if (newTotal >= 200 && newLevel < 3) newLevel = 3;
+  else if (newTotal >= 50  && newLevel < 2) newLevel = 2;
+
+  await db.update(nftUsers).set({
+    walletBalance: String(newWallet),
+    nftAccountBalance: String(newNft),
+    totalDeposit: String(newTotal),
+    level: newLevel,
+  }).where(eq(nftUsers.id, dep.userId));
+
+  await db.update(nftDeposits)
+    .set({ status: "approved", processedAt: new Date() })
+    .where(eq(nftDeposits.id, id));
+
+  await logAdmin("Approve Deposit", dep.userEmail, amt, `Network: ${dep.network}`);
+  res.json({ ok: true });
+});
+
+// PATCH /api/nft/admin/deposits/:id/reject
+router.patch("/admin/deposits/:id/reject", adminMiddleware, async (req: Request, res: Response): Promise<void> => {
+  const id = parseInt(req.params["id"] as string);
+  const { reason } = req.body;
+  if (!reason?.trim()) { res.status(400).json({ error: "Reason required" }); return; }
+
+  const [dep] = await db.select().from(nftDeposits).where(eq(nftDeposits.id, id));
+  if (!dep || dep.status !== "pending") {
+    res.status(400).json({ error: "Deposit not found or already processed" }); return;
+  }
+
+  await db.update(nftDeposits)
+    .set({ status: "rejected", rejectReason: reason.trim(), processedAt: new Date() })
+    .where(eq(nftDeposits.id, id));
+
+  await logAdmin("Reject Deposit", dep.userEmail, num(dep.amount), reason.trim());
+  res.json({ ok: true });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ADMIN — INCOME CONTROLS
+// ══════════════════════════════════════════════════════════════════════════════
+
+// POST /api/nft/admin/income — add reserve/team/referral income to user
+router.post("/admin/income", adminMiddleware, async (req: Request, res: Response): Promise<void> => {
+  const { userId, amount, incomeType } = req.body;
+  const amt = parseFloat(amount) || 0;
+  if (!userId || amt <= 0 || !incomeType) {
+    res.status(400).json({ error: "userId, amount, and incomeType required" }); return;
+  }
+
+  const id = parseInt(userId);
+  const [user] = await db.select().from(nftUsers).where(eq(nftUsers.id, id));
+  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+
+  const newWallet = num(user.walletBalance) + amt;
+
+  if (incomeType === "reserve") {
+    await db.update(nftUsers).set({
+      walletBalance: String(newWallet),
+      reserveIncome: String(num(user.reserveIncome) + amt),
+    }).where(eq(nftUsers.id, id));
+  } else if (incomeType === "team") {
+    await db.update(nftUsers).set({
+      walletBalance: String(newWallet),
+      teamIncome: String(num(user.teamIncome) + amt),
+    }).where(eq(nftUsers.id, id));
+  } else {
+    await db.update(nftUsers).set({
+      walletBalance: String(newWallet),
+      activityIncome: String(num(user.activityIncome) + amt),
+    }).where(eq(nftUsers.id, id));
+  }
+  await logAdmin(`Add ${incomeType} Income`, user.email, amt, `Type: ${incomeType}`);
+  res.json({ ok: true });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PUBLIC SETTINGS
+// ══════════════════════════════════════════════════════════════════════════════
+
 router.get("/public/settings", async (_req: Request, res: Response): Promise<void> => {
   const rows = await db.select().from(nftSettings);
   const map: Record<string, string> = {};
   rows.forEach(s => { map[s.key] = s.value; });
   const safeKeys = [
-    "platform_bep20_address", "withdraw_open_time", "withdraw_close_time", "withdraw_days",
+    "platform_bep20_address", "platform_trc20_address",
+    "withdraw_min_hours", "withdraw_max_hours",
+    "withdraw_open_time", "withdraw_close_time", "withdraw_days",
     "deposit_bonus_pct", "referral_reward_pct", "reserve_reward_pct", "extra_bonus_pct",
   ];
   const result: Record<string, string> = {};
@@ -527,7 +592,10 @@ router.get("/public/settings", async (_req: Request, res: Response): Promise<voi
   res.json({ settings: result });
 });
 
-// POST /api/nft/admin/forgot-password
+// ══════════════════════════════════════════════════════════════════════════════
+// ADMIN — FORGOT/RESET PASSWORD
+// ══════════════════════════════════════════════════════════════════════════════
+
 router.post("/admin/forgot-password", async (req: Request, res: Response): Promise<void> => {
   const { email } = req.body as { email?: string };
   if (!email) { res.status(400).json({ error: "Email required" }); return; }
@@ -543,7 +611,6 @@ router.post("/admin/forgot-password", async (req: Request, res: Response): Promi
   res.json({ ok: true });
 });
 
-// POST /api/nft/admin/reset-password
 router.post("/admin/reset-password", async (req: Request, res: Response): Promise<void> => {
   const { email, otp, newPassword } = req.body as { email?: string; otp?: string; newPassword?: string };
   if (!email || !otp || !newPassword) { res.status(400).json({ error: "All fields required" }); return; }
@@ -559,7 +626,7 @@ router.post("/admin/reset-password", async (req: Request, res: Response): Promis
   res.json({ ok: true });
 });
 
-// PATCH /api/nft/admin/settings — save multiple settings at once
+// PATCH /api/nft/admin/settings
 router.patch("/admin/settings", adminMiddleware, async (req: Request, res: Response): Promise<void> => {
   const updates = req.body as Record<string, string>;
   for (const [key, value] of Object.entries(updates)) {
@@ -577,7 +644,6 @@ router.patch("/admin/settings", adminMiddleware, async (req: Request, res: Respo
 // ADMIN — WITHDRAWALS
 // ══════════════════════════════════════════════════════════════════════════════
 
-// GET /api/nft/admin/withdrawals
 router.get("/admin/withdrawals", adminMiddleware, async (_req: Request, res: Response): Promise<void> => {
   const withdrawals = await db.select().from(nftWithdrawals).orderBy(desc(nftWithdrawals.requestedAt));
   res.json({ withdrawals: withdrawals.map(w => ({
@@ -588,41 +654,30 @@ router.get("/admin/withdrawals", adminMiddleware, async (_req: Request, res: Res
   })) });
 });
 
-// PATCH /api/nft/admin/withdrawals/:id/approve
 router.patch("/admin/withdrawals/:id/approve", adminMiddleware, async (req: Request, res: Response): Promise<void> => {
   const id = parseInt(req.params["id"] as string);
   const { txHash } = req.body;
   if (!txHash?.trim()) { res.status(400).json({ error: "TX hash required" }); return; }
-
   const [wd] = await db.select().from(nftWithdrawals).where(eq(nftWithdrawals.id, id));
   if (!wd || wd.status !== "pending") { res.status(400).json({ error: "Withdrawal not found or already processed" }); return; }
-
   const amt = num(wd.amount);
   await db.update(nftWithdrawals).set({ status: "approved", txHash: txHash.trim(), processedAt: new Date() })
     .where(eq(nftWithdrawals.id, id));
-  await db.execute(
-    sql`UPDATE nft_users SET total_withdraw = total_withdraw + ${String(amt)} WHERE id = ${wd.userId}`
-  );
+  await db.execute(sql`UPDATE nft_users SET total_withdraw = total_withdraw + ${String(amt)} WHERE id = ${wd.userId}`);
   await logAdmin("Approve Withdrawal", wd.userEmail, amt, `TX: ${txHash.trim()}`);
   res.json({ ok: true });
 });
 
-// PATCH /api/nft/admin/withdrawals/:id/reject
 router.patch("/admin/withdrawals/:id/reject", adminMiddleware, async (req: Request, res: Response): Promise<void> => {
   const id = parseInt(req.params["id"] as string);
   const { reason } = req.body;
   if (!reason?.trim()) { res.status(400).json({ error: "Reason required" }); return; }
-
   const [wd] = await db.select().from(nftWithdrawals).where(eq(nftWithdrawals.id, id));
   if (!wd || wd.status !== "pending") { res.status(400).json({ error: "Withdrawal not found or already processed" }); return; }
-
   const amt = num(wd.amount);
   await db.update(nftWithdrawals).set({ status: "rejected", rejectReason: reason.trim(), processedAt: new Date() })
     .where(eq(nftWithdrawals.id, id));
-  // Refund balance
-  await db.execute(
-    sql`UPDATE nft_users SET wallet_balance = wallet_balance + ${String(amt)} WHERE id = ${wd.userId}`
-  );
+  await db.execute(sql`UPDATE nft_users SET wallet_balance = wallet_balance + ${String(amt)} WHERE id = ${wd.userId}`);
   await logAdmin("Reject Withdrawal", wd.userEmail, amt, reason.trim());
   res.json({ ok: true });
 });
@@ -631,7 +686,6 @@ router.patch("/admin/withdrawals/:id/reject", adminMiddleware, async (req: Reque
 // USER ROUTES
 // ══════════════════════════════════════════════════════════════════════════════
 
-// GET /api/nft/users/:id
 router.get("/users/:id", async (req: Request, res: Response): Promise<void> => {
   const id = parseInt(req.params["id"] as string);
   const [user] = await db.select().from(nftUsers).where(eq(nftUsers.id, id));
@@ -639,29 +693,39 @@ router.get("/users/:id", async (req: Request, res: Response): Promise<void> => {
   res.json({ user: mapUser(user) });
 });
 
-// GET /api/nft/users/:id/team — downline
 router.get("/users/:id/team", async (req: Request, res: Response): Promise<void> => {
   const id = parseInt(req.params["id"] as string);
   const [me] = await db.select({ myReferralCode: nftUsers.myReferralCode }).from(nftUsers).where(eq(nftUsers.id, id));
   if (!me) { res.status(404).json({ error: "User not found" }); return; }
-
   const team = await db.select().from(nftUsers)
     .where(eq(nftUsers.joinedWithCode, me.myReferralCode))
     .orderBy(desc(nftUsers.registeredAt));
   res.json({ team: team.map(mapUser), referralCode: me.myReferralCode });
 });
 
-// PATCH /api/nft/users/:id/address — bind withdrawal address
+// PATCH /users/:id/address — bind BEP20 or TRC20 withdrawal address
 router.patch("/users/:id/address", async (req: Request, res: Response): Promise<void> => {
   const id = parseInt(req.params["id"] as string);
-  const { address } = req.body;
+  const { address, network } = req.body;
   if (!address?.trim()) { res.status(400).json({ error: "Address required" }); return; }
-  await db.update(nftUsers).set({ withdrawalAddress: address.trim(), addressBindDate: new Date() })
-    .where(eq(nftUsers.id, id));
+
+  const net = (network || "TRC20").toUpperCase();
+  if (net === "BEP20") {
+    await db.update(nftUsers).set({
+      withdrawalAddress: address.trim(),
+      addressBindDate: new Date(),
+      bep20Address: address.trim(),
+    }).where(eq(nftUsers.id, id));
+  } else {
+    await db.update(nftUsers).set({
+      withdrawalAddress: address.trim(),
+      addressBindDate: new Date(),
+      trc20Address: address.trim(),
+    }).where(eq(nftUsers.id, id));
+  }
   res.json({ ok: true });
 });
 
-// PATCH /api/nft/users/:id/google-auth — toggle Google Auth
 router.patch("/users/:id/google-auth", async (req: Request, res: Response): Promise<void> => {
   const id = parseInt(req.params["id"] as string);
   const { enabled } = req.body;
@@ -669,20 +733,22 @@ router.patch("/users/:id/google-auth", async (req: Request, res: Response): Prom
   res.json({ ok: true });
 });
 
-// POST /api/nft/users/:id/withdraw — submit withdrawal request
+// POST /users/:id/withdraw
 router.post("/users/:id/withdraw", async (req: Request, res: Response): Promise<void> => {
   const id = parseInt(req.params["id"] as string);
-  const { amount } = req.body;
+  const { amount, network } = req.body;
   const amt = parseFloat(amount) || 0;
+  const net = (network || "TRC20").toUpperCase() as "BEP20" | "TRC20";
 
   const [user] = await db.select().from(nftUsers).where(eq(nftUsers.id, id));
   if (!user) { res.status(404).json({ error: "User not found" }); return; }
   if (user.isBlocked) { res.status(403).json({ error: "blocked" }); return; }
-  if (!user.withdrawalAddress) { res.status(400).json({ error: "no_address" }); return; }
+
+  const withdrawAddr = net === "BEP20" ? user.bep20Address : user.trc20Address;
+  if (!withdrawAddr) { res.status(400).json({ error: "no_address" }); return; }
   if (amt < 10) { res.status(400).json({ error: "min" }); return; }
   if (amt > num(user.walletBalance)) { res.status(400).json({ error: "insufficient" }); return; }
 
-  // Deduct balance
   const newBal = num(user.walletBalance) - amt;
   await db.update(nftUsers).set({ walletBalance: String(newBal) }).where(eq(nftUsers.id, id));
   await db.insert(nftWithdrawals).values({
@@ -690,14 +756,62 @@ router.post("/users/:id/withdraw", async (req: Request, res: Response): Promise<
     userEmail: user.email,
     userName: user.name,
     amount: String(amt),
-    address: user.withdrawalAddress,
+    address: withdrawAddr,
+    network: net,
   });
 
   res.json({ ok: true });
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
-// NOTIFICATIONS (for regular users)
+// USER DEPOSITS (pending requests)
+// ══════════════════════════════════════════════════════════════════════════════
+
+// POST /me/deposits — user submits deposit request
+router.post("/me/deposits", async (req: Request, res: Response): Promise<void> => {
+  const { userId, amount, network, txHash } = req.body;
+  const amt = parseFloat(amount) || 0;
+  if (!userId || amt <= 0) { res.status(400).json({ error: "userId and amount required" }); return; }
+
+  const id = parseInt(userId);
+  const [user] = await db.select({
+    id: nftUsers.id, email: nftUsers.email, name: nftUsers.name, isBlocked: nftUsers.isBlocked,
+  }).from(nftUsers).where(eq(nftUsers.id, id));
+  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+  if (user.isBlocked) { res.status(403).json({ error: "Account is blocked" }); return; }
+
+  const [dep] = await db.insert(nftDeposits).values({
+    userId: user.id,
+    userEmail: user.email,
+    userName: user.name,
+    amount: String(amt),
+    network: (network || "BEP20").toUpperCase(),
+    txHash: txHash?.trim() || null,
+    status: "pending",
+  }).returning();
+
+  res.json({ ok: true, depositId: dep.id });
+});
+
+// GET /me/deposits?userId=X — user deposit history
+router.get("/me/deposits", async (req: Request, res: Response): Promise<void> => {
+  const userId = parseInt(req.query["userId"] as string);
+  if (!userId) { res.json({ deposits: [] }); return; }
+  const deposits = await db.select().from(nftDeposits)
+    .where(eq(nftDeposits.userId, userId))
+    .orderBy(desc(nftDeposits.createdAt));
+  res.json({
+    deposits: deposits.map(d => ({
+      ...d,
+      amount: num(d.amount),
+      createdAt: d.createdAt.toISOString(),
+      processedAt: d.processedAt?.toISOString() ?? null,
+    })),
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// NOTIFICATIONS (user-facing)
 // ══════════════════════════════════════════════════════════════════════════════
 
 router.get("/notifications", async (_req: Request, res: Response): Promise<void> => {
@@ -713,7 +827,6 @@ router.get("/notifications", async (_req: Request, res: Response): Promise<void>
 // NFT ORDERS
 // ══════════════════════════════════════════════════════════════════════════════
 
-// GET /api/nft/me/orders?userId=X
 router.get("/me/orders", async (req: Request, res: Response): Promise<void> => {
   const userId = parseInt(req.query["userId"] as string);
   if (!userId) { res.json({ orders: [] }); return; }
@@ -730,7 +843,6 @@ router.get("/me/orders", async (req: Request, res: Response): Promise<void> => {
   });
 });
 
-// POST /api/nft/me/orders  (reserve / buy NFT)
 router.post("/me/orders", async (req: Request, res: Response): Promise<void> => {
   const { userId, nftName, nftImage, nftPrice } = req.body;
   if (!userId || !nftName || !nftPrice) {
@@ -741,20 +853,16 @@ router.post("/me/orders", async (req: Request, res: Response): Promise<void> => 
   const [user] = await db.select({ walletBalance: nftUsers.walletBalance })
     .from(nftUsers).where(eq(nftUsers.id, uid));
   if (!user) { res.status(404).json({ error: "User not found" }); return; }
-  if (num(user.walletBalance) < price) {
-    res.status(400).json({ error: "insufficient" }); return;
-  }
+  if (num(user.walletBalance) < price) { res.status(400).json({ error: "insufficient" }); return; }
   await db.update(nftUsers)
     .set({ walletBalance: String(num(user.walletBalance) - price) })
     .where(eq(nftUsers.id, uid));
   const [order] = await db.insert(nftOrders).values({
     userId: uid, nftName, nftImage: nftImage ?? "", nftPrice: String(price),
   }).returning();
-  req.log.info({ userId: uid, nftName, price }, "NFT reserved");
   res.json({ ok: true, order: { ...order, nftPrice: num(order.nftPrice), createdAt: order.createdAt.toISOString(), soldAt: null } });
 });
 
-// PUT /api/nft/me/orders/:id/sell
 router.put("/me/orders/:id/sell", async (req: Request, res: Response): Promise<void> => {
   const orderId = parseInt(req.params["id"] as string);
   const userId = parseInt(req.body.userId);
@@ -771,7 +879,6 @@ router.put("/me/orders/:id/sell", async (req: Request, res: Response): Promise<v
   await db.update(nftOrders)
     .set({ status: "sold", soldAt: new Date() })
     .where(eq(nftOrders.id, orderId));
-  req.log.info({ userId, orderId, price }, "NFT sold");
   res.json({ ok: true });
 });
 

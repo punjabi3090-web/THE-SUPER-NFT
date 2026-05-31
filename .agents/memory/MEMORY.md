@@ -1,3 +1,5 @@
 - [NFT DB Migration](nft-db-migration.md) — app uses PostgreSQL for all user/admin data; store.ts re-exports api.ts for compat
 - [Admin settings pattern](admin-settings.md) — nftSettings table stores all platform config; GET /public/settings exposes safe keys without auth
 - [Admin OTP flow](admin-otp.md) — in-memory adminOtpStore Map; forgot/reset routes skip adminMiddleware intentionally
+- [DB lib rebuild pattern](db-lib-rebuild.md) — after schema changes, run `pnpm run typecheck:libs` (tsc --build) before api-server typecheck; lib/db is composite and emits declarations to dist/
+- [Drizzle dynamic update fix](drizzle-dynamic-update.md) — never cast dynamic Record<> objects to Drizzle set(); use explicit if/else branches with typed literals instead

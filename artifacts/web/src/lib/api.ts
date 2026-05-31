@@ -27,12 +27,17 @@ export interface User {
   nftAccountBalance: number;
   totalDeposit: number;
   totalWithdraw: number;
+  reserveIncome: number;
+  teamIncome: number;
+  activityIncome: number;
   level: number;
   isAdmin: boolean;
   isBlocked: boolean;
   googleAuthBound: boolean;
   googleAuthSecret: null;
   withdrawalAddress: string | null;
+  bep20Address: string | null;
+  trc20Address: string | null;
   addressBindDate: string | null;
   registeredAt: string;
   joinDate: string;
@@ -48,12 +53,27 @@ export interface WithdrawalRequest {
   userName: string;
   amount: number;
   address: string;
+  network: string;
   status: string;
   txHash: string | null;
   rejectReason: string | null;
   requestedAt: string;
   processedAt: string | null;
   requestDate: string;
+}
+
+export interface DepositRequest {
+  id: number;
+  userId: number;
+  userEmail: string;
+  userName: string;
+  amount: number;
+  network: string;
+  txHash: string | null;
+  status: string;
+  rejectReason: string | null;
+  createdAt: string;
+  processedAt: string | null;
 }
 
 export interface AdminNotif {
@@ -288,10 +308,10 @@ export function markAllNotifsRead(notifIds: number[]) {
 
 // ── User operations ───────────────────────────────────────────────────────────
 
-export async function updateUserAddress(userId: string, address: string): Promise<void> {
+export async function updateUserAddress(userId: string, address: string, network: "BEP20" | "TRC20" = "TRC20"): Promise<void> {
   await apiFetch(`/users/${userId}/address`, {
     method: "PATCH",
-    body: JSON.stringify({ address }),
+    body: JSON.stringify({ address, network }),
   });
 }
 
@@ -302,11 +322,11 @@ export async function updateGoogleAuth(userId: string, enabled: boolean): Promis
   });
 }
 
-export async function submitWithdrawalRequest(userId: string, amount: number): Promise<WithdrawResult> {
+export async function submitWithdrawalRequest(userId: string, amount: number, network: "BEP20" | "TRC20" = "TRC20"): Promise<WithdrawResult> {
   try {
     await apiFetch(`/users/${userId}/withdraw`, {
       method: "POST",
-      body: JSON.stringify({ amount }),
+      body: JSON.stringify({ amount, network }),
     });
     return "ok";
   } catch (e: unknown) {
@@ -324,6 +344,31 @@ export async function submitWithdrawalRequest(userId: string, amount: number): P
 export async function getUserTeam(userId: string): Promise<{ team: User[]; referralCode: string }> {
   const r = await apiFetch<{ team: User[]; referralCode: string }>(`/users/${userId}/team`);
   return r;
+}
+
+// ── Deposits (user) ───────────────────────────────────────────────────────────
+
+export async function submitDepositRequest(data: {
+  userId: string; amount: number; network: "BEP20" | "TRC20"; txHash?: string;
+}): Promise<"ok" | "error"> {
+  try {
+    await apiFetch("/me/deposits", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    return "ok";
+  } catch {
+    return "error";
+  }
+}
+
+export async function getDepositHistory(userId: string): Promise<DepositRequest[]> {
+  try {
+    const r = await apiFetch<{ deposits: DepositRequest[] }>(`/me/deposits?userId=${userId}`);
+    return r.deposits;
+  } catch {
+    return [];
+  }
 }
 
 // ── Admin operations ──────────────────────────────────────────────────────────
@@ -454,6 +499,47 @@ export async function rejectWithdrawal(id: number, reason: string): Promise<void
     body: JSON.stringify({ reason }),
   });
 }
+
+// ── Admin deposits ────────────────────────────────────────────────────────────
+
+export async function getAdminDeposits(): Promise<DepositRequest[]> {
+  try {
+    const r = await apiFetch<{ deposits: DepositRequest[] }>("/admin/deposits", { adminAuth: true });
+    return r.deposits;
+  } catch {
+    return [];
+  }
+}
+
+export async function approveDeposit(id: number): Promise<void> {
+  await apiFetch(`/admin/deposits/${id}/approve`, {
+    method: "PATCH",
+    adminAuth: true,
+  });
+}
+
+export async function rejectDeposit(id: number, reason: string): Promise<void> {
+  await apiFetch(`/admin/deposits/${id}/reject`, {
+    method: "PATCH",
+    adminAuth: true,
+    body: JSON.stringify({ reason }),
+  });
+}
+
+// ── Admin income controls ─────────────────────────────────────────────────────
+
+export async function addUserIncome(
+  userId: string, amount: number,
+  incomeType: "reserve" | "team" | "referral"
+): Promise<void> {
+  await apiFetch("/admin/income", {
+    method: "POST",
+    adminAuth: true,
+    body: JSON.stringify({ userId, amount, incomeType }),
+  });
+}
+
+// ── NFT orders ────────────────────────────────────────────────────────────────
 
 export async function getMyOrders(userId: string | number): Promise<NftOrder[]> {
   try {

@@ -14,7 +14,7 @@ function Popup({ popup }: { popup: PopupType }) {
   return (
     <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[90vw] max-w-sm">
       <div className={`px-6 py-4 rounded-lg shadow-2xl border-2 text-center ${
-        popup.type === "success" ? "bg-slate-50 border-emerald-400 text-slate-900" : "bg-red-50 border-red-500 text-red-900"
+        popup.type === "success" ? "bg-white border-emerald-400 text-slate-900" : "bg-red-50 border-red-500 text-red-900"
       }`}>
         <p className="font-semibold text-base">{popup.message}</p>
       </div>
@@ -80,7 +80,6 @@ export default function LoginPage() {
     const ref = params.get('ref');
     if (ref) setForm(f => ({ ...f, referralCode: ref }));
     if (params.get('mode') === 'login') setPage('login');
-    // If came via referral link, stay on register page (not login)
     if (ref && params.get('mode') !== 'login') setPage('register');
   }, []);
 
@@ -89,7 +88,8 @@ export default function LoginPage() {
     setTimeout(() => setPopup({ show: false, message: "", type: "" }), 3500);
   };
 
-  const inp = "w-full bg-white text-[#1E293B] px-4 py-3 rounded-lg border border-[#BFDBFE] focus:border-[#1E3A8A] outline-none text-base placeholder:text-slate-400";
+  const inp = "w-full bg-white/90 text-[#1E293B] px-3 py-2.5 rounded-lg border border-purple-200 focus:border-purple-500 outline-none text-sm placeholder:text-slate-400";
+  const btn = "w-full py-2.5 rounded-lg font-bold text-white text-sm shadow-lg disabled:opacity-50";
 
   // ── Register ──────────────────────────────────────────────────────────────────
   const handleRegister = async (e: React.FormEvent) => {
@@ -107,10 +107,7 @@ export default function LoginPage() {
         country: form.countryCode,
         referralCode: form.referralCode || undefined,
       });
-      if (result === 'email_exists') {
-        showMsg("Email already registered. Please login."); return;
-      }
-      // "otp_sent" → show OTP page
+      if (result === 'email_exists') { showMsg("Email already registered. Please login."); return; }
       setOtpEmail(form.email);
       setOtpCode("");
       setPage("register_otp");
@@ -119,27 +116,20 @@ export default function LoginPage() {
     finally { setLoading(false); }
   };
 
-  // ── Verify Signup OTP ─────────────────────────────────────────────────────────
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (otpCode.length !== 6) { showMsg("Please enter the 6-digit OTP"); return; }
     setLoading(true);
     try {
       const result = await verifySignupOtp(otpEmail, otpCode);
-      if (result === "expired") {
-        showMsg("OTP expired. Please register again.");
-        setTimeout(() => setPage("register"), 2000);
-        return;
-      }
+      if (result === "expired") { showMsg("OTP expired. Please register again."); setTimeout(() => setPage("register"), 2000); return; }
       if (result === "invalid") { showMsg("Incorrect OTP. Try again."); return; }
-      // "ok"
       showMsg("Email verified! Account created successfully.", "success");
       setTimeout(() => { setPage("login"); setForm(f => ({ ...f, email: otpEmail, password: "" })); }, 2000);
     } catch { showMsg("Verification failed. Please try again."); }
     finally { setLoading(false); }
   };
 
-  // ── Login ─────────────────────────────────────────────────────────────────────
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -155,23 +145,19 @@ export default function LoginPage() {
     finally { setLoading(false); }
   };
 
-  // ── Forgot Password (send OTP) ────────────────────────────────────────────────
   const handleForgot = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!otpEmail.trim()) { showMsg("Please enter your email"); return; }
     setLoading(true);
     try {
       await forgotPasswordOtp(otpEmail.trim());
-      setOtpCode("");
-      setForgotNewPass("");
-      setForgotConfirmPass("");
+      setOtpCode(""); setForgotNewPass(""); setForgotConfirmPass("");
       setPage("forgot_otp");
       showMsg("OTP sent to your email. Check your inbox.", "success");
     } catch { showMsg("Network error. Please try again."); }
     finally { setLoading(false); }
   };
 
-  // ── Reset Password (verify OTP) ───────────────────────────────────────────────
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (otpCode.length !== 6) { showMsg("Please enter the 6-digit OTP"); return; }
@@ -188,199 +174,232 @@ export default function LoginPage() {
     finally { setLoading(false); }
   };
 
-  const bgStyle = { background: 'linear-gradient(135deg, #1E3A8A 0%, #1E40AF 50%, #2563EB 100%)', padding: '20px' };
-  const cardStyle: React.CSSProperties = { background: '#FFFFFF', borderRadius: 16, padding: 32, boxShadow: '0 20px 60px rgba(30,58,138,0.3)', width: '90%', maxWidth: 400 };
+  const purpleGrad = { background: 'linear-gradient(135deg, #6b21a8 0%, #4f46e5 100%)' };
 
   return (
-    <div className="min-h-screen flex items-center justify-center" style={bgStyle}>
+    <div
+      className="min-h-screen flex items-center justify-center"
+      style={{
+        backgroundImage: 'url(/images/nft-bg.jpg)',
+        backgroundSize: 'contain',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundColor: '#0f0a1e',
+      }}
+    >
+      <style>{`
+        @media (max-width: 768px) {
+          .nft-bg-wrap { background-size: cover !important; }
+          .nft-form-card { flex-direction: column !important; max-width: 380px !important; }
+          .nft-divider { width: 100% !important; height: 1px !important; border-left: none !important; border-top: 1px solid rgba(106,27,154,0.15) !important; }
+          .nft-col { width: 100% !important; }
+        }
+      `}</style>
       <Popup popup={popup} />
-      <div style={cardStyle}>
-        {/* Logo */}
-        <div className="text-center mb-6">
-          <img src="/images/logo.png" alt="Logo" className="w-16 h-16 mx-auto mb-3 rounded-xl object-cover" />
-          <h1 className="text-3xl font-bold" style={{ color: '#1E293B' }}>THE SUPER NFT</h1>
-          <p className="text-sm mt-1 font-medium text-slate-500">Welcome to Community World</p>
+
+      {/* Main card — positioned over the white box in the image */}
+      <div
+        className="nft-form-card"
+        style={{
+          display: 'flex',
+          flexDirection: 'row',
+          background: 'rgba(255,255,255,0.97)',
+          borderRadius: 20,
+          boxShadow: '0 8px 48px rgba(80,20,120,0.25)',
+          width: '90vw',
+          maxWidth: 780,
+          minHeight: 480,
+          overflow: 'hidden',
+          marginTop: '-2vh',
+        }}
+      >
+        {/* ── LOGIN COLUMN (LEFT) ── */}
+        <div className="nft-col" style={{ flex: 1, padding: '32px 28px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          {/* Logo */}
+          <div style={{ textAlign: 'center', marginBottom: 18 }}>
+            <img src="/images/logo.png" alt="Logo" style={{ width: 44, height: 44, borderRadius: 10, margin: '0 auto 8px', display: 'block', objectFit: 'cover' }} />
+            <p style={{ fontWeight: 800, fontSize: 15, color: '#1E293B', letterSpacing: 0.5 }}>Login</p>
+          </div>
+
+          {/* Login or OTP forms */}
+          {(page === "login" || page === "register" || page === "register_otp") && (
+            <>
+              {page === "login" && (
+                <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <input type="email" placeholder="Email" value={form.email}
+                    onChange={e => setForm({...form, email: e.target.value})} className={inp} required />
+                  <div style={{ position: 'relative' }}>
+                    <input type={showPw ? "text" : "password"} placeholder="Password" value={form.password}
+                      onChange={e => setForm({...form, password: e.target.value})} className={inp} required />
+                    <button type="button" onClick={() => setShowPw(!showPw)}
+                      style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}>
+                      {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                  <div style={{ textAlign: 'right', marginTop: -4 }}>
+                    <button type="button" onClick={() => { setPage("forgot"); setOtpEmail(form.email); }}
+                      style={{ fontSize: 11, color: '#6b21a8', fontWeight: 600 }}>Forgot Password?</button>
+                  </div>
+                  <button type="submit" disabled={loading} className={btn} style={purpleGrad}>
+                    {loading ? "Logging in..." : "Login"}
+                  </button>
+                  <p style={{ textAlign: 'center', fontSize: 12, color: '#64748b' }}>
+                    No account?{" "}
+                    <button type="button" onClick={() => setPage("register")} style={{ color: '#6b21a8', fontWeight: 700 }}>
+                      Sign Up →
+                    </button>
+                  </p>
+                </form>
+              )}
+
+              {(page === "register" || page === "register_otp") && (
+                <div style={{ textAlign: 'center', padding: '10px 0' }}>
+                  <p style={{ fontSize: 12, color: '#64748b', marginBottom: 12 }}>
+                    Already have an account?
+                  </p>
+                  <button onClick={() => setPage("login")} className={btn} style={{ ...purpleGrad, padding: '10px 0' }}>
+                    Go to Login →
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Forgot password forms */}
+          {page === "forgot" && (
+            <form onSubmit={handleForgot} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <button type="button" onClick={() => setPage("login")} style={{ color: '#94a3b8' }}><ArrowLeft size={16} /></button>
+                <p style={{ fontWeight: 700, fontSize: 13, color: '#1E293B' }}>Reset Password</p>
+              </div>
+              <p style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>Enter your email to receive OTP</p>
+              <input type="email" placeholder="Your email" value={otpEmail}
+                onChange={e => setOtpEmail(e.target.value)} className={inp} required autoFocus />
+              <button type="submit" disabled={loading || !otpEmail.trim()} className={btn} style={purpleGrad}>
+                {loading ? "Sending..." : "Send OTP"}
+              </button>
+            </form>
+          )}
+
+          {page === "forgot_otp" && (
+            <form onSubmit={handleResetPassword} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <button type="button" onClick={() => setPage("forgot")} style={{ color: '#94a3b8' }}><ArrowLeft size={16} /></button>
+                <p style={{ fontWeight: 700, fontSize: 13, color: '#1E293B' }}>OTP & New Password</p>
+              </div>
+              <div style={{ background: '#f0f9ff', borderRadius: 10, padding: '8px 12px', textAlign: 'center' }}>
+                <CheckCircle size={16} style={{ color: '#10b981', margin: '0 auto 4px', display: 'block' }} />
+                <p style={{ fontSize: 10, color: '#64748b' }}>OTP sent to <strong>{otpEmail}</strong></p>
+              </div>
+              <input type="text" inputMode="numeric" maxLength={6} placeholder="6-digit OTP" value={otpCode}
+                onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                className={inp + " text-center text-lg font-bold tracking-[0.5em]"} autoFocus />
+              <div style={{ position: 'relative' }}>
+                <input type={showNewPw ? "text" : "password"} placeholder="New Password"
+                  value={forgotNewPass} onChange={e => setForgotNewPass(e.target.value)} className={inp} required />
+                <button type="button" onClick={() => setShowNewPw(!showNewPw)}
+                  style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}>
+                  {showNewPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              <input type="password" placeholder="Confirm Password" value={forgotConfirmPass}
+                onChange={e => setForgotConfirmPass(e.target.value)} className={inp} required />
+              <button type="submit" disabled={loading || otpCode.length !== 6 || !forgotNewPass}
+                className={btn} style={purpleGrad}>
+                {loading ? "Resetting..." : "Reset Password"}
+              </button>
+            </form>
+          )}
         </div>
 
-        {/* ── REGISTER ── */}
-        {page === "register" && (
-          <form onSubmit={handleRegister} className="space-y-3">
-            <input type="text" placeholder="Full Name" value={form.fullName}
-              onChange={e => setForm({...form, fullName: e.target.value})} className={inp} required />
-            <input type="email" placeholder="Email" value={form.email}
-              onChange={e => setForm({...form, email: e.target.value})} className={inp} required />
-            <input type="email" placeholder="Confirm Email" value={form.confirmEmail}
-              onChange={e => setForm({...form, confirmEmail: e.target.value})} className={inp} required />
-            <div className="flex gap-2">
-              <select value={form.countryCode} onChange={e => setForm({...form, countryCode: e.target.value})}
-                className="w-24 bg-white text-[#1E293B] px-2 py-3 rounded-lg border border-[#BFDBFE] focus:border-[#1E3A8A] outline-none text-sm">
-                {countries.map(c => <option key={c.code + c.name} value={c.code}>{c.flag} {c.code}</option>)}
-              </select>
-              <input type="tel" placeholder="Phone Number" value={form.phone}
-                onChange={e => setForm({...form, phone: e.target.value})}
-                className="flex-1 bg-white text-[#1E293B] px-4 py-3 rounded-lg border border-[#BFDBFE] focus:border-[#1E3A8A] outline-none text-base placeholder:text-slate-400" />
-            </div>
-            <div className="relative">
-              <input type={showPw ? "text" : "password"} placeholder="Password (min 6 chars)" value={form.password}
-                onChange={e => setForm({...form, password: e.target.value})} className={inp} required />
-              <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500">
-                {showPw ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
-            </div>
-            <div className="relative">
-              <input type={showCpw ? "text" : "password"} placeholder="Confirm Password" value={form.confirmPassword}
-                onChange={e => setForm({...form, confirmPassword: e.target.value})} className={inp} required />
-              <button type="button" onClick={() => setShowCpw(!showCpw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500">
-                {showCpw ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
-            </div>
-            {form.referralCode && (
-              <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 text-sm text-emerald-700 font-medium">
-                ✅ Referred by: <strong>{form.referralCode}</strong>
+        {/* ── DIVIDER ── */}
+        <div className="nft-divider" style={{ width: 1, borderLeft: '1px solid rgba(106,27,154,0.15)', alignSelf: 'stretch' }} />
+
+        {/* ── REGISTER COLUMN (RIGHT) ── */}
+        <div className="nft-col" style={{ flex: 1, padding: '32px 28px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <div style={{ textAlign: 'center', marginBottom: 18 }}>
+            <p style={{ fontWeight: 800, fontSize: 15, color: '#1E293B', letterSpacing: 0.5 }}>Sign Up</p>
+            <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>Join THE SUPER NFT</p>
+          </div>
+
+          {page === "register" && (
+            <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <input type="text" placeholder="Full Name" value={form.fullName}
+                onChange={e => setForm({...form, fullName: e.target.value})} className={inp} required />
+              <input type="email" placeholder="Email" value={form.email}
+                onChange={e => setForm({...form, email: e.target.value})} className={inp} required />
+              <input type="email" placeholder="Confirm Email" value={form.confirmEmail}
+                onChange={e => setForm({...form, confirmEmail: e.target.value})} className={inp} required />
+              <div style={{ display: 'flex', gap: 6 }}>
+                <select value={form.countryCode} onChange={e => setForm({...form, countryCode: e.target.value})}
+                  style={{ width: 90, background: 'rgba(255,255,255,0.9)', color: '#1E293B', padding: '8px 6px', borderRadius: 8, border: '1px solid #e9d5ff', outline: 'none', fontSize: 12 }}>
+                  {countries.map(c => <option key={c.code + c.name} value={c.code}>{c.flag} {c.code}</option>)}
+                </select>
+                <input type="tel" placeholder="Phone Number" value={form.phone}
+                  onChange={e => setForm({...form, phone: e.target.value})}
+                  style={{ flex: 1, background: 'rgba(255,255,255,0.9)', color: '#1E293B', padding: '8px 12px', borderRadius: 8, border: '1px solid #e9d5ff', outline: 'none', fontSize: 13 }} />
               </div>
-            )}
-            <input type="text" placeholder="Referral Code / UID (Optional)" value={form.referralCode}
-              onChange={e => setForm({...form, referralCode: e.target.value})} className={inp} />
-            <button type="submit" disabled={loading}
-              className="w-full py-3 rounded-lg font-semibold shadow-lg disabled:opacity-50 text-base text-white" style={{ background: '#1E3A8A' }}>
-              {loading ? "Creating account..." : "Register Now"}
-            </button>
-            <p className="text-center text-sm text-slate-600">
-              Already have account?{" "}
-              <button type="button" onClick={() => setPage("login")} className="font-semibold" style={{ color: '#1E40AF' }}>Login</button>
-            </p>
-          </form>
-        )}
-
-        {/* ── REGISTER OTP ── */}
-        {page === "register_otp" && (
-          <form onSubmit={handleVerifyOtp} className="space-y-5">
-            <div className="flex items-center gap-2 mb-2">
-              <button type="button" onClick={() => setPage("register")} className="text-slate-500 hover:text-slate-700">
-                <ArrowLeft size={20} />
+              <div style={{ position: 'relative' }}>
+                <input type={showPw ? "text" : "password"} placeholder="Password (min 6 chars)" value={form.password}
+                  onChange={e => setForm({...form, password: e.target.value})} className={inp} required />
+                <button type="button" onClick={() => setShowPw(!showPw)}
+                  style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}>
+                  {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              <div style={{ position: 'relative' }}>
+                <input type={showCpw ? "text" : "password"} placeholder="Confirm Password" value={form.confirmPassword}
+                  onChange={e => setForm({...form, confirmPassword: e.target.value})} className={inp} required />
+                <button type="button" onClick={() => setShowCpw(!showCpw)}
+                  style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}>
+                  {showCpw ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              {form.referralCode && (
+                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '6px 10px', fontSize: 11, color: '#15803d' }}>
+                  ✅ Referred by: <strong>{form.referralCode}</strong>
+                </div>
+              )}
+              <input type="text" placeholder="Referral Code (Optional)" value={form.referralCode}
+                onChange={e => setForm({...form, referralCode: e.target.value})} className={inp} />
+              <button type="submit" disabled={loading} className={btn} style={purpleGrad}>
+                {loading ? "Creating account..." : "Register Now"}
               </button>
-              <p className="font-bold text-slate-800">Verify Your Email</p>
-            </div>
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-center">
-              <KeyRound size={28} className="text-blue-500 mx-auto mb-1" />
-              <p className="text-sm text-slate-600">We sent a 6-digit OTP to</p>
-              <p className="font-bold text-[#1E3A8A] text-sm mt-0.5 break-all">{otpEmail}</p>
-            </div>
-            <div>
-              <input
-                type="text"
-                inputMode="numeric"
-                maxLength={6}
-                placeholder="Enter 6-digit OTP"
-                value={otpCode}
+            </form>
+          )}
+
+          {page === "register_otp" && (
+            <form onSubmit={handleVerifyOtp} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <button type="button" onClick={() => setPage("register")} style={{ color: '#94a3b8' }}><ArrowLeft size={16} /></button>
+                <p style={{ fontWeight: 700, fontSize: 13, color: '#1E293B' }}>Verify Your Email</p>
+              </div>
+              <div style={{ background: '#eff6ff', borderRadius: 10, padding: '10px 14px', textAlign: 'center' }}>
+                <KeyRound size={20} style={{ color: '#6b21a8', margin: '0 auto 6px', display: 'block' }} />
+                <p style={{ fontSize: 11, color: '#64748b' }}>OTP sent to</p>
+                <p style={{ fontWeight: 700, color: '#6b21a8', fontSize: 12, wordBreak: 'break-all' }}>{otpEmail}</p>
+              </div>
+              <input type="text" inputMode="numeric" maxLength={6} placeholder="6-digit OTP" value={otpCode}
                 onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                className={`${inp} text-center text-2xl font-bold tracking-[0.5em]`}
-                autoFocus
-              />
-            </div>
-            <button type="submit" disabled={loading || otpCode.length !== 6}
-              className="w-full py-3 rounded-lg font-semibold shadow-lg disabled:opacity-50 text-base text-white" style={{ background: '#1E3A8A' }}>
-              {loading ? "Verifying..." : "Verify OTP"}
-            </button>
-            <p className="text-center text-xs text-slate-400">
-              Didn't get the code?{" "}
-              <button type="button" onClick={() => setPage("register")} className="text-blue-600 font-medium">
-                Go back & register again
+                className={inp + " text-center text-xl font-bold tracking-[0.5em]"} autoFocus />
+              <button type="submit" disabled={loading || otpCode.length !== 6} className={btn} style={purpleGrad}>
+                {loading ? "Verifying..." : "Verify OTP"}
               </button>
-            </p>
-          </form>
-        )}
+              <p style={{ textAlign: 'center', fontSize: 11, color: '#94a3b8' }}>
+                <button type="button" onClick={() => setPage("register")} style={{ color: '#6b21a8' }}>← Go back & register again</button>
+              </p>
+            </form>
+          )}
 
-        {/* ── LOGIN ── */}
-        {page === "login" && (
-          <form onSubmit={handleLogin} className="space-y-4">
-            <input type="email" placeholder="Email" value={form.email}
-              onChange={e => setForm({...form, email: e.target.value})} className={inp} required />
-            <div className="relative">
-              <input type={showPw ? "text" : "password"} placeholder="Password" value={form.password}
-                onChange={e => setForm({...form, password: e.target.value})} className={inp} required />
-              <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500">
-                {showPw ? <EyeOff size={20} /> : <Eye size={20} />}
+          {(page === "login" || page === "forgot" || page === "forgot_otp") && (
+            <div style={{ textAlign: 'center', padding: '10px 0' }}>
+              <p style={{ fontSize: 12, color: '#64748b', marginBottom: 12 }}>Don't have an account?</p>
+              <button onClick={() => setPage("register")} className={btn} style={{ ...purpleGrad, padding: '10px 0' }}>
+                Create Account →
               </button>
             </div>
-            <div className="text-right -mt-1">
-              <button type="button" onClick={() => { setPage("forgot"); setOtpEmail(form.email); }}
-                className="text-xs font-semibold hover:underline" style={{ color: '#1E40AF' }}>
-                Forgot Password?
-              </button>
-            </div>
-            <button type="submit" disabled={loading}
-              className="w-full py-3 rounded-lg font-semibold shadow-lg disabled:opacity-50 text-base text-white" style={{ background: '#1E3A8A' }}>
-              {loading ? "Logging in..." : "Login"}
-            </button>
-            <p className="text-center text-sm text-slate-600">
-              Don't have account?{" "}
-              <button type="button" onClick={() => setPage("register")} className="font-semibold" style={{ color: '#1E40AF' }}>Register Now</button>
-            </p>
-          </form>
-        )}
-
-        {/* ── FORGOT PASSWORD (enter email) ── */}
-        {page === "forgot" && (
-          <form onSubmit={handleForgot} className="space-y-4">
-            <div className="flex items-center gap-2 mb-2">
-              <button type="button" onClick={() => setPage("login")} className="text-slate-500 hover:text-slate-700">
-                <ArrowLeft size={20} />
-              </button>
-              <p className="font-bold text-slate-800">Reset Password</p>
-            </div>
-            <p className="text-sm text-slate-500">Enter your email address and we'll send you a 6-digit OTP to reset your password.</p>
-            <input type="email" placeholder="Your email address" value={otpEmail}
-              onChange={e => setOtpEmail(e.target.value)} className={inp} required autoFocus />
-            <button type="submit" disabled={loading || !otpEmail.trim()}
-              className="w-full py-3 rounded-lg font-semibold shadow-lg disabled:opacity-50 text-base text-white" style={{ background: '#1E3A8A' }}>
-              {loading ? "Sending OTP..." : "Send OTP"}
-            </button>
-            <p className="text-center text-sm text-slate-600">
-              Remembered your password?{" "}
-              <button type="button" onClick={() => setPage("login")} className="font-semibold" style={{ color: '#1E40AF' }}>Login</button>
-            </p>
-          </form>
-        )}
-
-        {/* ── FORGOT OTP + NEW PASSWORD ── */}
-        {page === "forgot_otp" && (
-          <form onSubmit={handleResetPassword} className="space-y-4">
-            <div className="flex items-center gap-2 mb-2">
-              <button type="button" onClick={() => setPage("forgot")} className="text-slate-500 hover:text-slate-700">
-                <ArrowLeft size={20} />
-              </button>
-              <p className="font-bold text-slate-800">Enter OTP & New Password</p>
-            </div>
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-center">
-              <CheckCircle size={24} className="text-emerald-500 mx-auto mb-1" />
-              <p className="text-xs text-slate-500">OTP sent to <strong>{otpEmail}</strong></p>
-            </div>
-            <input
-              type="text"
-              inputMode="numeric"
-              maxLength={6}
-              placeholder="6-digit OTP"
-              value={otpCode}
-              onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              className={`${inp} text-center text-2xl font-bold tracking-[0.5em]`}
-              autoFocus
-            />
-            <div className="relative">
-              <input type={showNewPw ? "text" : "password"} placeholder="New Password (min 6 chars)"
-                value={forgotNewPass} onChange={e => setForgotNewPass(e.target.value)} className={inp} required />
-              <button type="button" onClick={() => setShowNewPw(!showNewPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500">
-                {showNewPw ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
-            </div>
-            <input type="password" placeholder="Confirm New Password"
-              value={forgotConfirmPass} onChange={e => setForgotConfirmPass(e.target.value)} className={inp} required />
-            <button type="submit" disabled={loading || otpCode.length !== 6 || !forgotNewPass}
-              className="w-full py-3 rounded-lg font-semibold shadow-lg disabled:opacity-50 text-base text-white" style={{ background: '#1E3A8A' }}>
-              {loading ? "Resetting..." : "Reset Password"}
-            </button>
-          </form>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

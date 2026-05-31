@@ -1,0 +1,83 @@
+ROLE: Tu ek senior full-stack developer hai. Replit pe mera "Super NFT" project complete bana. Image "images/nft-bg.jpg" use karni hai.
+
+========== TASK-1: LOGIN/SIGNUP PAGE - index.html ==========
+1. Background image: "images/nft-bg.jpg" full screen me lagao. object-fit: contain use karo taake image cut na ho.
+2. Image ke center me jo white rounded rectangle/table hai, Login + SignUp form usi ke andar bilkul fit karo.
+3. AUTO-FIT LOGIC: White box ki size form ke hisaab se khud adjust ho. Agar white box chota lage to background image ko scale karke bada karo taake form poora fit ho jaye. Form kabhi image se bahar na nikle.
+4. Purana theme, logo, extra background color/shadow sab hata do. Form transparent ho. Image ka white box hi form ka background lage.
+5. Left side Login, Right side SignUp, beech me 1px ki halki line rgba(106,27,154,0.2)
+6. Input fields: Username, Email, Password. Button: Gradient #8e24aa to #3949ab
+7. Mobile responsive: 768px se neeche form column me, bg object-fit: cover ho jaye
+8. Login/Signup button pe localStorage me isLoggedIn=true + userId set kar ke dashboard.html pe redirect kar
+
+========== TASK-2: ADMIN PANEL + USER DASHBOARD CHANGES ==========
+
+ADMIN PANEL - admin.html:
+1. Password: admin123 se login ho
+2. BEP-20 Address ke sath TRC-20 Bind ka option add karo. Admin dono addresses set kar sake.
+3. Withdrawal Time System: Purana timing hata do. Naya system: Admin sirf Min Hours aur Max Hours set kare. Example: Min 24 Hours, Max 96 Hours. Admin ki marzi jitne hours set kare.
+4. Deposit Management: Pending deposits table with Approve/Reject. Approve pe user balance + Activity income me add ho.
+5. Income Controls: User ID + Amount daal ke 3 buttons: Add Reserve Income, Add Team Income, Add Referral Reward
+
+USER DASHBOARD - dashboard.html:
+1. Login check: isLoggedIn nahi to index.html bhej do
+2. Header Navigation: Home | Deposit | Withdraw | Team | Profile | Logout
+
+3. WITHDRAW SECTION:
+   - TRC-20 Address bind ka option add karo + BEP-20 Address bind ka option bhi ho
+   - Dono active hon. User jisme withdraw karna chahe kar sake
+   - Withdraw time admin ke set kiye hue Min/Max hours ke andar ho
+
+4. DEPOSIT SECTION:
+   - ERC-20 wala option bilkul nikal do
+   - Sirf BEP-20 aur TRC-20 available ho
+   - Neeche green patti me "Recommended admin verified address" likha hai wo hata do
+   - User address select kare + Amount daale + Submit kare = Pending me chala jaye
+   - Deposit History: Date | Amount | Network | Status | TX Hash
+
+========== TASK-3: DASHBOARD HOME PAGE - Income Table ==========
+
+5. HOME PAGE - My Team table se PEHLE ye table lagao:
+
+   Daily Income > Right Side > Total Income: $0.00
+   
+   Rows:
+   - Comprehensive: $0.00
+   - Reserve: $0.00  
+   - Team: $0.00
+   - Activity: $0.00
+
+6. FULL WORKING LOGIC:
+   a. dailyReserve(userId, amount) call ho to: Reserve + Comprehensive + Total Income me add ho
+   b. addTeamIncome(userId, amount) call ho to: Team + Comprehensive + Total Income me add ho  
+   c. addReferralReward(userId, amount) call ho to: Activity + Comprehensive + Total Income me add ho
+   d. Comprehensive = Reserve + Team + Activity ka live total
+   e. Total Income = Comprehensive ke barabar hamesha
+   f. User jab daily reserve kare to Reserve aur Total dono me profit dikhe
+   g. Level income start ho to Team aur Total dono me dikhe
+   h. Referral bane to Activity aur Total dono me reward dikhe
+
+7. REMOVE KARNA HAI:
+   - Home page right side UID display none kar do
+   - My Team table ke neeche Referral Code aur Referral Link display none kar do
+
+========== TECH REQUIREMENTS ==========
+1. Sirf HTML, CSS, JavaScript. Koi framework nahi
+2. LocalStorage use karo: 'userData', 'depositHistory', 'adminSettings', 'allUsers' keys
+3. Mobile responsive, Dark theme #0f0a1e, Purple gradient, Glass effect cards
+4. Code clean, commented, production ready
+5. 3 files output: index.html, dashboard.html, admin.html
+
+========== FINAL CHECKLIST ==========
+✅ Login/Signup NFT image ke white box me auto-fit
+✅ Admin me BEP-20 + TRC-20 bind option
+✅ Admin me Min/Max Hours withdraw time set
+✅ User dashboard me TRC-20 + BEP-20 withdraw bind
+✅ Deposit me ERC-20 hata, green patti hata
+✅ Home pe Income table working with Reserve/Team/Activity
+✅ UID aur Referral code/link hide
+✅ Deposit approve system
+✅ Mobile responsive
+✅ LocalStorage pe full working
+
+Image ka white box main element hai. Form usi ke andar perfect fit hona chahiye. Agar size mismatch ho to JS se image ko scale kar ke fit karna hai.
