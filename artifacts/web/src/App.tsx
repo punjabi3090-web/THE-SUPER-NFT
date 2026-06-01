@@ -23,7 +23,12 @@ import ReserveHistory from "./pages/ReserveHistory";
 import MyTeam from "./pages/MyTeam";
 import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
-import { type AdminNotif, type User, type WithdrawResult } from "./lib/api";
+import {
+  type AdminNotif, type User, type WithdrawResult,
+  setCachedUserId, getCurrentUserId,
+  getNotifications, markNotifRead, markAllNotifsRead,
+  submitWithdrawalRequest,
+} from "./lib/api";
 import { supabase } from "./lib/supabase";
 import './index.css';
 
@@ -49,49 +54,36 @@ export function useBalance() {
   return ctx;
 }
 
-// legacy shim referenced by a few pages
-export const TEST_MODE = false;
-export const testUser = { uid: 'SUPER000000', name: 'User', team: { rewards: 0, valid: 0, a: 0, bc: 0 }, orders: { total: 0, processing: 0, bought: 0, sold: 0 } };
+// legacy shims — kept for import compatibility; values live in lib/testData.ts
+export { TEST_MODE, testUser } from "./lib/testData";
 
-// ── Helper: map Supabase user row → User type ────────────────────────────────
+// ── Helper: sync with Express/Drizzle DB after every Supabase login ──────────
+// Returns the full User object (with walletBalance, team data, etc.) and
+// sets the numeric nftUsers id in the module-level cache so all Express
+// routes that expect a numeric userId continue to work unchanged.
 
-function mapUser(row: Record<string, unknown>): User {
-  const inc = (row.user_income as Record<string, unknown>[] | null)?.[0] ?? {};
-  return {
-    id: 0,
-    userId: String(row.id ?? ''),
-    email: String(row.email ?? ''),
-    name: String(row.username ?? row.full_name ?? row.email ?? ''),
-    username: String(row.username ?? ''),
-    phone: String(row.phone ?? ''),
-    country: String(row.country ?? ''),
-    myReferralCode: String(row.referral_code ?? ''),
-    referralCode: String(row.referral_code ?? ''),
-    joinedWithCode: (row.referred_by as string | null) ?? null,
-    referredBy: (row.referred_by as string | null) ?? null,
-    coins: 0,
-    walletBalance: Number(row.wallet_balance) || 0,
-    nftAccountBalance: 0,
-    totalDeposit: Number(row.total_deposit) || 0,
-    totalWithdraw: Number(row.total_withdraw) || 0,
-    reserveIncome: Number(inc.reserve_income) || 0,
-    teamIncome: Number(inc.team_income) || 0,
-    activityIncome: Number(inc.activity_income) || 0,
-    level: Number(row.level) || 1,
-    isAdmin: row.role === 'admin',
-    isBlocked: !!row.is_blocked,
-    googleAuthBound: false,
-    googleAuthSecret: null,
-    withdrawalAddress: (row.trc20_address as string | null) ?? null,
-    bep20Address: (row.bep20_address as string | null) ?? null,
-    trc20Address: (row.trc20_address as string | null) ?? null,
-    addressBindDate: null,
-    registeredAt: String(row.created_at ?? ''),
-    joinDate: String(row.created_at ?? ''),
-    lastLogin: '',
-    password: '',
-    myActivityHistory: [],
-  };
+async function syncUserWithExpress(
+  session: { user: { email?: string; user_metadata?: Record<string, unknown> } },
+): Promise<User | null> {
+  try {
+    const meta = session.user.user_metadata ?? {};
+    const res = await fetch('/api/nft/auth/supabase-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: session.user.email ?? '',
+        name: String(meta['full_name'] ?? meta['name'] ?? '').trim(),
+        phone: String(meta['phone'] ?? '').trim(),
+        referralCode: String(meta['referral_code'] ?? '').trim(),
+      }),
+    });
+    if (!res.ok) return null;
+    const { numericId, user } = await res.json() as { numericId: number; user: User };
+    setCachedUserId(String(numericId));
+    return user;
+  } catch {
+    return null;
+  }
 }
 
 // ── Provider ─────────────────────────────────────────────────────────────────
@@ -109,14 +101,10 @@ function AppProvider({ children }: { children: ReactNode }) {
     const fetchUser = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) { setUser(null); return; }
-        const { data } = await supabase
-          .from('users')
-          .select('*, user_income(*)')
-          .eq('id', session.user.id)
-          .single();
-        if (data) setUser(mapUser(data as Record<string, unknown>));
-      } catch { setUser(null); }
+        if (!session) { setUser(null); setCachedUserId(null); return; }
+        const u = await syncUserWithExpress(session);
+        setUser(u);
+      } catch { setUser(null); setCachedUserId(null); }
     };
     fetchUser();
   }, [tick]);
@@ -124,16 +112,12 @@ function AppProvider({ children }: { children: ReactNode }) {
   // Listen for auth state changes
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!session) { setUser(null); return; }
+      if (!session) { setUser(null); setCachedUserId(null); return; }
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         try {
-          const { data } = await supabase
-            .from('users')
-            .select('*, user_income(*)')
-            .eq('id', session.user.id)
-            .single();
-          if (data) setUser(mapUser(data as Record<string, unknown>));
-        } catch { /* user row may not exist yet */ }
+          const u = await syncUserWithExpress(session);
+          if (u) setUser(u);
+        } catch { /* silent — sync failure does not block the session */ }
       }
     });
     return () => subscription.unsubscribe();
@@ -143,23 +127,9 @@ function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const fetchNotifs = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
-        const { data } = await supabase
-          .from('notifications')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(30);
-        setNotifications((data ?? []).map((n: Record<string, unknown>): AdminNotif => ({
-          id: n.id as number,
-          title: String(n.title ?? ''),
-          message: String(n.message ?? ''),
-          type: String(n.type ?? 'announcement'),
-          createdAt: String(n.created_at ?? ''),
-          date: String(n.created_at ?? ''),
-          read: [],
-        })));
-      } catch { /* notifications table may not exist yet */ }
+        const notifs = await getNotifications();
+        setNotifications(notifs);
+      } catch { /* silent */ }
     };
     fetchNotifs();
   }, [tick]);
@@ -172,36 +142,11 @@ function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const requestWithdraw = useCallback(async (amount: number): Promise<WithdrawResult> => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return 'no_auth';
-      const { data: userData } = await supabase
-        .from('users')
-        .select('wallet_balance, trc20_address, is_blocked')
-        .eq('id', session.user.id)
-        .single();
-      const u = userData as Record<string, unknown> | null;
-      if (!u) return 'insufficient';
-      if (u.is_blocked) return 'blocked';
-      if (!u.trc20_address) return 'no_address';
-      const bal = Number(u.wallet_balance) || 0;
-      if (amount < 10) return 'min';
-      if (amount > 10000) return 'max';
-      if (bal < amount) return 'insufficient';
-      const { error } = await supabase.from('withdrawals').insert({
-        user_id: session.user.id,
-        amount,
-        network: 'TRC20',
-        address: u.trc20_address,
-        status: 'pending',
-      });
-      if (error) return 'insufficient';
-      await supabase.from('users').update({ wallet_balance: bal - amount }).eq('id', session.user.id);
-      refresh();
-      return 'ok';
-    } catch {
-      return 'insufficient';
-    }
+    const uid = getCurrentUserId();
+    if (!uid) return 'no_auth';
+    const result = await submitWithdrawalRequest(uid, amount, 'TRC20');
+    if (result === 'ok') refresh();
+    return result;
   }, [refresh]);
 
   const markNotificationRead = useCallback((id: number) => {

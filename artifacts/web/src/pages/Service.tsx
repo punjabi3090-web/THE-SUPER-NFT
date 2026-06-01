@@ -1,6 +1,6 @@
 import { ArrowLeft, Send, ExternalLink } from "lucide-react";
 import { useLocation } from "wouter";
-import { TEST_MODE } from "../App";
+import { TEST_MODE } from "../lib/testData";
 
 const faqs = [
   { q: "How long does deposit take?", a: "TRC20 deposits confirm within 1–3 minutes after network confirmation." },

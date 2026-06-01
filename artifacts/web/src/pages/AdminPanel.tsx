@@ -346,7 +346,7 @@ export default function AdminPanel() {
           </div>
         )}
 
-        <button onClick={() => setLocation('/')} className="flex items-center gap-2 text-slate-400 text-sm mt-6 hover:text-slate-200">
+        <button onClick={() => window.location.replace('/dashboard')} className="flex items-center gap-2 text-slate-400 text-sm mt-6 hover:text-slate-200">
           <ArrowLeft size={16} /> Back to app
         </button>
       </div>
@@ -575,7 +575,7 @@ export default function AdminPanel() {
           <button onClick={() => { doRefresh(); showToast("Refreshed!"); }} className="text-slate-400 hover:text-white">
             <RefreshCw size={15} className={dataLoading ? "animate-spin" : ""} />
           </button>
-          <button onClick={async () => { await supabase.auth.signOut(); setAuthed(false); setLocation('/'); }}
+          <button onClick={async () => { await supabase.auth.signOut(); window.location.replace('/login'); }}
             className="flex items-center gap-1.5 text-slate-300 text-xs font-medium hover:text-white">
             <LogOut size={14} /> Logout
           </button>

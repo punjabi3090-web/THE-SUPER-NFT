@@ -2,7 +2,8 @@ import { useState } from "react";
 import { TrendingUp, CheckCircle, Clock } from "lucide-react";
 import Header from "../components/Header";
 import BottomNav from "../components/BottomNav";
-import { TEST_MODE, useBalance } from "../App";
+import { TEST_MODE } from "../lib/testData";
+import { useBalance } from "../App";
 
 const plans = [
   { id: "7d",  label: "7 Days",  apy: 5,  apyStr: "5%",  days: 7,  color: "from-emerald-400 to-teal-500",  bgLight: "from-emerald-50 to-teal-50",  border: "border-emerald-200", tag: "Starter" },

@@ -282,6 +282,76 @@ router.post("/auth/reset-password", async (req: Request, res: Response): Promise
   res.json({ ok: true });
 });
 
+// POST /api/nft/auth/supabase-sync ─────────────────────────────────────────
+// Called by the React app after every Supabase SIGNED_IN event.
+// Finds or creates the nftUsers row for this Supabase user and returns the
+// numeric DB id + full mapped user object so the frontend can use all
+// existing Express routes (which expect a numeric userId).
+router.post("/auth/supabase-sync", async (req: Request, res: Response): Promise<void> => {
+  const { email, name, phone, referralCode } = req.body as {
+    email?: string; name?: string; phone?: string; referralCode?: string;
+  };
+  if (!email?.trim()) { res.status(400).json({ error: "Email required" }); return; }
+
+  const normalEmail = email.toLowerCase().trim();
+
+  // Return existing user immediately (happy path)
+  const [existing] = await db.select().from(nftUsers).where(eq(nftUsers.email, normalEmail));
+  if (existing) {
+    await db.update(nftUsers).set({ lastLogin: new Date() }).where(eq(nftUsers.id, existing.id));
+    res.json({ numericId: existing.id, user: mapUser({ ...existing, lastLogin: new Date() }) });
+    return;
+  }
+
+  // Resolve referral code: numeric UID → referral code, or direct alphanumeric code
+  let joinedWithCode: string | null = null;
+  const refParam = referralCode?.trim();
+  if (refParam) {
+    if (/^\d+$/.test(refParam)) {
+      const [byId] = await db.select({ myReferralCode: nftUsers.myReferralCode })
+        .from(nftUsers).where(eq(nftUsers.id, parseInt(refParam)));
+      if (byId) {
+        joinedWithCode = byId.myReferralCode;
+      } else {
+        const allPhones = await db.select({ myReferralCode: nftUsers.myReferralCode, phone: nftUsers.phone }).from(nftUsers);
+        const byPhone = allPhones.find(u => {
+          const digits = (u.phone ?? "").replace(/\D/g, "");
+          return digits.length >= 6 && digits.slice(-6).padStart(6, "0") === refParam.padStart(6, "0");
+        });
+        if (byPhone) joinedWithCode = byPhone.myReferralCode;
+      }
+    } else {
+      joinedWithCode = refParam;
+    }
+  }
+
+  const displayName = name?.trim() || normalEmail.split("@")[0];
+  const myReferralCode = await genReferralCode(displayName);
+
+  const [newUser] = await db.insert(nftUsers).values({
+    email: normalEmail,
+    passwordHash: "$supabase_managed$",
+    name: displayName,
+    username: normalEmail.split("@")[0],
+    phone: phone?.trim() || null,
+    myReferralCode,
+    joinedWithCode,
+    isVerified: true,
+    lastLogin: new Date(),
+  }).returning();
+
+  if (joinedWithCode) {
+    await db.insert(nftReferrals).values({
+      referrerCode: joinedWithCode,
+      newUserEmail: normalEmail,
+      newUserId: newUser.id,
+    }).onConflictDoNothing();
+  }
+
+  req.log.info({ userId: newUser.id, email: normalEmail }, "NFT user created via Supabase sync");
+  res.json({ numericId: newUser.id, user: mapUser(newUser) });
+});
+
 // ══════════════════════════════════════════════════════════════════════════════
 // ADMIN AUTH
 // ══════════════════════════════════════════════════════════════════════════════

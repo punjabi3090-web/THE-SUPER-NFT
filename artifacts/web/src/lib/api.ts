@@ -42,7 +42,7 @@ export interface User {
   registeredAt: string;
   joinDate: string;
   lastLogin: string;
-  password: string;
+  password?: string;
   myActivityHistory: HistoryItem[];
 }
 
@@ -125,21 +125,28 @@ export interface WithdrawalSettings {
 
 // ── Session helpers ───────────────────────────────────────────────────────────
 
-const STORAGE_USER_ID   = "nftUserId";
-const STORAGE_ADMIN_TOK = "nftAdminToken";
+const STORAGE_ADMIN_TOK   = "nftAdminToken";
 const STORAGE_ADMIN_EMAIL = "nftAdminEmail";
-const NOTIF_READ_KEY    = "nftReadNotifs";
+const NOTIF_READ_KEY      = "nftReadNotifs";
+
+// Module-level cache — populated by AppProvider via setCachedUserId()
+let _cachedUserId: string | null = null;
 
 export function getCurrentUserId(): string | null {
-  return localStorage.getItem(STORAGE_USER_ID);
+  return _cachedUserId;
+}
+
+/** Called by AppProvider whenever the Supabase session user changes. */
+export function setCachedUserId(id: string | null): void {
+  _cachedUserId = id;
 }
 
 export function setCurrentUser(userId: string | number) {
-  localStorage.setItem(STORAGE_USER_ID, String(userId));
+  _cachedUserId = String(userId);
 }
 
 export function logoutUser() {
-  localStorage.removeItem(STORAGE_USER_ID);
+  _cachedUserId = null;
 }
 
 export function getAdminToken(): string | null {

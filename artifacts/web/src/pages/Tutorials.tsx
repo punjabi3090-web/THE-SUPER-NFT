@@ -1,6 +1,6 @@
 import { ArrowLeft, Download, Lock, Users, Shield, ChevronRight } from "lucide-react";
 import { useLocation } from "wouter";
-import { TEST_MODE } from "../App";
+import { TEST_MODE } from "../lib/testData";
 
 const guides = [
   {

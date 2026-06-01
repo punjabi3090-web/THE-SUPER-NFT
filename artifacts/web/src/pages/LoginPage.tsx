@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
 import { Eye, EyeOff, ArrowLeft, CheckCircle, KeyRound } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
@@ -54,7 +53,6 @@ const countries = [
 type PageState = "register" | "register_otp" | "login" | "forgot" | "forgot_otp";
 
 export default function LoginPage() {
-  const [, setLocation] = useLocation();
   const [page, setPage] = useState<PageState>("register");
   const [loading, setLoading] = useState(false);
   const [showPw, setShowPw] = useState(false);
