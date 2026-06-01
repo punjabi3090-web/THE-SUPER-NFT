@@ -4,7 +4,7 @@ import { useLocation } from "wouter";
 import Header from "../components/Header";
 import BottomNav from "../components/BottomNav";
 import { useBalance } from "../App";
-import { logoutUser } from "../lib/api";
+import { supabase } from "../lib/supabase";
 
 function QuickBtn({ icon, label, onClick }: { icon: string; label: string; onClick: () => void }) {
   return (
@@ -53,9 +53,9 @@ export default function My() {
     setTimeout(() => setCopiedRef(false), 2000);
   };
 
-  const handleLogout = () => {
-    logoutUser();
-    window.location.href = '/login';
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.replace('/login');
   };
 
   return (

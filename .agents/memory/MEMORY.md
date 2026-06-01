@@ -4,3 +4,4 @@
 - [DB lib rebuild pattern](db-lib-rebuild.md) — after schema changes, run `pnpm run typecheck:libs` (tsc --build) before api-server typecheck; lib/db is composite and emits declarations to dist/
 - [Drizzle dynamic update fix](drizzle-dynamic-update.md) — never cast dynamic Record<> objects to Drizzle set(); use explicit if/else branches with typed literals instead
 - [Supabase admin migration](supabase-admin-migration.md) — AdminPanel + Showcase migrated to Supabase auth; Supabase PromiseLike has no .catch() — use async/await + try/catch instead
+- [Redirect pattern](redirect-pattern.md) — always use window.location.replace() (not href, not wouter setLocation) for all auth/guard redirects; setLocation is unreliable in this app

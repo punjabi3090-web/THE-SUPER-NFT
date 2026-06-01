@@ -22,6 +22,7 @@ import MyHistory from "./pages/MyHistory";
 import ReserveHistory from "./pages/ReserveHistory";
 import MyTeam from "./pages/MyTeam";
 import ResetPassword from "./pages/ResetPassword";
+import Dashboard from "./pages/Dashboard";
 import { type AdminNotif, type User, type WithdrawResult } from "./lib/api";
 import { supabase } from "./lib/supabase";
 import './index.css';
@@ -237,15 +238,15 @@ function Routes() {
     // Auto-redirect ?ref= links to /login so signup form pre-fills referral code
     const search = window.location.search;
     if (search.includes('ref=') && location !== '/login' && !location.startsWith('/admin')) {
-      window.location.href = '/login' + search;
+      window.location.replace('/login' + search);
       return;
     }
     // Admin and reset-password routes manage their own auth
     if (location.startsWith('/admin') || location.startsWith('/reset-password')) return;
     // Supabase session guard
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session && location !== '/login') window.location.href = '/login';
-      if (session && location === '/login') window.location.href = '/showcase';
+      if (!session && location !== '/login') window.location.replace('/login');
+      if (session && location === '/login') window.location.replace('/showcase');
     });
   }, [location]);
 
@@ -263,6 +264,7 @@ function Routes() {
       <Route path="/service"         component={Service} />
       <Route path="/language"        component={Language} />
       <Route path="/showcase"        component={Showcase} />
+      <Route path="/dashboard"       component={Dashboard} />
       <Route path="/admin"           component={AdminPanel} />
       <Route path="/notifications"   component={Notifications} />
       <Route path="/settings"        component={Settings} />

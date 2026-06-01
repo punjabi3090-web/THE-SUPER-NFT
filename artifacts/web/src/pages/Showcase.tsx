@@ -41,7 +41,7 @@ export default function Showcase() {
     const checkAuth = async () => {
       await new Promise(r => setTimeout(r, 300));
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) window.location.href = '/login';
+      if (!session) window.location.replace('/login');
     };
     checkAuth();
   }, []);
@@ -100,7 +100,7 @@ export default function Showcase() {
 
               {/* Reserve button */}
               <button
-                onClick={() => { window.location.href = '/reserve'; }}
+                onClick={() => { window.location.replace('/reserve'); }}
                 className="mt-3 w-full py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 text-white transition-all shadow shadow-purple-800/40 active:scale-95"
               >
                 Reserve Now
@@ -113,7 +113,7 @@ export default function Showcase() {
       {/* ── Enter Dashboard ────────────────────────────────────────── */}
       <div className="text-center px-4 pb-12">
         <button
-          onClick={() => { window.location.href = '/'; }}
+          onClick={() => { window.location.replace('/dashboard'); }}
           className="px-10 py-4 rounded-2xl font-extrabold text-base bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-white shadow-lg shadow-emerald-900/40 active:scale-95 transition-all"
         >
           Enter Dashboard →

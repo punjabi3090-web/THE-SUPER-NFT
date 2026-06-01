@@ -74,13 +74,18 @@ export default function LoginPage() {
   useEffect(() => {
     // If already logged in, go straight to showcase
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) window.location.href = '/showcase';
+      if (session) window.location.replace('/showcase');
+    });
+    // Also listen for SIGNED_IN event (covers cases where session arrives async)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) window.location.replace('/showcase');
     });
     const params = new URLSearchParams(window.location.search);
     const ref = params.get('ref');
     if (ref) setForm(f => ({...f, referralCode: ref }));
     if (params.get('mode') === 'login') setPage('login');
     if (ref && params.get('mode')!== 'login') setPage('register');
+    return () => subscription.unsubscribe();
   }, []);
 
   const showMsg = (message: string, type = "error") => {
@@ -145,7 +150,7 @@ export default function LoginPage() {
       }
 
       showMsg("Email verified! Logging you in...", "success");
-      setTimeout(() => { window.location.href = '/showcase'; }, 1000);
+      setTimeout(() => { window.location.replace('/showcase'); }, 1000);
     } catch { showMsg("Verification failed. Please try again."); }
     finally { setLoading(false); }
   };
@@ -171,7 +176,7 @@ export default function LoginPage() {
       }
 
       showMsg("Login successful!", "success");
-      setTimeout(() => { window.location.href = '/showcase'; }, 800);
+      setTimeout(() => { window.location.replace('/showcase'); }, 800);
     } catch { showMsg("Login failed. Please try again."); }
     finally { setLoading(false); }
   };
