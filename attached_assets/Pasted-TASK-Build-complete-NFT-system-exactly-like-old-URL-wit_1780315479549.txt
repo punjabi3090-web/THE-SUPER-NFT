@@ -1,0 +1,271 @@
+TASK: Build complete NFT system exactly like old URL with Supabase + Fix all redirect issues
+
+STEP-1: ANALYZE OLD PROJECT FIRST
+Check this URL to understand exact old flow + UI:
+https://81b0321f-529a-42e7-8fd4-ca4e308f0ee9-00-12cjtpuqs34us.pike.replit.dev/login?ref=3
+
+Verify:
+1. Signup with?ref=3 referral code logic
+2. Login → redirect to /showcase page
+3. Showcase page UI with NFT cards + "Enter Dashboard" button
+4. Dashboard 5 tabs: Home, Stake, Reserve, Asset, Profile
+5. Profile avatar 5 clicks → Admin panel
+6. Admin panel tools, tables, functions
+
+STEP-2: BUILD EXACT SAME WITH SUPABASE + REDIRECT FIX
+
+CRITICAL BUGS TO FIX:
+1. Login ke baad redirect nahi ho raha - setLocation() fail ho raha hai
+2. FIX: window.location.href use karo instead of setLocation
+3. localStorage bilkul hata do
+
+REQUIRED EXACT FLOW:
+1. SignUp → Email + Password + OTP + Save referral_code from?ref=3
+2. Login → supabase.auth.signInWithPassword()
+3. AUTO REDIRECT → /showcase using window.location.href
+4. Showcase → Protected page, "Enter Dashboard" button → /dashboard
+5. Dashboard → 5 tabs working: Home, Stake, Reserve, Asset, Profile
+6. Profile → Avatar pe 5 clicks → /admin
+7. Admin → Role check + all old tools
+
+RULES:
+1. UI/DESIGN/CSS 100% SAME AS OLD URL - ek pixel change nahi
+2. NFT_CARDS array same, images same, prices same
+3. NO localStorage/sessionStorage anywhere
+4. Use window.location.href for all redirects - wouter setLocation is buggy
+5. All pages protected with supabase.auth.getSession()
+
+FILE-BY-FILE CODE:
+
+FILE-1: LoginPage.tsx
+import { useLocation } from "wouter"
+import { supabase } from "../lib/supabaseClient"
+import { useEffect } from "react"
+
+export default function LoginPage() {
+  const [location] = useLocation()
+  const refCode = new URLSearchParams(location.split('?')[1]).get('ref') || null
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) window.location.href = '/showcase'
+    })
+  }, [])
+
+  const handleSignUp = async () => {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { full_name, phone, referral_code: refCode } }
+    })
+    if (!error) setStep('otp')
+  }
+
+  const handleVerifyOtp = async () => {
+    const { data, error } = await supabase.auth.verifyOtp({
+      email,
+      token: otpCode,
+      type: 'signup'
+    })
+    if (data.session) window.location.href = '/showcase'
+  }
+
+  const handleLogin = async () => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password: pw
+    })
+    if (data.session) window.location.href = '/showcase'
+  }
+}
+
+FILE-2: Showcase.jsx
+import { useEffect } from "react"
+import { supabase } from "../lib/supabaseClient"
+
+const NFT_CARDS = [
+  { img: "/images/nft-card-1.png", name: "NFT #1", price: "$100", edition: "1 of 100", rarity: "Legendary", rarityColor: "from-yellow-400 to-orange-500" },
+  { img: "/images/nft-card-2.png", name: "NFT #2", price: "$250", edition: "1 of 10,000", rarity: "Rare", rarityColor: "from-blue-400 to-purple-500" },
+  { img: "/images/nft-card-3.png", name: "NFT #3", price: "$500", edition: "1 of 7,777", rarity: "Epic", rarityColor: "from-purple-400 to-pink-500" },
+  { img: "/images/nft-card-4.png", name: "NFT #4", price: "$1000", edition: "1 of 5,555", rarity: "Ultra Rare", rarityColor: "from-cyan-400 to-blue-500" },
+];
+
+export default function Showcase() {
+  useEffect(() => {
+    const checkAuth = async () => {
+      await new Promise(r => setTimeout(r, 300))
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) window.location.href = '/login'
+    }
+    checkAuth()
+  }, [])
+
+  return (
+    <div className="min-h-screen bg-[#0a0a1a] text-white">
+      {/* Banner + Heading same as old */}
+      <div className="text-center py-8 px-4">
+        <h1 className="text-2xl sm:text-3xl font-extrabold bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent">
+          The Super NFTs Collections
+        </h1>
+      </div>
+
+      {/* Cards Grid - same as old */}
+      <div className="max-w-2xl mx-auto px-4 grid grid-cols-2 gap-4 pb-8">
+        {NFT_CARDS.map((card) => (
+          <div key={card.name} className="rounded-2xl overflow-hidden border border-purple-800/40 bg-gradient-to-b from-[#12122a] to-[#0d0d1e]">
+            <img src={card.img} alt={card.name} className="w-full object-cover aspect-video" />
+            <div className="p-3">
+              <p className="font-bold text-white text-sm">{card.name}</p>
+              <p className="text-slate-500 text-[10px]">{card.edition}</p>
+              <div className="mt-2 flex items-baseline gap-1">
+                <span className="text-lg font-extrabold text-emerald-400">{card.price}</span>
+                <span className="text-slate-400 text-[10px]">USDT</span>
+              </div>
+              <button onClick={() => window.location.href = '/reserve'} className="mt-3 w-full py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-600 to-cyan-600 text-white">
+                Reserve Now
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Enter Dashboard Button */}
+      <div className="text-center px-4 pb-12">
+        <button onClick={() => window.location.href = '/dashboard'} className="px-10 py-4 rounded-2xl font-extrabold text-base bg-gradient-to-r from-emerald-500 to-cyan-500 text-white">
+          Enter Dashboard →
+        </button>
+      </div>
+    </div>
+  )
+}
+
+FILE-3: Dashboard.js
+import { useState, useEffect } from "react"
+import { supabase } from "../lib/supabaseClient"
+import { Home, Bookmark, Coins, Wallet, User } from "lucide-react"
+
+export default function Dashboard() {
+  const [activeTab, setActiveTab] = useState("home")
+  const [clickCount, setClickCount] = useState(0)
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) window.location.href = '/login'
+    })
+  }, [])
+
+  const handleAvatarClick = () => {
+    setClickCount(prev => {
+      if (prev + 1 >= 5) {
+        window.location.href = '/admin'
+        return 0
+      }
+      return prev + 1
+    })
+  }
+
+  const tabs = [
+    { id: "home", icon: Home, label: "Home" },
+    { id: "reserve", icon: Bookmark, label: "Reserve" },
+    { id: "stake", icon: Coins, label: "Stake" },
+    { id: "asset", icon: Wallet, label: "Asset" },
+    { id: "profile", icon: User, label: "Profile" },
+  ]
+
+  return (
+    <div className="min-h-screen bg-black text-white pb-20">
+      <div className="p-4">
+        {activeTab === "home" && <div>Home Content Yahan</div>}
+        {activeTab === "reserve" && <div>Reserve Content Yahan</div>}
+        {activeTab === "stake" && <div>Stake Content Yahan</div>}
+        {activeTab === "asset" && <div>Asset Content Yahan</div>}
+        {activeTab === "profile" && (
+          <div>
+            <img src="/avatar.png" onClick={handleAvatarClick} className="w-20 h-20 rounded-full cursor-pointer" />
+            <p>Profile Content Yahan</p>
+          </div>
+        )}
+      </div>
+
+      <div className="fixed bottom-0 w-full bg-gray-900 border-t border-gray-800">
+        <div className="flex justify-around items-center h-16 max-w-md mx-auto">
+          {tabs.map((tab) => {
+            const Icon = tab.icon
+            const isActive = activeTab === tab.id
+            return (
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex flex-col items-center gap-1 ${isActive? "text-purple-500" : "text-gray-400"}`}>
+                <Icon size={20} />
+                <span className="text-xs">{tab.label}</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+FILE-4: AdminPanel.jsx
+import { useState, useEffect } from "react"
+import { supabase } from "../lib/supabaseClient"
+
+export default function AdminPanel() {
+  const [authed, setAuthed] = useState(false)
+
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session) { window.location.href = '/login'; return }
+      const { data: { user } } = await supabase.auth.getUser()
+      const { data: profile } = await supabase.from('users').select('role').eq('id', user.id).single()
+      if (profile?.role!== 'admin') window.location.href = '/dashboard'
+      else setAuthed(true)
+    })
+  }, [])
+
+  if (!authed) return <div>Loading...</div>
+
+  return (
+    <div>
+      {/* Purane admin tools yahan same rahenge */}
+      <h1>Admin Panel</h1>
+      {/* Withdrawals, Deposits, Users, Airdrop, Settings - all same */}
+    </div>
+  )
+}
+
+ROUTING App.jsx:
+import { Route, Switch } from "wouter"
+import LoginPage from "./LoginPage"
+import Showcase from "./Showcase"
+import Dashboard from "./Dashboard"
+import AdminPanel from "./AdminPanel"
+
+function App() {
+  return (
+    <Switch>
+      <Route path="/login" component={LoginPage} />
+      <Route path="/showcase" component={Showcase} />
+      <Route path="/dashboard" component={Dashboard} />
+      <Route path="/admin" component={AdminPanel} />
+      <Route path="/" component={LoginPage} />
+    </Switch>
+  )
+}
+
+SUPABASE TABLES NEEDED:
+1. users: id, email, full_name, phone, referral_code, role, wallet_balance
+2. withdrawals, deposits, etc - same as old
+
+FINAL CHECKLIST:
+✅ Signup with?ref=3 saves referral code
+✅ Login redirect to /showcase with window.location.href
+✅ Showcase protected + Enter Dashboard button works
+✅ Dashboard 5 tabs working
+✅ Profile 5 clicks → Admin
+✅ Admin role check working
+✅ UI 100% same as https://81b0321f-529a-42e7-8fd4-ca4e308f0ee9-00-12cjtpuqs34us.pike.replit.dev/login?ref=3
+✅ NO localStorage anywhere
+
+Neeche meri purani 5 files ka code hai. Pehle old URL check kar, phir inko upar wale code se replace kar:
+
+[PASTE YOUR 5 FILES CODE HERE]

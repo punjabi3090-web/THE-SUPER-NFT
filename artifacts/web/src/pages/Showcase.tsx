@@ -1,4 +1,4 @@
-import { useLocation } from "wouter";
+import { useEffect } from "react";
 import { supabase } from "../lib/supabase";
 
 const NFT_CARDS = [
@@ -37,7 +37,14 @@ const NFT_CARDS = [
 ];
 
 export default function Showcase() {
-  const [, setLocation] = useLocation();
+  useEffect(() => {
+    const checkAuth = async () => {
+      await new Promise(r => setTimeout(r, 300));
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) window.location.href = '/login';
+    };
+    checkAuth();
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#0a0a1a] text-white">
@@ -93,7 +100,7 @@ export default function Showcase() {
 
               {/* Reserve button */}
               <button
-                onClick={() => setLocation('/reserve')}
+                onClick={() => { window.location.href = '/reserve'; }}
                 className="mt-3 w-full py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 text-white transition-all shadow shadow-purple-800/40 active:scale-95"
               >
                 Reserve Now
@@ -106,11 +113,7 @@ export default function Showcase() {
       {/* ── Enter Dashboard ────────────────────────────────────────── */}
       <div className="text-center px-4 pb-12">
         <button
-          onClick={async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session) setLocation('/');
-            else setLocation('/login');
-          }}
+          onClick={() => { window.location.href = '/'; }}
           className="px-10 py-4 rounded-2xl font-extrabold text-base bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-white shadow-lg shadow-emerald-900/40 active:scale-95 transition-all"
         >
           Enter Dashboard →

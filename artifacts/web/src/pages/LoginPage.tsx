@@ -72,6 +72,10 @@ export default function LoginPage() {
   const [forgotConfirmPass, setForgotConfirmPass] = useState("");
 
   useEffect(() => {
+    // If already logged in, go straight to showcase
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) window.location.href = '/showcase';
+    });
     const params = new URLSearchParams(window.location.search);
     const ref = params.get('ref');
     if (ref) setForm(f => ({...f, referralCode: ref }));
@@ -141,7 +145,7 @@ export default function LoginPage() {
       }
 
       showMsg("Email verified! Logging you in...", "success");
-      setTimeout(() => setLocation('/showcase'), 1000);
+      setTimeout(() => { window.location.href = '/showcase'; }, 1000);
     } catch { showMsg("Verification failed. Please try again."); }
     finally { setLoading(false); }
   };
@@ -167,7 +171,7 @@ export default function LoginPage() {
       }
 
       showMsg("Login successful!", "success");
-      setTimeout(() => setLocation('/showcase'), 800);
+      setTimeout(() => { window.location.href = '/showcase'; }, 800);
     } catch { showMsg("Login failed. Please try again."); }
     finally { setLoading(false); }
   };
