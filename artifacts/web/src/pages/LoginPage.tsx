@@ -123,6 +123,33 @@ export default function LoginPage() {
         return;
       }
 
+      // Insert profile rows into Supabase tables.
+      // Uses upsert so re-attempts (duplicate UUID) never throw.
+      // Wrapped in try/catch — RLS failures are non-fatal because the
+      // Express supabase-sync route will create the app-layer record on login.
+      if (data.user?.id) {
+        try {
+          await supabase
+            .from('users')
+            .upsert(
+              { id: data.user.id, email: form.email.toLowerCase().trim() },
+              { onConflict: 'id' }
+            );
+          await supabase
+            .from('wallets')
+            .upsert(
+              { user_id: data.user.id, balance: 0 },
+              { onConflict: 'user_id' }
+            );
+          await supabase
+            .from('user_income')
+            .upsert(
+              { user_id: data.user.id, total_income: 0 },
+              { onConflict: 'user_id' }
+            );
+        } catch { /* silent — profile rows created by supabase-sync on first login */ }
+      }
+
       setOtpEmail(form.email);
       setOtpCode("");
       setPage("register_otp");
