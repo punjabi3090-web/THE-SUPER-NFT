@@ -1,20 +1,16 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Eye, EyeOff, ArrowLeft, CheckCircle, KeyRound } from "lucide-react";
-import {
-  registerUser, verifySignupOtp,
-  loginUser, setCurrentUser,
-  forgotPasswordOtp, resetPasswordOtp,
-} from "../lib/api";
+import { supabase } from "../lib/supabase";
 
 type PopupType = { show: boolean; message: string; type: string };
 
 function Popup({ popup }: { popup: PopupType }) {
   if (!popup.show) return null;
   return (
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[90vw] max-w-sm">
+    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w- max-w-sm">
       <div className={`px-6 py-4 rounded-lg shadow-2xl border-2 text-center ${
-        popup.type === "success" ? "bg-white border-emerald-400 text-slate-900" : "bg-red-50 border-red-500 text-red-900"
+        popup.type === "success"? "bg-white border-emerald-400 text-slate-900" : "bg-red-50 border-red-500 text-red-900"
       }`}>
         <p className="font-semibold text-base">{popup.message}</p>
       </div>
@@ -23,36 +19,36 @@ function Popup({ popup }: { popup: PopupType }) {
 }
 
 const countries = [
-  { code: "+1",   name: "USA",          flag: "🇺🇸" },
-  { code: "+44",  name: "UK",           flag: "🇬🇧" },
-  { code: "+92",  name: "Pakistan",     flag: "🇵🇰" },
-  { code: "+91",  name: "India",        flag: "🇮🇳" },
-  { code: "+86",  name: "China",        flag: "🇨🇳" },
-  { code: "+971", name: "UAE",          flag: "🇦🇪" },
+  { code: "+1", name: "USA", flag: "🇺🇸" },
+  { code: "+44", name: "UK", flag: "🇬🇧" },
+  { code: "+92", name: "Pakistan", flag: "🇵🇰" },
+  { code: "+91", name: "India", flag: "🇮🇳" },
+  { code: "+86", name: "China", flag: "🇨🇳" },
+  { code: "+971", name: "UAE", flag: "🇦🇪" },
   { code: "+966", name: "Saudi Arabia", flag: "🇸🇦" },
-  { code: "+81",  name: "Japan",        flag: "🇯🇵" },
-  { code: "+49",  name: "Germany",      flag: "🇩🇪" },
-  { code: "+33",  name: "France",       flag: "🇫🇷" },
-  { code: "+55",  name: "Brazil",       flag: "🇧🇷" },
-  { code: "+7",   name: "Russia",       flag: "🇷🇺" },
-  { code: "+234", name: "Nigeria",      flag: "🇳🇬" },
-  { code: "+62",  name: "Indonesia",    flag: "🇮🇩" },
-  { code: "+63",  name: "Philippines",  flag: "🇵🇭" },
-  { code: "+84",  name: "Vietnam",      flag: "🇻🇳" },
-  { code: "+66",  name: "Thailand",     flag: "🇹🇭" },
-  { code: "+60",  name: "Malaysia",     flag: "🇲🇾" },
-  { code: "+20",  name: "Egypt",        flag: "🇪🇬" },
-  { code: "+90",  name: "Turkey",       flag: "🇹🇷" },
-  { code: "+27",  name: "South Africa", flag: "🇿🇦" },
-  { code: "+880", name: "Bangladesh",   flag: "🇧🇩" },
-  { code: "+98",  name: "Iran",         flag: "🇮🇷" },
-  { code: "+82",  name: "South Korea",  flag: "🇰🇷" },
-  { code: "+54",  name: "Argentina",    flag: "🇦🇷" },
-  { code: "+48",  name: "Poland",       flag: "🇵🇱" },
-  { code: "+31",  name: "Netherlands",  flag: "🇳🇱" },
-  { code: "+39",  name: "Italy",        flag: "🇮🇹" },
-  { code: "+34",  name: "Spain",        flag: "🇪🇸" },
-  { code: "+380", name: "Ukraine",      flag: "🇺🇦" },
+  { code: "+81", name: "Japan", flag: "🇯🇵" },
+  { code: "+49", name: "Germany", flag: "🇩🇪" },
+  { code: "+33", name: "France", flag: "🇫🇷" },
+  { code: "+55", name: "Brazil", flag: "🇧🇷" },
+  { code: "+7", name: "Russia", flag: "🇷🇺" },
+  { code: "+234", name: "Nigeria", flag: "🇳🇬" },
+  { code: "+62", name: "Indonesia", flag: "🇮🇩" },
+  { code: "+63", name: "Philippines", flag: "🇵🇭" },
+  { code: "+84", name: "Vietnam", flag: "🇻🇳" },
+  { code: "+66", name: "Thailand", flag: "🇹🇭" },
+  { code: "+60", name: "Malaysia", flag: "🇲🇾" },
+  { code: "+20", name: "Egypt", flag: "🇪🇬" },
+  { code: "+90", name: "Turkey", flag: "🇹🇷" },
+  { code: "+27", name: "South Africa", flag: "🇿🇦" },
+  { code: "+880", name: "Bangladesh", flag: "🇧🇩" },
+  { code: "+98", name: "Iran", flag: "🇮🇷" },
+  { code: "+82", name: "South Korea", flag: "🇰🇷" },
+  { code: "+54", name: "Argentina", flag: "🇦🇷" },
+  { code: "+48", name: "Poland", flag: "🇵🇱" },
+  { code: "+31", name: "Netherlands", flag: "🇳🇱" },
+  { code: "+39", name: "Italy", flag: "🇮🇹" },
+  { code: "+34", name: "Spain", flag: "🇪🇸" },
+  { code: "+380", name: "Ukraine", flag: "🇺🇦" },
 ];
 
 type PageState = "register" | "register_otp" | "login" | "forgot" | "forgot_otp";
@@ -78,9 +74,9 @@ export default function LoginPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const ref = params.get('ref');
-    if (ref) setForm(f => ({ ...f, referralCode: ref }));
+    if (ref) setForm(f => ({...f, referralCode: ref }));
     if (params.get('mode') === 'login') setPage('login');
-    if (ref && params.get('mode') !== 'login') setPage('register');
+    if (ref && params.get('mode')!== 'login') setPage('register');
   }, []);
 
   const showMsg = (message: string, type = "error") => {
@@ -91,23 +87,35 @@ export default function LoginPage() {
   const inp = "w-full bg-white/90 text-[#1E293B] px-3 py-2.5 rounded-lg border border-purple-200 focus:border-purple-500 outline-none text-sm placeholder:text-slate-400";
   const btn = "w-full py-2.5 rounded-lg font-bold text-white text-sm shadow-lg disabled:opacity-50";
 
-  // ── Register ──────────────────────────────────────────────────────────────────
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (form.email !== form.confirmEmail) { showMsg("Emails do not match"); return; }
-    if (form.password !== form.confirmPassword) { showMsg("Passwords do not match"); return; }
+    if (form.email!== form.confirmEmail) { showMsg("Emails do not match"); return; }
+    if (form.password!== form.confirmPassword) { showMsg("Passwords do not match"); return; }
     if (form.password.length < 6) { showMsg("Password must be at least 6 characters"); return; }
     setLoading(true);
     try {
-      const result = await registerUser({
-        name: form.fullName,
+      const { data, error } = await supabase.auth.signUp({
         email: form.email,
-        phone: `${form.countryCode}${form.phone}`,
         password: form.password,
-        country: form.countryCode,
-        referralCode: form.referralCode || undefined,
+        options: {
+          data: {
+            full_name: form.fullName,
+            phone: `${form.countryCode}${form.phone}`,
+            country: form.countryCode,
+            referral_code: form.referralCode || null,
+          }
+        }
       });
-      if (result === 'email_exists') { showMsg("Email already registered. Please login."); return; }
+
+      if (error) {
+        if (error.message.includes("already registered")) {
+          showMsg("Email already registered. Please login.");
+        } else {
+          showMsg(error.message);
+        }
+        return;
+      }
+
       setOtpEmail(form.email);
       setOtpCode("");
       setPage("register_otp");
@@ -118,14 +126,22 @@ export default function LoginPage() {
 
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (otpCode.length !== 6) { showMsg("Please enter the 6-digit OTP"); return; }
+    if (otpCode.length!== 6) { showMsg("Please enter the 6-digit OTP"); return; }
     setLoading(true);
     try {
-      const result = await verifySignupOtp(otpEmail, otpCode);
-      if (result === "expired") { showMsg("OTP expired. Please register again."); setTimeout(() => setPage("register"), 2000); return; }
-      if (result === "invalid") { showMsg("Incorrect OTP. Try again."); return; }
-      showMsg("Email verified! Account created successfully.", "success");
-      setTimeout(() => { setPage("login"); setForm(f => ({ ...f, email: otpEmail, password: "" })); }, 2000);
+      const { data, error } = await supabase.auth.verifyOtp({
+        email: otpEmail,
+        token: otpCode,
+        type: 'signup'
+      });
+
+      if (error) {
+        showMsg("Incorrect OTP or expired. Try again.");
+        return;
+      }
+
+      showMsg("Email verified! Logging you in...", "success");
+      setTimeout(() => setLocation('/showcase'), 1000);
     } catch { showMsg("Verification failed. Please try again."); }
     finally { setLoading(false); }
   };
@@ -134,11 +150,22 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const result = await loginUser(form.email, form.password);
-      if (result === 'blocked') { showMsg("Your account has been blocked. Contact support."); return; }
-      if (result === 'unverified') { showMsg("Please verify your email first. Check your inbox for the OTP code."); return; }
-      if (result === 'invalid') { showMsg("Wrong email or password."); return; }
-      setCurrentUser(result.id);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: form.email,
+        password: form.password,
+      });
+
+      if (error) {
+        if (error.message.includes("Email not confirmed")) {
+          showMsg("Please verify your email first. Check inbox for OTP.");
+        } else if (error.message.includes("Invalid login credentials")) {
+          showMsg("Wrong email or password.");
+        } else {
+          showMsg(error.message);
+        }
+        return;
+      }
+
       showMsg("Login successful!", "success");
       setTimeout(() => setLocation('/showcase'), 800);
     } catch { showMsg("Login failed. Please try again."); }
@@ -150,7 +177,13 @@ export default function LoginPage() {
     if (!otpEmail.trim()) { showMsg("Please enter your email"); return; }
     setLoading(true);
     try {
-      await forgotPasswordOtp(otpEmail.trim());
+      const { error } = await supabase.auth.resetPasswordForEmail(otpEmail.trim());
+
+      if (error) {
+        showMsg(error.message);
+        return;
+      }
+
       setOtpCode(""); setForgotNewPass(""); setForgotConfirmPass("");
       setPage("forgot_otp");
       showMsg("OTP sent to your email. Check your inbox.", "success");
@@ -160,16 +193,33 @@ export default function LoginPage() {
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (otpCode.length !== 6) { showMsg("Please enter the 6-digit OTP"); return; }
+    if (otpCode.length!== 6) { showMsg("Please enter the 6-digit OTP"); return; }
     if (!forgotNewPass || forgotNewPass.length < 6) { showMsg("Password must be at least 6 characters"); return; }
-    if (forgotNewPass !== forgotConfirmPass) { showMsg("Passwords do not match"); return; }
+    if (forgotNewPass!== forgotConfirmPass) { showMsg("Passwords do not match"); return; }
     setLoading(true);
     try {
-      const result = await resetPasswordOtp(otpEmail, otpCode, forgotNewPass);
-      if (result === "expired") { showMsg("OTP expired. Please request a new one."); return; }
-      if (result === "invalid") { showMsg("Incorrect OTP. Try again."); return; }
+      const { data, error } = await supabase.auth.verifyOtp({
+        email: otpEmail,
+        token: otpCode,
+        type: 'recovery'
+      });
+
+      if (error) {
+        showMsg("Incorrect OTP or expired. Try again.");
+        return;
+      }
+
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: forgotNewPass
+      });
+
+      if (updateError) {
+        showMsg(updateError.message);
+        return;
+      }
+
       showMsg("Password reset successfully! Please login.", "success");
-      setTimeout(() => { setPage("login"); setForm(f => ({ ...f, email: otpEmail, password: "" })); }, 2000);
+      setTimeout(() => { setPage("login"); setForm(f => ({...f, email: otpEmail, password: "" })); }, 2000);
     } catch { showMsg("Reset failed. Please try again."); }
     finally { setLoading(false); }
   };
@@ -189,15 +239,14 @@ export default function LoginPage() {
     >
       <style>{`
         @media (max-width: 768px) {
-          .nft-bg-wrap { background-size: cover !important; }
-          .nft-form-card { flex-direction: column !important; max-width: 380px !important; }
-          .nft-divider { width: 100% !important; height: 1px !important; border-left: none !important; border-top: 1px solid rgba(106,27,154,0.15) !important; }
-          .nft-col { width: 100% !important; }
+         .nft-bg-wrap { background-size: cover!important; }
+         .nft-form-card { flex-direction: column!important; max-width: 380px!important; }
+         .nft-divider { width: 100%!important; height: 1px!important; border-left: none!important; border-top: 1px solid rgba(106,27,154,0.15)!important; }
+         .nft-col { width: 100%!important; }
         }
       `}</style>
       <Popup popup={popup} />
 
-      {/* Main card — positioned over the white box in the image */}
       <div
         className="nft-form-card"
         style={{
@@ -213,15 +262,12 @@ export default function LoginPage() {
           marginTop: '-2vh',
         }}
       >
-        {/* ── LOGIN COLUMN (LEFT) ── */}
         <div className="nft-col" style={{ flex: 1, padding: '32px 28px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-          {/* Logo */}
           <div style={{ textAlign: 'center', marginBottom: 18 }}>
             <img src="/images/logo.png" alt="Logo" style={{ width: 44, height: 44, borderRadius: 10, margin: '0 auto 8px', display: 'block', objectFit: 'cover' }} />
             <p style={{ fontWeight: 800, fontSize: 15, color: '#1E293B', letterSpacing: 0.5 }}>Login</p>
           </div>
 
-          {/* Login or OTP forms */}
           {(page === "login" || page === "register" || page === "register_otp") && (
             <>
               {page === "login" && (
@@ -229,11 +275,11 @@ export default function LoginPage() {
                   <input type="email" placeholder="Email" value={form.email}
                     onChange={e => setForm({...form, email: e.target.value})} className={inp} required />
                   <div style={{ position: 'relative' }}>
-                    <input type={showPw ? "text" : "password"} placeholder="Password" value={form.password}
+                    <input type={showPw? "text" : "password"} placeholder="Password" value={form.password}
                       onChange={e => setForm({...form, password: e.target.value})} className={inp} required />
                     <button type="button" onClick={() => setShowPw(!showPw)}
                       style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}>
-                      {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                      {showPw? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                   </div>
                   <div style={{ textAlign: 'right', marginTop: -4 }}>
@@ -241,7 +287,7 @@ export default function LoginPage() {
                       style={{ fontSize: 11, color: '#6b21a8', fontWeight: 600 }}>Forgot Password?</button>
                   </div>
                   <button type="submit" disabled={loading} className={btn} style={purpleGrad}>
-                    {loading ? "Logging in..." : "Login"}
+                    {loading? "Logging in..." : "Login"}
                   </button>
                   <p style={{ textAlign: 'center', fontSize: 12, color: '#64748b' }}>
                     No account?{" "}
@@ -257,7 +303,7 @@ export default function LoginPage() {
                   <p style={{ fontSize: 12, color: '#64748b', marginBottom: 12 }}>
                     Already have an account?
                   </p>
-                  <button onClick={() => setPage("login")} className={btn} style={{ ...purpleGrad, padding: '10px 0' }}>
+                  <button onClick={() => setPage("login")} className={btn} style={{...purpleGrad, padding: '10px 0' }}>
                     Go to Login →
                   </button>
                 </div>
@@ -265,7 +311,6 @@ export default function LoginPage() {
             </>
           )}
 
-          {/* Forgot password forms */}
           {page === "forgot" && (
             <form onSubmit={handleForgot} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
@@ -275,8 +320,8 @@ export default function LoginPage() {
               <p style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>Enter your email to receive OTP</p>
               <input type="email" placeholder="Your email" value={otpEmail}
                 onChange={e => setOtpEmail(e.target.value)} className={inp} required autoFocus />
-              <button type="submit" disabled={loading || !otpEmail.trim()} className={btn} style={purpleGrad}>
-                {loading ? "Sending..." : "Send OTP"}
+              <button type="submit" disabled={loading ||!otpEmail.trim()} className={btn} style={purpleGrad}>
+                {loading? "Sending..." : "Send OTP"}
               </button>
             </form>
           )}
@@ -293,29 +338,27 @@ export default function LoginPage() {
               </div>
               <input type="text" inputMode="numeric" maxLength={6} placeholder="6-digit OTP" value={otpCode}
                 onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                className={inp + " text-center text-lg font-bold tracking-[0.5em]"} autoFocus />
+                className={inp + " text-center text-lg font-bold tracking-"} autoFocus />
               <div style={{ position: 'relative' }}>
-                <input type={showNewPw ? "text" : "password"} placeholder="New Password"
+                <input type={showNewPw? "text" : "password"} placeholder="New Password"
                   value={forgotNewPass} onChange={e => setForgotNewPass(e.target.value)} className={inp} required />
                 <button type="button" onClick={() => setShowNewPw(!showNewPw)}
                   style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}>
-                  {showNewPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {showNewPw? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
               <input type="password" placeholder="Confirm Password" value={forgotConfirmPass}
                 onChange={e => setForgotConfirmPass(e.target.value)} className={inp} required />
-              <button type="submit" disabled={loading || otpCode.length !== 6 || !forgotNewPass}
+              <button type="submit" disabled={loading || otpCode.length!== 6 ||!forgotNewPass}
                 className={btn} style={purpleGrad}>
-                {loading ? "Resetting..." : "Reset Password"}
+                {loading? "Resetting..." : "Reset Password"}
               </button>
             </form>
           )}
         </div>
 
-        {/* ── DIVIDER ── */}
         <div className="nft-divider" style={{ width: 1, borderLeft: '1px solid rgba(106,27,154,0.15)', alignSelf: 'stretch' }} />
 
-        {/* ── REGISTER COLUMN (RIGHT) ── */}
         <div className="nft-col" style={{ flex: 1, padding: '32px 28px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
           <div style={{ textAlign: 'center', marginBottom: 18 }}>
             <p style={{ fontWeight: 800, fontSize: 15, color: '#1E293B', letterSpacing: 0.5 }}>Sign Up</p>
@@ -340,19 +383,19 @@ export default function LoginPage() {
                   style={{ flex: 1, background: 'rgba(255,255,255,0.9)', color: '#1E293B', padding: '8px 12px', borderRadius: 8, border: '1px solid #e9d5ff', outline: 'none', fontSize: 13 }} />
               </div>
               <div style={{ position: 'relative' }}>
-                <input type={showPw ? "text" : "password"} placeholder="Password (min 6 chars)" value={form.password}
+                <input type={showPw? "text" : "password"} placeholder="Password (min 6 chars)" value={form.password}
                   onChange={e => setForm({...form, password: e.target.value})} className={inp} required />
                 <button type="button" onClick={() => setShowPw(!showPw)}
                   style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}>
-                  {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {showPw? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
               <div style={{ position: 'relative' }}>
-                <input type={showCpw ? "text" : "password"} placeholder="Confirm Password" value={form.confirmPassword}
+                <input type={showCpw? "text" : "password"} placeholder="Confirm Password" value={form.confirmPassword}
                   onChange={e => setForm({...form, confirmPassword: e.target.value})} className={inp} required />
                 <button type="button" onClick={() => setShowCpw(!showCpw)}
                   style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}>
-                  {showCpw ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {showCpw? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
               {form.referralCode && (
@@ -363,7 +406,7 @@ export default function LoginPage() {
               <input type="text" placeholder="Referral Code (Optional)" value={form.referralCode}
                 onChange={e => setForm({...form, referralCode: e.target.value})} className={inp} />
               <button type="submit" disabled={loading} className={btn} style={purpleGrad}>
-                {loading ? "Creating account..." : "Register Now"}
+                {loading? "Creating account..." : "Sign Up"}
               </button>
             </form>
           )}
@@ -372,32 +415,19 @@ export default function LoginPage() {
             <form onSubmit={handleVerifyOtp} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                 <button type="button" onClick={() => setPage("register")} style={{ color: '#94a3b8' }}><ArrowLeft size={16} /></button>
-                <p style={{ fontWeight: 700, fontSize: 13, color: '#1E293B' }}>Verify Your Email</p>
+                <p style={{ fontWeight: 700, fontSize: 13, color: '#1E293B' }}>Verify Email</p>
               </div>
-              <div style={{ background: '#eff6ff', borderRadius: 10, padding: '10px 14px', textAlign: 'center' }}>
-                <KeyRound size={20} style={{ color: '#6b21a8', margin: '0 auto 6px', display: 'block' }} />
-                <p style={{ fontSize: 11, color: '#64748b' }}>OTP sent to</p>
-                <p style={{ fontWeight: 700, color: '#6b21a8', fontSize: 12, wordBreak: 'break-all' }}>{otpEmail}</p>
+              <div style={{ background: '#f0f9ff', borderRadius: 10, padding: '8px 12px', textAlign: 'center' }}>
+                <CheckCircle size={16} style={{ color: '#10b981', margin: '0 auto 4px', display: 'block' }} />
+                <p style={{ fontSize: 10, color: '#64748b' }}>OTP sent to <strong>{otpEmail}</strong></p>
               </div>
               <input type="text" inputMode="numeric" maxLength={6} placeholder="6-digit OTP" value={otpCode}
                 onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                className={inp + " text-center text-xl font-bold tracking-[0.5em]"} autoFocus />
-              <button type="submit" disabled={loading || otpCode.length !== 6} className={btn} style={purpleGrad}>
-                {loading ? "Verifying..." : "Verify OTP"}
+                className={inp + " text-center text-lg font-bold tracking-"} autoFocus />
+              <button type="submit" disabled={loading || otpCode.length!== 6} className={btn} style={purpleGrad}>
+                {loading? "Verifying..." : "Verify & Login"}
               </button>
-              <p style={{ textAlign: 'center', fontSize: 11, color: '#94a3b8' }}>
-                <button type="button" onClick={() => setPage("register")} style={{ color: '#6b21a8' }}>← Go back & register again</button>
-              </p>
             </form>
-          )}
-
-          {(page === "login" || page === "forgot" || page === "forgot_otp") && (
-            <div style={{ textAlign: 'center', padding: '10px 0' }}>
-              <p style={{ fontSize: 12, color: '#64748b', marginBottom: 12 }}>Don't have an account?</p>
-              <button onClick={() => setPage("register")} className={btn} style={{ ...purpleGrad, padding: '10px 0' }}>
-                Create Account →
-              </button>
-            </div>
           )}
         </div>
       </div>

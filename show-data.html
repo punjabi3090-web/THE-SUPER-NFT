@@ -1,0 +1,30 @@
+<!doctype html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Data Backup</title>
+  </head>
+  <body>
+    <h2>LocalStorage Data Backup</h2>
+    <button onclick="copyData()">Copy All Data</button>
+    <pre
+      id="output"
+      style="background: #f5f5f5; padding: 10px; white-space: pre-wrap"
+    ></pre>
+
+    <script>
+      const data = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        data[key] = localStorage.getItem(key);
+      }
+      const jsonData = JSON.stringify(data, null, 2);
+      document.getElementById("output").textContent = jsonData;
+
+      function copyData() {
+        navigator.clipboard.writeText(jsonData);
+        alert("Data Copy Ho Gaya! Notes me paste kar lo");
+      }
+    </script>
+  </body>
+</html>
