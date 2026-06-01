@@ -1,0 +1,97 @@
+TASK: Migrate 5 files from localStorage auth to Supabase Auth + Supabase DB
+
+CONTEXT:
+Mere paas NFT website ki 5 files hain jo pehle localStorage + local API use karti thi. Ab inko Supabase pe convert karna hai. 
+
+FILES:
+1. LoginPage.jsx - signup/login with OTP
+2. Showcase.jsx - NFT cards display page
+3. Dashboard.js - user dashboard with tabs + localStorage token check
+4. Tooltips.jsx - UI component, no auth needed
+5. AdminPanel.jsx - admin panel with localStorage auth
+
+CRITICAL RULES - KAHIN BHI VIOLATE NAHI KARNA:
+1. localStorage, sessionStorage, setCurrentUser, getCurrentUser, isAdminLoggedIn - YE SAB DELETE KARNA HAI
+2. Supabase ka built-in session use karna: supabase.auth.getSession() + supabase.auth.getUser()
+3. UI/Design/CSS/Tailwind 100% SAME rahega. Ek pixel bhi change nahi karna
+4. Routes same rahenge: /login, /showcase, /dashboard, /admin
+5. NFT_CARDS array, tabs, modals, colors - sab same rahega
+6. import { supabase } from "../lib/supabaseClient" use karna hai
+
+WHAT TO CHANGE IN EACH FILE:
+
+FILE-1: LoginPage.jsx
+OLD: registerUser, verifySignupOtp, loginUser, setCurrentUser from "../lib/api"
+NEW: 
+- supabase.auth.signUp({ email, password, options: { data: { full_name, phone, referral_code } } })
+- supabase.auth.verifyOtp({ email, token: otpCode, type: 'signup' })
+- supabase.auth.signInWithPassword({ email, password })
+- Success pe: setLocation('/showcase')
+- setCurrentUser() line bilkul hata dena
+- Error messages same: "already registered", "Invalid login", "Email not confirmed"
+
+FILE-2: Showcase.jsx  
+- Ye public page hai. Auth check nahi chahiye
+- Sirf "Enter Dashboard" button me ye add karo:
+  onClick={async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session) setLocation('/dashboard')
+    else setLocation('/login')
+  }}
+- Baaki pura code same rahega
+
+FILE-3: Dashboard.js
+OLD: useEffect(() => { const token = localStorage.getItem("token"); if (!token) setLocation("/login"); }, []);
+NEW: useEffect(() => {
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    if (!session) setLocation("/login")
+  })
+}, [])
+- Logout button add karo: onClick={() => supabase.auth.signOut().then(() => setLocation('/login'))}
+- User data: const { data: { user } } = await supabase.auth.getUser()
+
+FILE-4: Tooltips.jsx
+- Isme koi change nahi. Ye sirf UI component hai. Same rehne do.
+
+FILE-5: AdminPanel.jsx
+OLD: isAdminLoggedIn(), adminLogin, adminLogout, getAllUsers from "../lib/api"
+NEW:
+- Auth check: useEffect(() => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session) { setAuthed(false); return }
+      const { data: { user } } = await supabase.auth.getUser()
+      const { data: profile } = await supabase.from('users').select('role').eq('id', user.id).single()
+      if (profile?.role !== 'admin') setLocation('/dashboard')
+      else setAuthed(true)
+    })
+  }, [])
+- Admin login: supabase.auth.signInWithPassword() + role check from 'users' table
+- Logout: supabase.auth.signOut()
+- Data calls: getAllUsers() → supabase.from('users').select('*')
+- approveWithdrawal, rejectDeposit etc → Supabase table update calls
+- localStorage.isAdminLoggedIn() → DELETE
+
+OUTPUT:
+Mujhe 5 files ka updated code do with Supabase integrated:
+1. LoginPage.jsx
+2. Showcase.jsx  
+3. Dashboard.js
+4. Tooltips.jsx - no change
+5. AdminPanel.jsx
+
+NECHE MERI PURANI FILES KA CODE HAI:
+
+FILE-1: LoginPage.jsx
+[PASTE YOUR LOGIN PAGE CODE HERE]
+
+FILE-2: Showcase.jsx
+[PASTE YOUR SHOWCASE CODE HERE]
+
+FILE-3: Dashboard.js
+[PASTE YOUR DASHBOARD CODE HERE]
+
+FILE-4: Tooltips.jsx
+[PASTE YOUR TOOLTIPS CODE HERE]
+
+FILE-5: AdminPanel.jsx
+[PASTE YOUR

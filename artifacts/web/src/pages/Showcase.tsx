@@ -1,4 +1,5 @@
 import { useLocation } from "wouter";
+import { supabase } from "../lib/supabase";
 
 const NFT_CARDS = [
   {
@@ -105,7 +106,11 @@ export default function Showcase() {
       {/* ── Enter Dashboard ────────────────────────────────────────── */}
       <div className="text-center px-4 pb-12">
         <button
-          onClick={() => setLocation('/')}
+          onClick={async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) setLocation('/');
+            else setLocation('/login');
+          }}
           className="px-10 py-4 rounded-2xl font-extrabold text-base bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-white shadow-lg shadow-emerald-900/40 active:scale-95 transition-all"
         >
           Enter Dashboard →

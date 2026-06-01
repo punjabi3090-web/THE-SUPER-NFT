@@ -6,22 +6,14 @@ import {
   Settings, Trash2, Lock, Unlock, RefreshCw, Send, KeyRound,
   Download, TrendingUp,
 } from "lucide-react";
-import {
-  isAdminLoggedIn, adminLogin, adminLogout,
-  getAllUsers, getAdminNotifications, getAdminLogs, getAdminWithdrawals,
-  approveWithdrawal, rejectWithdrawal, editUserBalance,
-  blockUser, deleteUser, sendAdminNotification, sendAirdrop,
-  updateUserReferralCode, changeAdminPassword,
-  getAdminSettings, saveAdminSettings, adminForgotPassword, adminResetPassword,
-  getAdminDeposits, approveDeposit, rejectDeposit, addUserIncome,
-  type User, type WithdrawalRequest, type AdminNotif, type AdminLog, type DepositRequest,
-} from "../lib/api";
+import type { User, WithdrawalRequest, AdminNotif, AdminLog, DepositRequest } from "../lib/api";
+import { supabase } from "../lib/supabase";
 
 type TabKey = 'dashboard' | 'members' | 'withdrawals' | 'deposits' | 'notifications' | 'airdrop' | 'settings' | 'logs';
 
 export default function AdminPanel() {
   const [, setLocation] = useLocation();
-  const [authed, setAuthed] = useState(isAdminLoggedIn());
+  const [authed, setAuthed] = useState(false);
   const [tab, setTab] = useState<TabKey>('dashboard');
 
   const [email, setEmail]     = useState("");
@@ -111,23 +103,112 @@ export default function AdminPanel() {
   const totalDep       = users.reduce((s, u) => s + u.totalDeposit, 0);
 
   const doRefresh = useCallback(async () => {
-    if (!isAdminLoggedIn()) return;
     setDataLoading(true);
     try {
-      const [u, r, d, n, l] = await Promise.all([
-        getAllUsers(),
-        getAdminWithdrawals(),
-        getAdminDeposits(),
-        getAdminNotifications(),
-        getAdminLogs(),
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const [{ data: usersRaw }, { data: wdRaw }, { data: depRaw }, { data: notifsRaw }, { data: logsRaw }] = await Promise.all([
+        supabase.from('users').select('*, user_income(*)').order('created_at', { ascending: false }),
+        supabase.from('withdrawals').select('*, users(email, username)').order('created_at', { ascending: false }),
+        supabase.from('deposits').select('*, users(email, username)').order('created_at', { ascending: false }),
+        supabase.from('notifications').select('*').order('created_at', { ascending: false }),
+        supabase.from('admin_logs').select('*').order('created_at', { ascending: false }).limit(50),
       ]);
-      setUsers(u);
-      setRequests(r);
-      setDeposits(d);
-      setNotifs(n);
-      setLogs(l);
-    } catch { /* token may have expired */ }
+
+      setUsers((usersRaw ?? []).map((u): User => {
+        const ua = u as Record<string, unknown>;
+        const incomes = (ua.user_income as Record<string, unknown>[] | null) ?? [];
+        return {
+          id: 0, userId: String(ua.id ?? ''), email: String(ua.email ?? ''),
+          name: String(ua.username ?? ua.email ?? ''), username: String(ua.username ?? ''),
+          phone: String(ua.phone ?? ''), country: String(ua.country ?? ''),
+          myReferralCode: String(ua.referral_code ?? ''), referralCode: String(ua.referral_code ?? ''),
+          joinedWithCode: (ua.referred_by as string | null) ?? null,
+          referredBy: (ua.referred_by as string | null) ?? null,
+          coins: 0, walletBalance: Number(ua.wallet_balance) || 0, nftAccountBalance: 0,
+          totalDeposit: Number(ua.total_deposit) || 0, totalWithdraw: Number(ua.total_withdraw) || 0,
+          reserveIncome: Number(incomes[0]?.reserve_income) || 0,
+          teamIncome: Number(incomes[0]?.team_income) || 0,
+          activityIncome: Number(incomes[0]?.activity_income) || 0,
+          level: Number(ua.level) || 1, isAdmin: ua.role === 'admin', isBlocked: !!ua.is_blocked,
+          googleAuthBound: false, googleAuthSecret: null,
+          withdrawalAddress: (ua.trc20_address as string | null) ?? null,
+          bep20Address: (ua.bep20_address as string | null) ?? null,
+          trc20Address: (ua.trc20_address as string | null) ?? null,
+          addressBindDate: null, registeredAt: String(ua.created_at ?? ''),
+          joinDate: String(ua.created_at ?? ''), lastLogin: '', password: '', myActivityHistory: [],
+        };
+      }));
+
+      setRequests((wdRaw ?? []).map((w): WithdrawalRequest => {
+        const wa = w as Record<string, unknown>;
+        const wu = wa.users as Record<string, unknown> | null;
+        return {
+          id: wa.id as number, userId: 0,
+          userEmail: String(wu?.email ?? ''), userName: String(wu?.username ?? ''),
+          amount: Number(wa.amount) || 0, address: String(wa.address ?? ''),
+          network: String(wa.network ?? 'TRC20'), status: String(wa.status ?? 'pending'),
+          txHash: (wa.tx_hash as string | null) ?? null,
+          rejectReason: (wa.reject_reason as string | null) ?? null,
+          requestedAt: String(wa.created_at ?? ''),
+          processedAt: (wa.processed_at as string | null) ?? null,
+          requestDate: String(wa.created_at ?? ''),
+        };
+      }));
+
+      setDeposits((depRaw ?? []).map((d): DepositRequest => {
+        const da = d as Record<string, unknown>;
+        const du = da.users as Record<string, unknown> | null;
+        return {
+          id: da.id as number, userId: 0,
+          userEmail: String(du?.email ?? ''), userName: String(du?.username ?? ''),
+          amount: Number(da.amount) || 0, network: String(da.network ?? 'BEP20'),
+          txHash: (da.tx_hash as string | null) ?? null,
+          status: String(da.status ?? 'pending'),
+          rejectReason: (da.reject_reason as string | null) ?? null,
+          createdAt: String(da.created_at ?? ''),
+          processedAt: (da.processed_at as string | null) ?? null,
+        };
+      }));
+
+      setNotifs((notifsRaw ?? []).map((n): AdminNotif => {
+        const na = n as Record<string, unknown>;
+        return {
+          id: na.id as number, title: String(na.title ?? ''), message: String(na.message ?? ''),
+          type: String(na.type ?? 'announcement'), createdAt: String(na.created_at ?? ''),
+          date: String(na.created_at ?? ''), read: [],
+        };
+      }));
+
+      setLogs((logsRaw ?? []).map((l): AdminLog => {
+        const la = l as Record<string, unknown>;
+        return {
+          id: la.id as number, admin: String(la.admin ?? ''), action: String(la.action ?? ''),
+          target: String(la.target ?? ''), amount: Number(la.amount) || 0,
+          details: String(la.details ?? ''), createdAt: String(la.created_at ?? ''),
+          timestamp: String(la.created_at ?? ''),
+        };
+      }));
+    } catch { /* silently handle */ }
     finally { setDataLoading(false); }
+  }, []);
+
+  // Check existing session on mount
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session) { setAuthed(false); return; }
+      const { data: profile } = await supabase.from('users').select('role').eq('id', session.user.id).single();
+      setAuthed((profile as Record<string, unknown> | null)?.role === 'admin');
+    });
+  }, []);
+
+  // Listen for auth state changes
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') setAuthed(false);
+    });
+    return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -136,23 +217,33 @@ export default function AdminPanel() {
 
   useEffect(() => {
     if (!authed) return;
-    getAdminSettings().then(s => {
-      if (s.platform_bep20_address) setBep20(s.platform_bep20_address);
-      if (s.platform_trc20_address) setTrc20(s.platform_trc20_address);
-      if (s.deposit_bonus_pct)      setDepositPct(s.deposit_bonus_pct);
-      if (s.referral_reward_pct)    setReferralPct(s.referral_reward_pct);
-      if (s.reserve_reward_pct)     setReservePct(s.reserve_reward_pct);
-      if (s.extra_bonus_pct)        setExtraPct(s.extra_bonus_pct);
-      if (s.withdraw_min_hours !== undefined) setWdMinHours(s.withdraw_min_hours);
-      if (s.withdraw_max_hours !== undefined) setWdMaxHours(s.withdraw_max_hours);
-    }).catch(() => {});
+    (async () => {
+      try {
+        const { data: s } = await supabase.from('admin_settings').select('*').eq('id', 1).single();
+        if (!s) return;
+        const sa = s as Record<string, unknown>;
+        if (sa.bep20_address) setBep20(String(sa.bep20_address));
+        if (sa.trc20_address) setTrc20(String(sa.trc20_address));
+        if (sa.deposit_bonus_pct) setDepositPct(String(sa.deposit_bonus_pct));
+        if (sa.referral_reward_pct) setReferralPct(String(sa.referral_reward_pct));
+        if (sa.reserve_reward_pct) setReservePct(String(sa.reserve_reward_pct));
+        if (sa.extra_bonus_pct) setExtraPct(String(sa.extra_bonus_pct));
+        if (sa.min_withdraw_hours != null) setWdMinHours(String(sa.min_withdraw_hours));
+        if (sa.max_withdraw_hours != null) setWdMaxHours(String(sa.max_withdraw_hours));
+      } catch { /* table may not exist yet */ }
+    })();
   }, [authed]);
 
   const handleLogin = async () => {
     setLoginErr(""); setLoginLoading(true);
-    const ok = await adminLogin(email, pw);
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password: pw });
+    if (error || !data.user) { setLoginErr("Invalid admin email or password"); setLoginLoading(false); return; }
+    const { data: profile } = await supabase.from('users').select('role').eq('id', data.user.id).single();
     setLoginLoading(false);
-    if (!ok) { setLoginErr("Invalid admin email or password"); return; }
+    if ((profile as Record<string, unknown> | null)?.role !== 'admin') {
+      await supabase.auth.signOut();
+      setLoginErr("This account does not have admin access"); return;
+    }
     setAuthed(true);
   };
 
@@ -198,9 +289,9 @@ export default function AdminPanel() {
             <button onClick={async () => {
               if (!fpEmail.trim()) { setFpErr("Enter your admin email"); return; }
               setFpLoading(true); setFpErr("");
-              const r = await adminForgotPassword(fpEmail.trim());
+              const { error } = await supabase.auth.resetPasswordForEmail(fpEmail.trim());
               setFpLoading(false);
-              if (r === 'not_admin') { setFpErr("This email is not an admin account"); return; }
+              if (error) { setFpErr("Failed to send OTP. Check email."); return; }
               setFpStep('otp');
             }} disabled={fpLoading}
               className="w-full bg-gradient-to-r from-blue-500 to-emerald-500 text-white font-bold py-3 rounded-xl disabled:opacity-60">
@@ -230,10 +321,16 @@ export default function AdminPanel() {
               if (!fpNewPw || fpNewPw.length < 6) { setFpErr("Password must be at least 6 characters"); return; }
               if (fpNewPw !== fpConfirmPw) { setFpErr("Passwords do not match"); return; }
               setFpLoading(true); setFpErr("");
-              const r = await adminResetPassword(fpEmail, fpOtp, fpNewPw);
+              const { error: verifyErr } = await supabase.auth.verifyOtp({ email: fpEmail, token: fpOtp, type: 'recovery' });
+              if (verifyErr) {
+                setFpLoading(false);
+                if (verifyErr.message?.includes('expired')) { setFpErr("OTP expired. Request a new one."); setFpStep('forgot'); }
+                else { setFpErr("Incorrect OTP. Try again."); }
+                return;
+              }
+              const { error: updateErr } = await supabase.auth.updateUser({ password: fpNewPw });
               setFpLoading(false);
-              if (r === 'expired') { setFpErr("OTP expired. Request a new one."); setFpStep('forgot'); return; }
-              if (r === 'invalid') { setFpErr("Incorrect OTP. Try again."); return; }
+              if (updateErr) { setFpErr(updateErr.message); return; }
               setFpStep('login'); setFpOtp(""); setFpNewPw(""); setFpConfirmPw("");
               setLoginErr("✅ Password reset! Login with new password.");
             }} disabled={fpLoading}
@@ -288,7 +385,7 @@ export default function AdminPanel() {
                 className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-semibold text-sm">Cancel</button>
               <button onClick={async () => {
                 if (!txHash.trim()) return;
-                await approveWithdrawal(approveId, txHash.trim());
+                await supabase.from('withdrawals').update({ status: 'approved', tx_hash: txHash.trim(), processed_at: new Date().toISOString() }).eq('id', approveId);
                 setApproveId(null); setTxHash("");
                 await doRefresh(); showToast("✅ Withdrawal approved!");
               }} disabled={!txHash.trim()}
@@ -310,7 +407,14 @@ export default function AdminPanel() {
                 className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-semibold text-sm">Cancel</button>
               <button onClick={async () => {
                 if (!rejectReason.trim()) return;
-                await rejectWithdrawal(rejectId, rejectReason.trim());
+                const wReq = requests.find(r => r.id === rejectId);
+                await supabase.from('withdrawals').update({ status: 'rejected', reject_reason: rejectReason.trim(), processed_at: new Date().toISOString() }).eq('id', rejectId);
+                if (wReq) {
+                  const refundUser = users.find(u => u.email === wReq.userEmail);
+                  if (refundUser) {
+                    await supabase.from('users').update({ wallet_balance: refundUser.walletBalance + wReq.amount }).eq('id', refundUser.userId);
+                  }
+                }
                 setRejectId(null); setRejectReason("");
                 await doRefresh(); showToast("❌ Withdrawal rejected, balance refunded");
               }} disabled={!rejectReason.trim()}
@@ -332,7 +436,7 @@ export default function AdminPanel() {
                 className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-semibold text-sm">Cancel</button>
               <button onClick={async () => {
                 if (!depRejectReason.trim()) return;
-                await rejectDeposit(depRejectId, depRejectReason.trim());
+                await supabase.from('deposits').update({ status: 'rejected', reject_reason: depRejectReason.trim(), processed_at: new Date().toISOString() }).eq('id', depRejectId);
                 setDepRejectId(null); setDepRejectReason("");
                 await doRefresh(); showToast("❌ Deposit rejected");
               }} disabled={!depRejectReason.trim()}
@@ -358,7 +462,8 @@ export default function AdminPanel() {
               <button onClick={async () => {
                 const a = parseFloat(balAmt);
                 if (!a || !balReason.trim()) return;
-                await editUserBalance(balUserId, a, 'add', balReason.trim());
+                const cu = users.find(u => u.userId === balUserId);
+                await supabase.from('users').update({ wallet_balance: (cu?.walletBalance ?? 0) + a }).eq('id', balUserId);
                 setBalUserId(null); setBalAmt(""); setBalReason("");
                 await doRefresh(); showToast(`✅ Added $${a} to balance`);
               }} disabled={!balAmt || !balReason.trim()}
@@ -366,7 +471,8 @@ export default function AdminPanel() {
               <button onClick={async () => {
                 const a = parseFloat(balAmt);
                 if (!a || !balReason.trim()) return;
-                await editUserBalance(balUserId, a, 'sub', balReason.trim());
+                const cu = users.find(u => u.userId === balUserId);
+                await supabase.from('users').update({ wallet_balance: Math.max(0, (cu?.walletBalance ?? 0) - a) }).eq('id', balUserId);
                 setBalUserId(null); setBalAmt(""); setBalReason("");
                 await doRefresh(); showToast(`✅ Deducted $${a} from balance`);
               }} disabled={!balAmt || !balReason.trim()}
@@ -386,7 +492,7 @@ export default function AdminPanel() {
               <button onClick={() => setDeleteId(null)}
                 className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm">Cancel</button>
               <button onClick={async () => {
-                await deleteUser(deleteId);
+                await supabase.from('users').delete().eq('id', deleteId);
                 setDeleteId(null);
                 await doRefresh(); showToast("🗑️ User deleted");
               }} className="flex-1 py-2.5 rounded-xl bg-red-500 text-white font-bold text-sm">Delete</button>
@@ -409,8 +515,10 @@ export default function AdminPanel() {
                 className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm">Cancel</button>
               <button onClick={async () => {
                 if (!newRefCode.trim()) return;
-                const result = await updateUserReferralCode(refUserId, newRefCode.trim());
-                if (result === 'taken') { showToast("❌ Code already taken by another user"); return; }
+                const { error: refErr } = await supabase.from('users').update({ referral_code: newRefCode.trim() }).eq('id', refUserId);
+                if (refErr?.code === '23505' || refErr?.message?.includes('unique') || refErr?.message?.includes('duplicate')) {
+                  showToast("❌ Code already taken by another user"); return;
+                }
                 setRefUserId(null); setNewRefCode("");
                 await doRefresh(); showToast("✅ Referral code updated!");
               }} disabled={!newRefCode.trim()}
@@ -438,7 +546,10 @@ export default function AdminPanel() {
                 <button key={type} onClick={async () => {
                   const a = parseFloat(incomeAmt);
                   if (!a || a <= 0) { showToast("Enter a valid amount first"); return; }
-                  await addUserIncome(incomeUserId, a, type);
+                  const field = type === 'reserve' ? 'reserve_income' : type === 'team' ? 'team_income' : 'activity_income';
+                  const { data: ci } = await supabase.from('user_income').select('reserve_income,team_income,activity_income').eq('user_id', incomeUserId).maybeSingle();
+                  const cur = ci as Record<string, unknown> | null;
+                  await supabase.from('user_income').upsert({ user_id: incomeUserId, [field]: (Number(cur?.[field]) || 0) + a }, { onConflict: 'user_id' });
                   setIncomeUserId(null); setIncomeAmt("");
                   await doRefresh(); showToast(`✅ $${a} ${type} income added`);
                 }} disabled={!incomeAmt || parseFloat(incomeAmt) <= 0}
@@ -464,7 +575,7 @@ export default function AdminPanel() {
           <button onClick={() => { doRefresh(); showToast("Refreshed!"); }} className="text-slate-400 hover:text-white">
             <RefreshCw size={15} className={dataLoading ? "animate-spin" : ""} />
           </button>
-          <button onClick={() => { adminLogout(); setAuthed(false); setLocation('/'); }}
+          <button onClick={async () => { await supabase.auth.signOut(); setAuthed(false); setLocation('/'); }}
             className="flex items-center gap-1.5 text-slate-300 text-xs font-medium hover:text-white">
             <LogOut size={14} /> Logout
           </button>
@@ -604,7 +715,7 @@ export default function AdminPanel() {
                     🔑 Ref
                   </button>
                   <button onClick={async () => {
-                    await blockUser(u.userId);
+                    await supabase.from('users').update({ is_blocked: !u.isBlocked }).eq('id', u.userId);
                     await doRefresh();
                     showToast(u.isBlocked ? '✅ User unblocked' : '🔒 User blocked');
                   }} className={`flex items-center gap-1 text-white text-xs px-3 py-1.5 rounded-lg font-semibold ${u.isBlocked ? 'bg-emerald-500' : 'bg-orange-500'}`}>
@@ -685,7 +796,9 @@ export default function AdminPanel() {
                 {d.status === 'pending' && (
                   <div className="flex gap-2 mt-3">
                     <button onClick={async () => {
-                      await approveDeposit(d.id);
+                      await supabase.from('deposits').update({ status: 'approved', processed_at: new Date().toISOString() }).eq('id', d.id);
+                      const depUser = users.find(u => u.email === d.userEmail);
+                      if (depUser) await supabase.from('users').update({ wallet_balance: depUser.walletBalance + Number(d.amount) }).eq('id', depUser.userId);
                       await doRefresh();
                       showToast(`✅ Deposit of $${Number(d.amount).toFixed(2)} approved!`);
                     }} className="flex-1 flex items-center justify-center gap-1.5 bg-emerald-500 text-white py-2 rounded-xl text-sm font-semibold">
@@ -721,7 +834,7 @@ export default function AdminPanel() {
               {notifSent && <p className="text-emerald-600 text-sm font-semibold text-center">✅ Notification sent!</p>}
               <button onClick={async () => {
                 if (!notifTitle.trim() || !notifMsg.trim()) return;
-                await sendAdminNotification(notifTitle.trim(), notifMsg.trim(), notifType);
+                await supabase.from('notifications').insert({ title: notifTitle.trim(), message: notifMsg.trim(), type: notifType });
                 setNotifTitle(""); setNotifMsg(""); setNotifSent(true);
                 await doRefresh();
                 setTimeout(() => setNotifSent(false), 3000);
@@ -767,7 +880,7 @@ export default function AdminPanel() {
               <button onClick={async () => {
                 const a = parseFloat(airdropAmt);
                 if (!a || a <= 0 || users.length === 0) return;
-                await sendAirdrop(a);
+                await Promise.all(users.map(u => supabase.from('users').update({ wallet_balance: u.walletBalance + a }).eq('id', u.userId)));
                 setAirdropAmt(""); setAirdropSent(true);
                 await doRefresh();
                 setTimeout(() => setAirdropSent(false), 3000);
@@ -806,7 +919,11 @@ export default function AdminPanel() {
                 if (newAdminPw && newAdminPw.length < 6) { setPwErr("Password must be at least 6 characters"); return; }
                 if (!newAdminPw && !newAdminEmail) { setPwErr("Enter new email or password to change"); return; }
                 try {
-                  await changeAdminPassword(newAdminPw || "", newAdminEmail || undefined);
+                  const credUpdates: { password?: string; email?: string } = {};
+                  if (newAdminPw) credUpdates.password = newAdminPw;
+                  if (newAdminEmail) credUpdates.email = newAdminEmail;
+                  const { error: credErr } = await supabase.auth.updateUser(credUpdates);
+                  if (credErr) throw new Error(credErr.message);
                   setNewAdminPw(""); setConfirmPw(""); setNewAdminEmail("");
                   setPwSaved(true); setTimeout(() => setPwSaved(false), 4000);
                 } catch (e: unknown) { setPwErr(e instanceof Error ? e.message : "Failed to update"); }
@@ -908,16 +1025,17 @@ export default function AdminPanel() {
             <button onClick={async () => {
               setSettingsSaving(true);
               try {
-                await saveAdminSettings({
-                  platform_bep20_address: bep20,
-                  platform_trc20_address: trc20,
+                await supabase.from('admin_settings').upsert({
+                  id: 1,
+                  bep20_address: bep20,
+                  trc20_address: trc20,
                   deposit_bonus_pct: depositPct,
                   referral_reward_pct: referralPct,
                   reserve_reward_pct: reservePct,
                   extra_bonus_pct: extraPct,
-                  withdraw_min_hours: wdMinHours,
-                  withdraw_max_hours: wdMaxHours,
-                });
+                  min_withdraw_hours: parseInt(wdMinHours) || 0,
+                  max_withdraw_hours: parseInt(wdMaxHours) || 23,
+                }, { onConflict: 'id' });
                 showToast("✅ Settings saved!");
               } catch {
                 showToast("❌ Failed to save settings");
