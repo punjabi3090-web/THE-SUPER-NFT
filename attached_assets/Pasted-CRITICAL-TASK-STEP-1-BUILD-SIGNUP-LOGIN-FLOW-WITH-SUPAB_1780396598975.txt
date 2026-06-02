@@ -1,0 +1,107 @@
+CRITICAL TASK: STEP 1 - BUILD SIGNUP/LOGIN FLOW WITH SUPABASE + OTP
+
+DO NOT TOUCH ANY OTHER PAGE. ONLY LoginPage.tsx + SUPABASE SQL
+
+STEP 1: SUPABASE SQL - RUN THIS FIRST
+
+-- 1. PROFILES TABLE WITH ALL FIELDS
+CREATE TABLE IF NOT EXISTS public.profiles (
+  id UUID REFERENCES auth.users(id) PRIMARY KEY,
+  full_name TEXT,
+  username TEXT UNIQUE,
+  email TEXT UNIQUE,
+  phone TEXT,
+  country_code TEXT,
+  balance NUMERIC DEFAULT 0,
+  level INTEGER DEFAULT 1,
+  referral_code TEXT UNIQUE DEFAULT substring(md5(random()::text), 1, 8),
+  avatar_url TEXT,
+  terms_accepted BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+-- 2. RLS: User can only see/update own row
+DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
+CREATE POLICY "Users can view own profile" ON public.profiles FOR SELECT USING (auth.uid() = id);
+DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
+CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
+
+-- 3. TRIGGER: Auto-create profile after email verified
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.profiles (id, email, full_name, username, phone, country_code, terms_accepted)
+  VALUES (
+    new.id, 
+    new.email, 
+    new.raw_user_meta_data->>'full_name',
+    new.raw_user_meta_data->>'username',
+    new.raw_user_meta_data->>'phone',
+    new.raw_user_meta_data->>'country_code',
+    (new.raw_user_meta_data->>'terms_accepted')::boolean
+  );
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
+STEP 2: SUPABASE AUTH SETTINGS
+
+Authentication > Settings:
+1. "Enable email confirmations" = ON
+2. "Secure email change" = ON  
+3. Site URL = https://the-super-nft--hamzakhanjam309.replit.app
+4. Redirect URLs = https://the-super-nft--hamzakhanjam309.replit.app/**
+
+STEP 3: REWRITE LoginPage.tsx - EXACT UI AS ASKED
+
+Build 2 screens in same file: Signup Screen + Login Screen
+
+TASK-1: SIGNUP FORM FIELDS
+1. Full Name - text input
+2. Username - text input  
+3. Email - email input
+4. Confirm Email Code - 6 digit OTP input. Add "Send Code" button next to email.
+5. Phone Number with Country Code - 2 inputs: dropdown for +92, +1 etc + phone input
+6. Password - password input
+7. Confirm Password - password input
+8. Tickmark Terms & Conditions - checkbox with "I agree to Terms & Conditions" text
+9. Register Button - disabled until all fields valid + OTP verified + terms ticked
+
+SIGNUP FLOW:
+1. User fills Email > clicks "Send Code" > call supabase.auth.signInWithOtp({ email })
+2. User gets 6-digit code in email > enters in "Confirm Email Code" field
+3. On Register click: call supabase.auth.verifyOtp({ email, token: code, type: 'email' })
+4. Then call supabase.auth.updateUser({ password, data: { full_name, username, phone, country_code, terms_accepted: true } })
+5. After success: show "Account Created" > redirect to /login
+
+TASK-2: LOGIN FORM FIELDS  
+1. Email - email input
+2. Password - password input  
+3. Login Button
+4. Forgot Password - text link below button
+
+LOGIN FLOW:
+1. On Login click: supabase.auth.signInWithPassword({ email, password })
+2. If success: window.location.replace('/showcase') 
+3. If error: show red text "Invalid email or password"
+
+STEP 4: ROUTING
+After login, redirect to /showcase page. If user not logged in and tries to access /showcase, force redirect to /login.
+
+STEP 5: PUBLISH + TEST
+
+Test on: https://the-super-nft--hamzakhanjam309.replit.app
+
+CHECKLIST:
+1. Signup: All 8 fields working + OTP email comes + Register works
+2. After Register: Redirect to Login page
+3. Login: Email+Password works + Redirect to /showcase page
+4. Forgot Password link visible
+
+ONLY DO THIS STEP 1. DON'T TOUCH DASHBOARD/MY PAGE YET.
