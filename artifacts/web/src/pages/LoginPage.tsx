@@ -96,12 +96,12 @@ export default function LoginPage() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (form.email!== form.confirmEmail) { showMsg("Emails do not match"); return; }
-    if (form.password!== form.confirmPassword) { showMsg("Passwords do not match"); return; }
+    if (form.email !== form.confirmEmail) { showMsg("Emails do not match"); return; }
+    if (form.password !== form.confirmPassword) { showMsg("Passwords do not match"); return; }
     if (form.password.length < 6) { showMsg("Password must be at least 6 characters"); return; }
     setLoading(true);
     try {
-      const { data: authData, error } = await supabase.auth.signUp({
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email: form.email,
         password: form.password,
         options: {
@@ -114,42 +114,74 @@ export default function LoginPage() {
         }
       });
 
-      if (error) {
-        if (error.message.includes("already registered")) {
-          showMsg("Email already registered. Please login.");
-        } else {
-          showMsg(error.message);
-        }
-        return;
+      if (authError) {
+        console.error('SUPABASE AUTH ERROR:', authError.message);
+        throw new Error(authError.message);
       }
 
-      if (authData.user) {
-        const { id, email } = authData.user;
-
-        await Promise.all([
-          supabase.from('users').upsert({ id, email }),
-
-          supabase.from('wallets').upsert({
-            user_id: id,
-            balance: 0,
-            total_deposit: 0,
-            total_withdraw: 0,
-            frozen_amount: 0
-          }),
-
-          supabase.from('user_income').upsert({
-            user_id: id,
-            total_income: 0,
-            reserve_income: 0
-          })
-        ]);
+      if (!authData.user) {
+        throw new Error('User object not returned from signUp');
       }
+
+      const { id, email: userEmail } = authData.user;
+      console.log('Auth user created:', id);
+
+      // 1. Insert into public.users
+      const { error: usersError } = await supabase
+        .from('users')
+        .upsert({ id, email: userEmail });
+
+      if (usersError) {
+        console.error('FAILED: public.users insert', usersError);
+      } else {
+        console.log('SUCCESS: public.users insert');
+      }
+
+      // 2. Insert into public.wallets - ALL REQUIRED COLUMNS
+      const { error: walletsError } = await supabase
+        .from('wallets')
+        .upsert({
+          user_id: id,
+          balance: 0,
+          total_deposit: 0,
+          total_withdraw: 0,
+          frozen_amount: 0
+        });
+
+      if (walletsError) {
+        console.error('FAILED: public.wallets insert', walletsError);
+      } else {
+        console.log('SUCCESS: public.wallets insert');
+      }
+
+      // 3. Insert into public.user_income
+      const { error: incomeError } = await supabase
+        .from('user_income')
+        .upsert({
+          user_id: id,
+          total_income: 0,
+          reserve_income: 0
+        });
+
+      if (incomeError) {
+        console.error('FAILED: public.user_income insert', incomeError);
+      } else {
+        console.log('SUCCESS: public.user_income insert');
+      }
+
+      if (usersError || walletsError || incomeError) {
+        throw new Error('Database insert failed. Check browser console for details.');
+      }
+
+      console.log('SIGNUP COMPLETE: All 3 tables inserted successfully');
 
       setOtpEmail(form.email);
       setOtpCode("");
       setPage("register_otp");
       showMsg("OTP sent to your email. Please check your inbox.", "success");
-    } catch { showMsg("Registration failed. Please try again."); }
+    } catch (err) {
+      showMsg(err instanceof Error ? err.message : "Registration failed. Please try again.");
+    }
     finally { setLoading(false); }
   };
 

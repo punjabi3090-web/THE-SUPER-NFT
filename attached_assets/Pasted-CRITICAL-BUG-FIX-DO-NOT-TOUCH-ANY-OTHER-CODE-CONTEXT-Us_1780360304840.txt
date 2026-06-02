@@ -1,0 +1,100 @@
+CRITICAL BUG FIX - DO NOT TOUCH ANY OTHER CODE
+
+CONTEXT:
+Users are signing up successfully in `auth.users` but data is NOT inserting in `public.users`, `public.wallets`, and `public.user_income` tables. 
+RLS is DISABLED on all tables. Email Confirmation is OFF.
+Only `fida36magic@gmail.com` worked because it was inserted manually. All new signups are failing.
+
+TASK: Fix the signup flow in `handleRegister` function ONLY. Do not modify any other file, function, or logic.
+
+REQUIREMENTS:
+1. After `supabase.auth.signUp` succeeds, insert data into 3 tables: `users`, `wallets`, `user_income`
+2. Add detailed console.error for each table insert so we can debug if it fails again
+3. Include ALL NOT NULL columns for `wallets` table: `user_id`, `balance`, `total_deposit`, `total_withdraw`, `frozen_amount`
+4. Do NOT use `Promise.all`. Use sequential `await` so if one fails, we know which one
+5. Do NOT break existing login, dashboard, or any other functionality
+
+REPLACE ONLY THE handleRegister signup logic with this EXACT CODE:
+
+try {
+  const { data: authData, error: authError } = await supabase.auth.signUp({ 
+    email, 
+    password 
+  })
+  
+  if (authError) {
+    console.error('SUPABASE AUTH ERROR:', authError.message)
+    throw new Error(authError.message)
+  }
+
+  if (!authData.user) {
+    throw new Error('User object not returned from signUp')
+  }
+
+  const { id, email: userEmail } = authData.user
+  console.log('Auth user created:', id)
+
+  // 1. Insert into public.users
+  const { error: usersError } = await supabase
+    .from('users')
+    .upsert({ id, email: userEmail })
+  
+  if (usersError) {
+    console.error('FAILED: public.users insert', usersError)
+  } else {
+    console.log('SUCCESS: public.users insert')
+  }
+
+  // 2. Insert into public.wallets - ALL REQUIRED COLUMNS
+  const { error: walletsError } = await supabase
+    .from('wallets')
+    .upsert({ 
+      user_id: id, 
+      balance: 0,
+      total_deposit: 0,
+      total_withdraw: 0,
+      frozen_amount: 0
+    })
+  
+  if (walletsError) {
+    console.error('FAILED: public.wallets insert', walletsError)
+  } else {
+    console.log('SUCCESS: public.wallets insert')
+  }
+
+  // 3. Insert into public.user_income
+  const { error: incomeError } = await supabase
+    .from('user_income')
+    .upsert({ 
+      user_id: id, 
+      total_income: 0,
+      reserve_income: 0
+    })
+  
+  if (incomeError) {
+    console.error('FAILED: public.user_income insert', incomeError)
+  } else {
+    console.log('SUCCESS: public.user_income insert')
+  }
+
+  // Final check - if any failed, throw error so user knows
+  if (usersError || walletsError || incomeError) {
+    throw new Error('Database insert failed. Check browser console for details.')
+  }
+
+  console.log('SIGNUP COMPLETE: All 3 tables inserted successfully')
+  
+} catch (error) {
+  console.error('SIGNUP PROCESS FAILED:', error)
+  throw error
+}
+
+IMPORTANT RULES:
+1. DO NOT change any other function except handleRegister
+2. DO NOT change login, logout, dashboard, or routing logic  
+3. DO NOT add new packages or dependencies
+4. KEEP all existing try-catch and error handling around this block
+5. After this change, republish the app
+
+TESTING INSTRUCTION FOR YOU:
+After publishing, create a new test account and check browser console. It should show "SUCCESS" for all 3 tables. Then check Supabase tables to confirm data exists.
