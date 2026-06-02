@@ -53,11 +53,17 @@ export default function My() {
     setTimeout(() => setCopiedRef(false), 2000);
   };
 
-  const forceLogout = async () => {
-    await supabase.auth.signOut();
+  const forceLogout = () => {
+    alert("LOGOUT PRESSED - CLEARING ALL");
     localStorage.clear();
     sessionStorage.clear();
-    window.location.href = '/login';
+    document.cookie.split(";").forEach((c) => {
+      document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+    });
+    try { supabase.auth.signOut({ scope: 'global' }); } catch (e) { console.log("Supabase logout failed, but continuing:", e); }
+    setTimeout(() => {
+      window.location.replace('https://the-super-nft--hamzakhanjam309.replit.app/login');
+    }, 100);
   };
 
   return (

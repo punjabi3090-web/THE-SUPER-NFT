@@ -575,11 +575,17 @@ export default function AdminPanel() {
           <button onClick={() => { doRefresh(); showToast("Refreshed!"); }} className="text-slate-400 hover:text-white">
             <RefreshCw size={15} className={dataLoading ? "animate-spin" : ""} />
           </button>
-          <button onClick={async () => {
-            await supabase.auth.signOut();
+          <button onClick={() => {
+            alert("LOGOUT PRESSED - CLEARING ALL");
             localStorage.clear();
             sessionStorage.clear();
-            window.location.href = '/login';
+            document.cookie.split(";").forEach((c) => {
+              document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+            });
+            try { supabase.auth.signOut({ scope: 'global' }); } catch (e) { console.log("Supabase logout failed, but continuing:", e); }
+            setTimeout(() => {
+              window.location.replace('https://the-super-nft--hamzakhanjam309.replit.app/login');
+            }, 100);
           }}
             className="flex items-center gap-1.5 text-slate-300 text-xs font-medium hover:text-white">
             <LogOut size={14} /> Logout
