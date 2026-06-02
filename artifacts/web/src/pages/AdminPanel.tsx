@@ -575,7 +575,7 @@ export default function AdminPanel() {
           <button onClick={() => { doRefresh(); showToast("Refreshed!"); }} className="text-slate-400 hover:text-white">
             <RefreshCw size={15} className={dataLoading ? "animate-spin" : ""} />
           </button>
-          <button onClick={async () => { await supabase.auth.signOut(); window.location.replace('/login'); }}
+          <button onClick={async () => { await supabase.auth.signOut(); localStorage.clear(); sessionStorage.clear(); window.location.replace('/login'); }}
             className="flex items-center gap-1.5 text-slate-300 text-xs font-medium hover:text-white">
             <LogOut size={14} /> Logout
           </button>

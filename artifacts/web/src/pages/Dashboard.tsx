@@ -165,6 +165,8 @@ function ProfileTab({ onAvatarClick }: { onAvatarClick: () => void }) {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    localStorage.clear();
+    sessionStorage.clear();
     window.location.replace('/login');
   };
 
