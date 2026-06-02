@@ -74,9 +74,8 @@ export default function LoginPage() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) window.location.replace('/dashboard');
     });
-    // Also listen for SIGNED_IN event (covers cases where session arrives async)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session) window.location.replace('/dashboard');
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') window.location.href = '/login';
     });
     const params = new URLSearchParams(window.location.search);
     const ref = params.get('ref');

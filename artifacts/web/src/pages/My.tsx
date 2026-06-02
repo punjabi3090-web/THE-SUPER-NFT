@@ -39,7 +39,8 @@ export default function My() {
     ? phoneDigits.slice(-6).padStart(6, '0')
     : String(user?.userId || 0).padStart(6, '0');
 
-  const referralLink = `${window.location.origin}/login?ref=${uid6}`;
+  const refCode = user?.username || user?.email?.split('@')[0] || 'user';
+  const referralLink = `${window.location.origin}/login?ref=${refCode}`;
 
   const handleCopyUID = () => {
     navigator.clipboard.writeText(uid6);
@@ -53,14 +54,14 @@ export default function My() {
     setTimeout(() => setCopiedRef(false), 2000);
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut({ scope: 'global' });
+  const forceLogout = async () => {
+    try { await supabase.auth.signOut({ scope: 'global' }); } catch { /* ignore */ }
     localStorage.clear();
     sessionStorage.clear();
-    document.cookie.split(";").forEach(c => {
-      document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+    document.cookie.split(";").forEach((c) => {
+      document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/");
     });
-    window.location.replace('/login');
+    window.location.href = '/login';
   };
 
   return (
@@ -143,7 +144,7 @@ export default function My() {
       </div>
 
       <div className="mx-4 mt-4">
-        <button onClick={handleLogout} className="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 shadow-md">
+        <button onClick={forceLogout} className="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 shadow-md">
           <LogOut size={18} /> Logout
         </button>
       </div>

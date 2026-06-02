@@ -161,16 +161,17 @@ function ProfileTab({ onAvatarClick }: { onAvatarClick: () => void }) {
     ? phoneDigits.slice(-6).padStart(6, '0')
     : String(user?.userId || 0).padStart(6, '0');
 
-  const referralLink = `${window.location.origin}/login?ref=${uid6}`;
+  const refCode = user?.username || user?.email?.split('@')[0] || 'user';
+  const referralLink = `${window.location.origin}/login?ref=${refCode}`;
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut({ scope: 'global' });
+  const forceLogout = async () => {
+    try { await supabase.auth.signOut({ scope: 'global' }); } catch { /* ignore */ }
     localStorage.clear();
     sessionStorage.clear();
-    document.cookie.split(";").forEach(c => {
-      document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+    document.cookie.split(";").forEach((c) => {
+      document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/");
     });
-    window.location.replace('/login');
+    window.location.href = '/login';
   };
 
   const handleCopyRef = () => {
@@ -257,10 +258,11 @@ function ProfileTab({ onAvatarClick }: { onAvatarClick: () => void }) {
       </div>
 
       {/* Logout */}
-      <button onClick={handleLogout}
+      <button onClick={forceLogout}
         className="w-full bg-red-500 text-white font-semibold py-3 rounded-2xl flex items-center justify-center gap-2 shadow-md">
         <LogOut size={18} /> Logout
       </button>
+
 
       <div className="h-4" />
     </div>

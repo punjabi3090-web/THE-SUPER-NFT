@@ -576,10 +576,10 @@ export default function AdminPanel() {
             <RefreshCw size={15} className={dataLoading ? "animate-spin" : ""} />
           </button>
           <button onClick={async () => {
-            await supabase.auth.signOut({ scope: 'global' });
+            try { await supabase.auth.signOut({ scope: 'global' }); } catch { /* ignore */ }
             localStorage.clear(); sessionStorage.clear();
-            document.cookie.split(";").forEach(c => { document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); });
-            window.location.replace('/login');
+            document.cookie.split(";").forEach((c) => { document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/"); });
+            window.location.href = '/login';
           }}
             className="flex items-center gap-1.5 text-slate-300 text-xs font-medium hover:text-white">
             <LogOut size={14} /> Logout
