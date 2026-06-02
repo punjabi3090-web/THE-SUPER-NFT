@@ -128,36 +128,18 @@ export default function LoginPage() {
         throw new Error('User object not returned from signUp');
       }
 
-      const { id, email: userEmail } = authData.user;
-      console.log('Auth user created:', id);
+      const { email: userEmail } = authData.user;
+      console.log('Auth user created — OTP sent');
 
-      // Capture referral from localStorage (set when ?ref= URL was visited)
+      // Store referral + username for use after OTP (trigger auto-creates the row)
       const referredBy = localStorage.getItem('referral_code') || form.referralCode || null;
-      const username = form.fullName.trim() || (userEmail ?? '').split('@')[0];
-
-      const { error: usersError } = await supabase
-        .from('users')
-        .upsert({
-          id,
-          email: userEmail,
-          username,
-          wallet_balance: 0,
-          total_income: 0,
-          referred_by: referredBy || null,
-        });
-
-      if (usersError) {
-        console.error('FAILED: public.users insert', usersError);
-        throw new Error('Failed to create user profile. Please try again.');
-      } else {
-        console.log('SUCCESS: public.users insert — username:', username, 'referred_by:', referredBy);
-        localStorage.removeItem('referral_code');
-      }
+      if (referredBy) localStorage.setItem('referral_code', referredBy);
 
       setOtpEmail(form.email);
       setOtpCode("");
       setPage("register_otp");
       showMsg("OTP sent to your email. Please check your inbox.", "success");
+      void userEmail;
     } catch (err) {
       showMsg(err instanceof Error ? err.message : "Registration failed. Please try again.");
     }
@@ -166,7 +148,7 @@ export default function LoginPage() {
 
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (otpCode.length!== 6) { showMsg("Please enter the 6-digit OTP"); return; }
+    if (otpCode.length !== 6) { showMsg("Please enter the 6-digit OTP"); return; }
     setLoading(true);
     try {
       const { data, error } = await supabase.auth.verifyOtp({
@@ -180,8 +162,20 @@ export default function LoginPage() {
         return;
       }
 
+      // Session is now established — update public.users with username + referral
+      if (data.user) {
+        const username = form.fullName.trim() || otpEmail.split('@')[0];
+        const referredBy = localStorage.getItem('referral_code') || null;
+        const { error: uErr } = await supabase
+          .from('users')
+          .update({ username, referred_by: referredBy })
+          .eq('id', data.user.id);
+        if (uErr) console.error('users update after OTP:', uErr.message);
+        else localStorage.removeItem('referral_code');
+      }
+
       showMsg("Email verified! Logging you in...", "success");
-      setTimeout(() => { window.location.replace('/showcase'); }, 1000);
+      setTimeout(() => { window.location.replace('/dashboard'); }, 1000);
     } catch { showMsg("Verification failed. Please try again."); }
     finally { setLoading(false); }
   };

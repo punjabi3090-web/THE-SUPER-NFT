@@ -1,0 +1,98 @@
+IMPORTANT: PEHLE SUPABASE DASHBOARD KHOL KE SQL EDITOR ME SQL RUN KARNA HAI. CODE BAAD ME THEEK KARNA.
+
+Supabase me SQL run kar , Code fix kar, Publish kar
+Production link pe test kar
+
+CRITICAL DATABASE ISSUE AFTER SQL CACHE CLEAR.
+
+CURRENT PROBLEMS:
+1. Login works but user data = $0.00, ID: 600000. Profile data missing.
+2. Signup fails: "Failed to create user profile" 
+3. After failed signup, old accounts also get stuck loading
+
+ROOT CAUSE: public.profiles table was deleted or RLS policies broken when SQL cache was cleared.
+
+DO THIS EXACTLY:
+
+STEP 1: RECREATE PROFILES TABLE IN SUPABASE SQL EDITOR
+
+Run this SQL:
+
+CREATE TABLE IF NOT EXISTS public.profiles (
+  id UUID REFERENCES auth.users(id) PRIMARY KEY,
+  username TEXT UNIQUE,
+  email TEXT,
+  phone TEXT,
+  balance NUMERIC DEFAULT 0,
+  level INTEGER DEFAULT 1,
+  referral_code TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable RLS
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+-- Policy: Users can read their own profile
+CREATE POLICY "Users can view own profile" ON public.profiles
+  FOR SELECT USING (auth.uid() = id);
+
+-- Policy: Users can insert their own profile  
+CREATE POLICY "Users can insert own profile" ON public.profiles
+  FOR INSERT WITH CHECK (auth.uid() = id);
+
+-- Policy: Users can update their own profile
+CREATE POLICY "Users can update own profile" ON public.profiles
+  FOR UPDATE USING (auth.uid() = id);
+
+STEP 2: FIX SIGNUP CODE IN LoginPage.tsx
+
+Find the signup function. Make sure it does this:
+
+const handleSignup = async () => {
+  // 1. Create auth user
+  const { data: authData, error: authError } = await supabase.auth.signUp({
+    email: email,
+    password: password,
+  });
+  
+  if (authError) throw authError;
+  
+  // 2. IMMEDIATELY create profile row
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .insert({
+      id: authData.user.id,
+      username: username,
+      email: email,
+      phone: phone,
+      balance: 0,
+      level: 1
+    });
+    
+  if (profileError) {
+    console.log("Profile creation failed:", profileError);
+    throw new Error("Failed to create user profile");
+  }
+};
+
+STEP 3: FIX LOGIN - HANDLE MISSING PROFILE
+
+In Dashboard.tsx and My.tsx, add this:
+
+useEffect(() => {
+  const getProfile = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return window.location.replace('/login');
+    
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+      
+    if (error || !profile) {
+      // Profile missing - create it now
+      await supabase.from('profiles').insert({
+        id: user.id,
+        email: user.email,
+       
