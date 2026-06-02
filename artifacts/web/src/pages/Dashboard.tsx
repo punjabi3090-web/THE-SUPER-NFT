@@ -164,7 +164,6 @@ function ProfileTab({ onAvatarClick }: { onAvatarClick: () => void }) {
   const refLink = `${window.location.origin}/signup?ref=${user?.username || 'user'}`;
 
   const forceLogout = () => {
-    alert("LOGOUT PRESSED - CLEARING ALL");
     localStorage.clear();
     sessionStorage.clear();
     document.cookie.split(";").forEach((c) => {
