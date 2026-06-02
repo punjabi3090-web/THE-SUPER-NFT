@@ -1,0 +1,169 @@
+import { useState } from 'react';
+import { supabase } from '../lib/supabase';
+
+export default function SignupPage() {
+  const [showOtp, setShowOtp] = useState(false);
+  const [fullName, setFullName] = useState('');
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [countryCode, setCountryCode] = useState('+92');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [otp, setOtp] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSendOtp = async () => {
+    if (!fullName || !username || !email || !phone || !password || !confirmPassword) {
+      return alert("Please fill all fields");
+    }
+    if (password !== confirmPassword) {
+      return alert("Passwords do not match");
+    }
+    if (password.length < 6) {
+      return alert("Password must be at least 6 characters");
+    }
+
+    setLoading(true);
+    const { data, error } = await supabase.auth.signUp({
+      email: email,
+      password: password,
+      options: {
+        data: { 
+          full_name: fullName, 
+          username: username, 
+          phone: phone, 
+          country_code: countryCode 
+        }
+      }
+    });
+    setLoading(false);
+
+    if (error) {
+      if (error.message.includes("already registered")) {
+        alert("Email already exists. Please login.");
+      } else {
+        alert("Failed: " + error.message);
+      }
+    } else {
+      setShowOtp(true);
+      alert("6-digit code sent to " + email);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!otp || otp.length !== 6) return alert("Enter 6-digit code");
+
+    setLoading(true);
+    const { data, error } = await supabase.auth.verifyOtp({
+      email: email,
+      token: otp,
+      type: 'signup'
+    });
+    setLoading(false);
+
+    if (error) {
+      alert("Wrong code: " + error.message);
+    } else {
+      alert("Account created successfully!");
+      window.location.replace('/login');
+    }
+  };
+
+  return (
+    <div style={{maxWidth: '400px', margin: '50px auto', padding: '20px'}}>
+      <h1>Sign Up</h1>
+      
+      <input 
+        placeholder="Full Name" 
+        value={fullName}
+        onChange={e => setFullName(e.target.value)} 
+        disabled={showOtp}
+        style={{width: '100%', margin: '5px 0', padding: '10px'}}
+      />
+      
+      <input 
+        placeholder="Username" 
+        value={username}
+        onChange={e => setUsername(e.target.value)}
+        disabled={showOtp}
+        style={{width: '100%', margin: '5px 0', padding: '10px'}}
+      />
+      
+      <div style={{display: 'flex', gap: '5px', margin: '5px 0'}}>
+        <input 
+          placeholder="Email" 
+          type="email" 
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          disabled={showOtp}
+          style={{flex: 1, padding: '10px'}}
+        />
+        {!showOtp && (
+          <button onClick={handleSendOtp} disabled={loading} style={{padding: '10px'}}>
+            {loading ? 'Sending...' : 'Send'}
+          </button>
+        )}
+      </div>
+
+      {showOtp && (
+        <div style={{margin: '10px 0', padding: '10px', background: '#f0f0f0'}}>
+          <p>Code sent to {email}</p>
+          <input 
+            placeholder="Enter 6-digit Code" 
+            value={otp}
+            onChange={e => setOtp(e.target.value)} 
+            maxLength={6}
+            style={{width: '100%', margin: '5px 0', padding: '10px'}}
+          />
+          <button onClick={handleVerifyOtp} disabled={loading} style={{width: '100%', padding: '10px'}}>
+            {loading ? 'Verifying...' : 'Verify & Register'}
+          </button>
+          <button onClick={() => setShowOtp(false)} style={{width: '100%', marginTop: '5px', padding: '5px'}}>
+            Change Email
+          </button>
+        </div>
+      )}
+      
+      <div style={{display: 'flex', gap: '5px', margin: '5px 0', opacity: showOtp ? 0.5 : 1}}>
+        <select 
+          onChange={e => setCountryCode(e.target.value)} 
+          value={countryCode}
+          disabled={showOtp}
+          style={{padding: '10px'}}
+        >
+          <option>+92</option><option>+1</option><option>+44</option><option>+91</option>
+        </select>
+        <input 
+          placeholder="Phone Number" 
+          value={phone}
+          onChange={e => setPhone(e.target.value)}
+          disabled={showOtp}
+          style={{flex: 1, padding: '10px'}}
+        />
+      </div>
+      
+      <input 
+        placeholder="Password" 
+        type="password" 
+        value={password}
+        onChange={e => setPassword(e.target.value)}
+        disabled={showOtp}
+        style={{width: '100%', margin: '5px 0', padding: '10px'}}
+      />
+      
+      <input 
+        placeholder="Confirm Password" 
+        type="password" 
+        value={confirmPassword}
+        onChange={e => setConfirmPassword(e.target.value)}
+        disabled={showOtp}
+        style={{width: '100%', margin: '5px 0', padding: '10px'}}
+      />
+      
+      <p style={{textAlign: 'center', marginTop: '20px'}}>
+        Already have account? <a href="/login">Login</a>
+      </p>
+    </div>
+  );
+}

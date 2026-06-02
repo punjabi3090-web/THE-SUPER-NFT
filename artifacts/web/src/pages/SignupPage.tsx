@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, CheckCircle } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
 type PopupType = { show: boolean; message: string; type: string };
@@ -51,20 +51,22 @@ const countries = [
 ];
 
 export default function SignupPage() {
-  const [loading, setLoading] = useState(false);
-  const [showPw, setShowPw] = useState(false);
-  const [showCpw, setShowCpw] = useState(false);
-  const [popup, setPopup] = useState<PopupType>({ show: false, message: "", type: "" });
-  const [referralCode, setReferralCode] = useState("");
+  const [loading, setLoading]             = useState(false);
+  const [showOtp, setShowOtp]             = useState(false);
+  const [showPw, setShowPw]               = useState(false);
+  const [showCpw, setShowCpw]             = useState(false);
+  const [popup, setPopup]                 = useState<PopupType>({ show: false, message: "", type: "" });
+  const [referralCode, setReferralCode]   = useState("");
 
-  const [fullName, setFullName]           = useState("");
-  const [username, setUsername]           = useState("");
-  const [email, setEmail]                 = useState("");
-  const [phone, setPhone]                 = useState("");
-  const [countryCode, setCountryCode]     = useState("+92");
-  const [password, setPassword]           = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [fullName, setFullName]                   = useState("");
+  const [username, setUsername]                   = useState("");
+  const [email, setEmail]                         = useState("");
+  const [otp, setOtp]                             = useState("");
+  const [phone, setPhone]                         = useState("");
+  const [countryCode, setCountryCode]             = useState("+92");
+  const [password, setPassword]                   = useState("");
+  const [confirmPassword, setConfirmPassword]     = useState("");
+  const [termsAccepted, setTermsAccepted]         = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -90,21 +92,20 @@ export default function SignupPage() {
   const btn = "w-full py-2.5 rounded-lg font-bold text-white text-sm shadow-lg disabled:opacity-50";
   const purpleGrad = { background: 'linear-gradient(135deg, #6b21a8 0%, #4f46e5 100%)' };
 
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!fullName.trim())     { showMsg("Full Name is required"); return; }
-    if (!username.trim())     { showMsg("Username is required"); return; }
-    if (!email.trim())        { showMsg("Email is required"); return; }
-    if (!phone.trim())        { showMsg("Phone number is required"); return; }
-    if (password.length < 6)  { showMsg("Password must be at least 6 characters"); return; }
-    if (password !== confirmPassword) { showMsg("Passwords do not match"); return; }
-    if (!termsAccepted)       { showMsg("Please accept Terms & Conditions"); return; }
+  // ── Step 1: validate + signUp → triggers OTP email ────────────────────────
+  const handleSendOtp = async () => {
+    if (!fullName.trim())               { showMsg("Full Name is required"); return; }
+    if (!username.trim())               { showMsg("Username is required"); return; }
+    if (!email.trim())                  { showMsg("Email is required"); return; }
+    if (!phone.trim())                  { showMsg("Phone number is required"); return; }
+    if (password.length < 6)            { showMsg("Password must be at least 6 characters"); return; }
+    if (password !== confirmPassword)   { showMsg("Passwords do not match"); return; }
+    if (!termsAccepted)                 { showMsg("Please accept Terms & Conditions"); return; }
 
     setLoading(true);
     try {
       const ref = localStorage.getItem('referral_code') || referralCode || undefined;
-
-      const { data, error } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
         options: {
@@ -118,34 +119,57 @@ export default function SignupPage() {
         },
       });
 
-      if (error) { showMsg(error.message); return; }
-
-      if (data.user) {
-        await supabase.from('users').upsert({
-          id:             data.user.id,
-          email:          email.trim(),
-          username:       username.trim().toLowerCase(),
-          wallet_balance: 0,
-          total_income:   0,
-          referred_by:    ref ?? null,
-        });
+      if (error) {
+        if (error.message.toLowerCase().includes("already registered")) {
+          showMsg("Email already exists. Please login.");
+        } else {
+          showMsg(error.message);
+        }
+        return;
       }
 
-      if (ref) localStorage.removeItem('referral_code');
-
-      showMsg("Account created! Please login.", "success");
-      setTimeout(() => { window.location.replace('/login'); }, 1500);
+      setShowOtp(true);
+      showMsg(`6-digit code sent to ${email.trim()}`, "success");
 
     } catch (err) {
-      showMsg(err instanceof Error ? err.message : "Signup failed. Please try again.");
+      showMsg(err instanceof Error ? err.message : "Signup failed. Try again.");
     } finally {
       setLoading(false);
     }
   };
 
+  // ── Step 2: verify OTP → account confirmed → redirect /login ─────────────
+  const handleVerifyOtp = async () => {
+    if (!otp || otp.length !== 6) { showMsg("Enter the 6-digit code"); return; }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email: email.trim(),
+        token: otp,
+        type: 'signup',
+      });
+
+      if (error) { showMsg("Wrong code: " + error.message); return; }
+
+      const ref = localStorage.getItem('referral_code') || referralCode || null;
+      if (ref) localStorage.removeItem('referral_code');
+
+      showMsg("Account created successfully!", "success");
+      setTimeout(() => { window.location.replace('/login'); }, 1500);
+
+    } catch (err) {
+      showMsg(err instanceof Error ? err.message : "Verification failed. Try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const disabled = showOtp;
+
   return (
     <div
-      className="min-h-screen flex items-center justify-center"
+      className="min-h-screen flex items-center justify-center py-6"
       style={{
         backgroundImage: 'url(/images/nft-bg.jpg)',
         backgroundSize: 'contain',
@@ -181,62 +205,112 @@ export default function SignupPage() {
           </div>
         )}
 
-        <form onSubmit={handleSignup} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, opacity: disabled ? 0.55 : 1, transition: 'opacity 0.2s' }}>
           <input type="text" placeholder="Full Name" value={fullName}
-            onChange={e => setFullName(e.target.value)} className={inp} autoFocus />
+            onChange={e => setFullName(e.target.value)} className={inp} disabled={disabled} autoFocus={!disabled} />
 
           <input type="text" placeholder="Username" value={username}
-            onChange={e => setUsername(e.target.value.replace(/\s/g, '').toLowerCase())} className={inp} />
+            onChange={e => setUsername(e.target.value.replace(/\s/g, '').toLowerCase())} className={inp} disabled={disabled} />
 
-          <input type="email" placeholder="Email" value={email}
-            onChange={e => setEmail(e.target.value)} className={inp} />
-
+          {/* Email + Send button */}
           <div style={{ display: 'flex', gap: 6 }}>
-            <select value={countryCode} onChange={e => setCountryCode(e.target.value)}
+            <input type="email" placeholder="Email" value={email}
+              onChange={e => setEmail(e.target.value)} disabled={disabled}
+              style={{ flex: 1, background: 'rgba(255,255,255,0.9)', color: '#1E293B', padding: '8px 12px', borderRadius: 8, border: '1px solid #e9d5ff', outline: 'none', fontSize: 13 }} />
+            {!showOtp && (
+              <button type="button" onClick={handleSendOtp} disabled={loading}
+                style={{
+                  background: 'linear-gradient(135deg, #6b21a8, #4f46e5)',
+                  color: '#fff', border: 'none', borderRadius: 8, padding: '0 12px',
+                  fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                  opacity: loading ? 0.6 : 1, whiteSpace: 'nowrap',
+                }}>
+                {loading ? '...' : 'Send'}
+              </button>
+            )}
+          </div>
+
+          {/* Phone + Country */}
+          <div style={{ display: 'flex', gap: 6 }}>
+            <select value={countryCode} onChange={e => setCountryCode(e.target.value)} disabled={disabled}
               style={{ width: 96, background: 'rgba(255,255,255,0.9)', color: '#1E293B', padding: '8px 6px', borderRadius: 8, border: '1px solid #e9d5ff', outline: 'none', fontSize: 12 }}>
               {countries.map(c => <option key={c.code + c.name} value={c.code}>{c.flag} {c.code}</option>)}
             </select>
             <input type="tel" placeholder="Phone Number" value={phone}
-              onChange={e => setPhone(e.target.value)}
+              onChange={e => setPhone(e.target.value)} disabled={disabled}
               style={{ flex: 1, background: 'rgba(255,255,255,0.9)', color: '#1E293B', padding: '8px 12px', borderRadius: 8, border: '1px solid #e9d5ff', outline: 'none', fontSize: 13 }} />
           </div>
 
+          {/* Password */}
           <div style={{ position: 'relative' }}>
             <input type={showPw ? "text" : "password"} placeholder="Password (min 6 chars)" value={password}
-              onChange={e => setPassword(e.target.value)} className={inp} />
-            <button type="button" onClick={() => setShowPw(!showPw)}
+              onChange={e => setPassword(e.target.value)} className={inp} disabled={disabled} />
+            <button type="button" onClick={() => setShowPw(!showPw)} disabled={disabled}
               style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}>
               {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
           </div>
 
+          {/* Confirm Password */}
           <div style={{ position: 'relative' }}>
             <input type={showCpw ? "text" : "password"} placeholder="Confirm Password" value={confirmPassword}
-              onChange={e => setConfirmPassword(e.target.value)} className={inp} />
-            <button type="button" onClick={() => setShowCpw(!showCpw)}
+              onChange={e => setConfirmPassword(e.target.value)} className={inp} disabled={disabled} />
+            <button type="button" onClick={() => setShowCpw(!showCpw)} disabled={disabled}
               style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}>
               {showCpw ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
           </div>
 
-          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer', marginTop: 2 }}>
+          {/* Terms */}
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: disabled ? 'not-allowed' : 'pointer' }}>
             <input type="checkbox" checked={termsAccepted} onChange={e => setTermsAccepted(e.target.checked)}
-              style={{ marginTop: 3, accentColor: '#6b21a8' }} />
+              disabled={disabled} style={{ marginTop: 3, accentColor: '#6b21a8' }} />
             <span style={{ fontSize: 11, color: '#475569', lineHeight: 1.5 }}>
-              I agree to the{" "}
-              <span style={{ color: '#6b21a8', fontWeight: 600 }}>Terms & Conditions</span>
+              I agree to the <span style={{ color: '#6b21a8', fontWeight: 600 }}>Terms & Conditions</span>
             </span>
           </label>
+        </div>
 
-          <button type="submit" disabled={loading} className={btn} style={{ ...purpleGrad, marginTop: 4 }}>
-            {loading ? "Creating Account..." : "Register"}
-          </button>
+        {/* ── OTP Verification Section ── */}
+        {showOtp && (
+          <div style={{ marginTop: 14, background: '#f0f9ff', borderRadius: 12, padding: '14px 16px', border: '1px solid #bae6fd' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+              <CheckCircle size={16} style={{ color: '#10b981', flexShrink: 0 }} />
+              <p style={{ fontSize: 11, color: '#0c4a6e', fontWeight: 600 }}>
+                Code sent to <strong>{email}</strong>
+              </p>
+            </div>
 
-          <p style={{ textAlign: 'center', fontSize: 12, color: '#64748b', marginTop: 4 }}>
-            Already have an account?{" "}
-            <a href="/login" style={{ color: '#6b21a8', fontWeight: 700 }}>Login →</a>
-          </p>
-        </form>
+            <input type="text" inputMode="numeric" maxLength={6}
+              placeholder="Enter 6-digit code"
+              value={otp}
+              onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              autoFocus
+              style={{
+                width: '100%', padding: '10px 12px', borderRadius: 8,
+                border: '2px solid #6b21a8', outline: 'none', fontSize: 20,
+                fontWeight: 700, letterSpacing: 10, textAlign: 'center',
+                background: '#fff', color: '#1E293B', boxSizing: 'border-box',
+                marginBottom: 10,
+              }} />
+
+            <button type="button" onClick={handleVerifyOtp}
+              disabled={loading || otp.length !== 6}
+              className={btn} style={{ ...purpleGrad, marginBottom: 8 }}>
+              {loading ? "Verifying..." : "Verify & Register"}
+            </button>
+
+            <button type="button" onClick={() => { setShowOtp(false); setOtp(""); }}
+              style={{ width: '100%', padding: '8px', borderRadius: 8, border: '1px solid #e9d5ff', background: 'transparent', color: '#6b21a8', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+              ← Change Email
+            </button>
+          </div>
+        )}
+
+        <p style={{ textAlign: 'center', fontSize: 12, color: '#64748b', marginTop: 14 }}>
+          Already have an account?{" "}
+          <a href="/login" style={{ color: '#6b21a8', fontWeight: 700 }}>Login →</a>
+        </p>
       </div>
     </div>
   );
