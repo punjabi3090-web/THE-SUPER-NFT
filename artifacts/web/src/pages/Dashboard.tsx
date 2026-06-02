@@ -161,21 +161,17 @@ function ProfileTab({ onAvatarClick }: { onAvatarClick: () => void }) {
     ? phoneDigits.slice(-6).padStart(6, '0')
     : String(user?.userId || 0).padStart(6, '0');
 
-  const refCode = user?.username || user?.email?.split('@')[0] || 'user';
-  const referralLink = `${window.location.origin}/login?ref=${refCode}`;
+  const refLink = `${window.location.origin}/signup?ref=${user?.username || 'user'}`;
 
   const forceLogout = async () => {
-    try { await supabase.auth.signOut({ scope: 'global' }); } catch { /* ignore */ }
+    await supabase.auth.signOut({ scope: 'global' });
     localStorage.clear();
     sessionStorage.clear();
-    document.cookie.split(";").forEach((c) => {
-      document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/");
-    });
-    window.location.href = '/login';
+    window.location.replace('/login');
   };
 
   const handleCopyRef = () => {
-    navigator.clipboard.writeText(referralLink);
+    navigator.clipboard.writeText(refLink);
     setCopiedRef(true);
     setTimeout(() => setCopiedRef(false), 2000);
   };
@@ -248,7 +244,7 @@ function ProfileTab({ onAvatarClick }: { onAvatarClick: () => void }) {
           <p className="text-sm font-semibold text-slate-700">My Referral Link</p>
         </div>
         <div className="flex items-center gap-2 bg-[#EFF6FF] rounded-xl px-3 py-2 border border-[#BFDBFE]">
-          <span className="flex-1 text-xs text-slate-600 font-mono truncate">{referralLink}</span>
+          <span className="flex-1 text-xs text-slate-600 font-mono truncate">{refLink}</span>
           <button onClick={handleCopyRef}
             className="flex items-center gap-1 bg-[#1E3A8A] text-white text-xs px-3 py-1.5 rounded-lg font-semibold flex-shrink-0">
             {copiedRef ? <Check size={12} /> : <Copy size={12} />}

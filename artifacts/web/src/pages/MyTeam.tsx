@@ -22,8 +22,7 @@ export default function MyTeam() {
   const totalTeamDeposit = team.reduce((s, u) => s + u.totalDeposit, 0);
   const totalTeamBalance = team.reduce((s, u) => s + u.walletBalance, 0);
 
-  const refCode = user?.username || user?.email?.split('@')[0] || 'user';
-  const refLink = `${window.location.origin}/login?ref=${refCode}`;
+  const refLink = `${window.location.origin}/signup?ref=${user?.username || 'user'}`;
 
   const copyLink = () => {
     navigator.clipboard.writeText(refLink);

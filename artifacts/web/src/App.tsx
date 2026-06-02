@@ -84,9 +84,10 @@ async function syncUserWithExpress(
     // Override wallet + income fields from Supabase tables (source of truth)
     const uuid = session.user.id;
     if (uuid) {
-      const [walletRes, incomeRes] = await Promise.all([
+      const [walletRes, incomeRes, userRes] = await Promise.all([
         supabase.from('wallets').select('balance, total_deposit, total_withdraw, frozen_amount').eq('user_id', uuid).single(),
         supabase.from('user_income').select('total_income, reserve_income').eq('user_id', uuid).single(),
+        supabase.from('users').select('id, email, username, balance').eq('id', uuid).single(),
       ]);
       if (walletRes.data) {
         user.walletBalance = Number(walletRes.data.balance)       || 0;
@@ -95,6 +96,10 @@ async function syncUserWithExpress(
       }
       if (incomeRes.data) {
         user.reserveIncome = Number(incomeRes.data.reserve_income) || 0;
+      }
+      if (userRes.data) {
+        if (userRes.data.username) user.username = userRes.data.username;
+        if (userRes.data.balance != null) user.walletBalance = Number(userRes.data.balance) || 0;
       }
     }
 
