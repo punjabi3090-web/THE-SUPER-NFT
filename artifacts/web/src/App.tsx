@@ -63,7 +63,7 @@ export { TEST_MODE, testUser } from "./lib/testData";
 // routes that expect a numeric userId continue to work unchanged.
 
 async function syncUserWithExpress(
-  session: { user: { email?: string; user_metadata?: Record<string, unknown> } },
+  session: { user: { id?: string; email?: string; user_metadata?: Record<string, unknown> } },
 ): Promise<User | null> {
   try {
     const meta = session.user.user_metadata ?? {};
@@ -80,6 +80,24 @@ async function syncUserWithExpress(
     if (!res.ok) return null;
     const { numericId, user } = await res.json() as { numericId: number; user: User };
     setCachedUserId(String(numericId));
+
+    // Override wallet + income fields from Supabase tables (source of truth)
+    const uuid = session.user.id;
+    if (uuid) {
+      const [walletRes, incomeRes] = await Promise.all([
+        supabase.from('wallets').select('balance, total_deposit, total_withdraw, frozen_amount').eq('user_id', uuid).single(),
+        supabase.from('user_income').select('total_income, reserve_income').eq('user_id', uuid).single(),
+      ]);
+      if (walletRes.data) {
+        user.walletBalance = Number(walletRes.data.balance)       || 0;
+        user.totalDeposit  = Number(walletRes.data.total_deposit) || 0;
+        user.totalWithdraw = Number(walletRes.data.total_withdraw) || 0;
+      }
+      if (incomeRes.data) {
+        user.reserveIncome = Number(incomeRes.data.reserve_income) || 0;
+      }
+    }
+
     return user;
   } catch {
     return null;

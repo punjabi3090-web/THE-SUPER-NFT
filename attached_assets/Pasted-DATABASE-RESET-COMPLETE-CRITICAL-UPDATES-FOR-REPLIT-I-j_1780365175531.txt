@@ -1,0 +1,62 @@
+DATABASE RESET COMPLETE - CRITICAL UPDATES FOR REPLIT
+
+I just reset the entire Supabase database. Here's what changed in SQL:
+
+1. DROPPED OLD TABLES: users, wallets, user_income - deleted all old broken data
+
+2. CREATED FRESH TABLES with exact schema:
+
+Table: public.users
+- id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE
+- email TEXT
+- created_at TIMESTAMPTZ DEFAULT NOW()
+- updated_at TIMESTAMPTZ DEFAULT NOW()
+
+Table: public.wallets  
+- user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE
+- balance NUMERIC(20,2) DEFAULT 0 NOT NULL
+- total_deposit NUMERIC(20,2) DEFAULT 0 NOT NULL
+- total_withdraw NUMERIC(20,2) DEFAULT 0 NOT NULL
+- frozen_amount NUMERIC(20,2) DEFAULT 0 NOT NULL
+- created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+- updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+
+Table: public.user_income
+- user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE  
+- total_income NUMERIC(20,2) DEFAULT 0 NOT NULL
+- reserve_income NUMERIC(20,2) DEFAULT 0 NOT NULL
+- created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+- updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+
+3. DISABLED RLS on all 3 tables for testing
+
+4. ADDED AUTO-TRIGGER on auth.users:
+When a new user signs up in auth.users, the trigger automatically inserts:
+- 1 row into public.users with id + email
+- 1 row into wallets with user_id + all amounts = 0.00
+- 1 row into user_income with user_id + all amounts = 0.00
+
+YOUR TASK - UPDATE REPLIT CODE:
+
+1. In handleRegister/signup function:
+   DELETE all code that manually inserts into 'wallets' and 'user_income' tables.
+   ONLY keep these 2 operations:
+   a) const { data, error } = await supabase.auth.signUp({ email, password })
+   b) await supabase.from('users').upsert({ id: data.user.id, email })
+   
+   The database trigger will handle wallets + user_income automatically.
+
+2. In Dashboard/Wallet components:
+   Fetch data directly from DB tables. Use these exact column names:
+   - Wallet Balance = wallets.balance
+   - Total Deposit = wallets.total_deposit
+   - Total Withdraw = wallets.total_withdraw
+   - Frozen Amount = wallets.frozen_amount
+   - Total Income = user_income.total_income
+   - Reserve Income = user_income.reserve_income
+   
+   Remove any hardcoded values, timers, or static calculations.
+
+3. Remove all old error handling for "column does not exist" - tables are now perfect.
+
+REPUBLISH immediately after making these changes.

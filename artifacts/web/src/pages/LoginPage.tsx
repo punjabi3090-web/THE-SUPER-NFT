@@ -126,58 +126,17 @@ export default function LoginPage() {
       const { id, email: userEmail } = authData.user;
       console.log('Auth user created:', id);
 
-      // 1. Insert into public.users
+      // Insert into public.users only — trigger handles wallets + user_income
       const { error: usersError } = await supabase
         .from('users')
         .upsert({ id, email: userEmail });
 
       if (usersError) {
         console.error('FAILED: public.users insert', usersError);
+        throw new Error('Failed to create user profile. Please try again.');
       } else {
-        console.log('SUCCESS: public.users insert');
+        console.log('SUCCESS: public.users insert — trigger will populate wallets + user_income');
       }
-
-      // 2. Insert into public.wallets - ALL REQUIRED COLUMNS
-      const { error: walletsError } = await supabase
-        .from('wallets')
-        .insert({
-          user_id: id,
-          balance: 0,
-          total_deposit: 0,
-          total_withdraw: 0,
-          frozen_amount: 0,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        });
-
-      if (walletsError) {
-        console.error('FAILED: public.wallets insert', walletsError);
-      } else {
-        console.log('SUCCESS: public.wallets insert');
-      }
-
-      // 3. Insert into public.user_income
-      const { error: incomeError } = await supabase
-        .from('user_income')
-        .insert({
-          user_id: id,
-          total_income: 0,
-          reserve_income: 0,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        });
-
-      if (incomeError) {
-        console.error('FAILED: public.user_income insert', incomeError);
-      } else {
-        console.log('SUCCESS: public.user_income insert');
-      }
-
-      if (usersError || walletsError || incomeError) {
-        throw new Error('Database insert failed. Check browser console for details.');
-      }
-
-      console.log('SIGNUP COMPLETE: All 3 tables inserted successfully');
 
       setOtpEmail(form.email);
       setOtpCode("");
