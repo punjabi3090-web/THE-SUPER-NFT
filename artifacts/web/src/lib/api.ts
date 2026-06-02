@@ -4,10 +4,20 @@ const API = "/api/nft";
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface HistoryItem {
-  id: number; type: string; title: string;
-  desc?: string; date: string; icon: string; color: string;
-  amount?: number; status?: string; txHash?: string; rewardType?: string;
-  nftLevel?: number; from?: string; commissionType?: string;
+  id: number;
+  type: string;
+  title: string;
+  desc?: string;
+  date: string;
+  icon: string;
+  color: string;
+  amount?: number;
+  status?: string;
+  txHash?: string;
+  rewardType?: string;
+  nftLevel?: number;
+  from?: string;
+  commissionType?: string;
 }
 
 export interface User {
@@ -108,26 +118,43 @@ export interface AdminLog {
   timestamp: string;
 }
 
-export type WithdrawResult = "ok" | "insufficient" | "no_address" | "min" | "max" | "disabled" | "no_auth" | "delay" | "time_restricted" | "blocked";
+export type WithdrawResult =
+  | "ok"
+  | "insufficient"
+  | "no_address"
+  | "min"
+  | "max"
+  | "disabled"
+  | "no_auth"
+  | "delay"
+  | "time_restricted"
+  | "blocked";
 
 export interface RewardSettings {
-  depositBonusPct: number; minDepositForBonus: number;
-  referralBonusPct: number; level2BonusPct: number;
-  levelThresholds: number[]; levelBonuses: number[];
+  depositBonusPct: number;
+  minDepositForBonus: number;
+  referralBonusPct: number;
+  level2BonusPct: number;
+  levelThresholds: number[];
+  levelBonuses: number[];
 }
 
 export interface WithdrawalSettings {
-  enabled: boolean; minAmount: number; maxAmount: number;
-  requireGoogleAuth: boolean; requireAddress: boolean;
-  addressBindDelay: number; timeRestriction: boolean;
+  enabled: boolean;
+  minAmount: number;
+  maxAmount: number;
+  requireGoogleAuth: boolean;
+  requireAddress: boolean;
+  addressBindDelay: number;
+  timeRestriction: boolean;
   allowedHours: [number, number];
 }
 
 // ── Session helpers ───────────────────────────────────────────────────────────
 
-const STORAGE_ADMIN_TOK   = "nftAdminToken";
+const STORAGE_ADMIN_TOK = "nftAdminToken";
 const STORAGE_ADMIN_EMAIL = "nftAdminEmail";
-const NOTIF_READ_KEY      = "nftReadNotifs";
+const NOTIF_READ_KEY = "nftReadNotifs";
 
 // Module-level cache — populated by AppProvider via setCachedUserId()
 let _cachedUserId: string | null = null;
@@ -192,8 +219,12 @@ async function apiFetch<T>(
 // ── Auth ─────────────────────────────────────────────────────────────────────
 
 export async function registerUser(data: {
-  name: string; email: string; phone?: string;
-  password: string; country?: string; referralCode?: string;
+  name: string;
+  email: string;
+  phone?: string;
+  password: string;
+  country?: string;
+  referralCode?: string;
 }): Promise<"email_exists" | "otp_sent"> {
   try {
     await apiFetch<{ needsOtp: boolean }>("/auth/register", {
@@ -208,7 +239,10 @@ export async function registerUser(data: {
   }
 }
 
-export async function verifySignupOtp(email: string, otp: string): Promise<"ok" | "invalid" | "expired"> {
+export async function verifySignupOtp(
+  email: string,
+  otp: string,
+): Promise<"ok" | "invalid" | "expired"> {
   try {
     await apiFetch("/auth/verify-signup-otp", {
       method: "POST",
@@ -222,7 +256,10 @@ export async function verifySignupOtp(email: string, otp: string): Promise<"ok" 
   }
 }
 
-export async function loginUser(email: string, password: string): Promise<User | "blocked" | "invalid" | "unverified"> {
+export async function loginUser(
+  email: string,
+  password: string,
+): Promise<User | "blocked" | "invalid" | "unverified"> {
   try {
     const r = await apiFetch<{ user: User }>("/auth/login", {
       method: "POST",
@@ -244,7 +281,11 @@ export async function forgotPasswordOtp(email: string): Promise<void> {
   });
 }
 
-export async function resetPasswordOtp(email: string, otp: string, password: string): Promise<"ok" | "invalid" | "expired"> {
+export async function resetPasswordOtp(
+  email: string,
+  otp: string,
+  password: string,
+): Promise<"ok" | "invalid" | "expired"> {
   try {
     await apiFetch("/auth/reset-password", {
       method: "POST",
@@ -258,7 +299,10 @@ export async function resetPasswordOtp(email: string, otp: string, password: str
   }
 }
 
-export async function adminLogin(email: string, password: string): Promise<boolean> {
+export async function adminLogin(
+  email: string,
+  password: string,
+): Promise<boolean> {
   try {
     const r = await apiFetch<{ token: string; email: string }>("/admin/login", {
       method: "POST",
@@ -290,8 +334,10 @@ export async function getCurrentUser(): Promise<User | null> {
 export async function getNotifications(): Promise<AdminNotif[]> {
   try {
     const r = await apiFetch<{ notifications: AdminNotif[] }>("/notifications");
-    const readIds: number[] = JSON.parse(localStorage.getItem(NOTIF_READ_KEY) || "[]");
-    return r.notifications.map(n => ({
+    const readIds: number[] = JSON.parse(
+      localStorage.getItem(NOTIF_READ_KEY) || "[]",
+    );
+    return r.notifications.map((n) => ({
       ...n,
       date: n.createdAt,
       read: readIds.includes(n.id) ? ["_all_"] : [],
@@ -302,7 +348,9 @@ export async function getNotifications(): Promise<AdminNotif[]> {
 }
 
 export function markNotifRead(id: number) {
-  const readIds: number[] = JSON.parse(localStorage.getItem(NOTIF_READ_KEY) || "[]");
+  const readIds: number[] = JSON.parse(
+    localStorage.getItem(NOTIF_READ_KEY) || "[]",
+  );
   if (!readIds.includes(id)) {
     readIds.push(id);
     localStorage.setItem(NOTIF_READ_KEY, JSON.stringify(readIds));
@@ -315,21 +363,32 @@ export function markAllNotifsRead(notifIds: number[]) {
 
 // ── User operations ───────────────────────────────────────────────────────────
 
-export async function updateUserAddress(userId: string, address: string, network: "BEP20" | "TRC20" = "TRC20"): Promise<void> {
+export async function updateUserAddress(
+  userId: string,
+  address: string,
+  network: "BEP20" | "TRC20" = "TRC20",
+): Promise<void> {
   await apiFetch(`/users/${userId}/address`, {
     method: "PATCH",
     body: JSON.stringify({ address, network }),
   });
 }
 
-export async function updateGoogleAuth(userId: string, enabled: boolean): Promise<void> {
+export async function updateGoogleAuth(
+  userId: string,
+  enabled: boolean,
+): Promise<void> {
   await apiFetch(`/users/${userId}/google-auth`, {
     method: "PATCH",
     body: JSON.stringify({ enabled }),
   });
 }
 
-export async function submitWithdrawalRequest(userId: string, amount: number, network: "BEP20" | "TRC20" = "TRC20"): Promise<WithdrawResult> {
+export async function submitWithdrawalRequest(
+  userId: string,
+  amount: number,
+  network: "BEP20" | "TRC20" = "TRC20",
+): Promise<WithdrawResult> {
   try {
     await apiFetch(`/users/${userId}/withdraw`, {
       method: "POST",
@@ -348,15 +407,22 @@ export async function submitWithdrawalRequest(userId: string, amount: number, ne
   }
 }
 
-export async function getUserTeam(userId: string): Promise<{ team: User[]; referralCode: string }> {
-  const r = await apiFetch<{ team: User[]; referralCode: string }>(`/users/${userId}/team`);
+export async function getUserTeam(
+  userId: string,
+): Promise<{ team: User[]; referralCode: string }> {
+  const r = await apiFetch<{ team: User[]; referralCode: string }>(
+    `/users/${userId}/team`,
+  );
   return r;
 }
 
 // ── Deposits (user) ───────────────────────────────────────────────────────────
 
 export async function submitDepositRequest(data: {
-  userId: string; amount: number; network: "BEP20" | "TRC20"; txHash?: string;
+  userId: string;
+  amount: number;
+  network: "BEP20" | "TRC20";
+  txHash?: string;
 }): Promise<"ok" | "error"> {
   try {
     await apiFetch("/me/deposits", {
@@ -369,9 +435,13 @@ export async function submitDepositRequest(data: {
   }
 }
 
-export async function getDepositHistory(userId: string): Promise<DepositRequest[]> {
+export async function getDepositHistory(
+  userId: string,
+): Promise<DepositRequest[]> {
   try {
-    const r = await apiFetch<{ deposits: DepositRequest[] }>(`/me/deposits?userId=${userId}`);
+    const r = await apiFetch<{ deposits: DepositRequest[] }>(
+      `/me/deposits?userId=${userId}`,
+    );
     return r.deposits;
   } catch {
     return [];
@@ -381,15 +451,27 @@ export async function getDepositHistory(userId: string): Promise<DepositRequest[
 // ── Admin operations ──────────────────────────────────────────────────────────
 
 export async function getAllUsers(): Promise<User[]> {
-  const r = await apiFetch<{ users: User[] }>("/admin/users", { adminAuth: true });
+  const r = await apiFetch<{ users: User[] }>("/admin/users", {
+    adminAuth: true,
+  });
   return r.users;
 }
 
-export async function editUserBalance(userId: string, amount: number, type: "add" | "sub", reason: string): Promise<void> {
+export async function editUserBalance(
+  userId: string,
+  amount: number,
+  type: "add" | "sub",
+  reason: string,
+): Promise<void> {
   await apiFetch(`/admin/users/${userId}`, {
     method: "PATCH",
     adminAuth: true,
-    body: JSON.stringify({ field: "walletBalance", value: String(amount), type, reason }),
+    body: JSON.stringify({
+      field: "walletBalance",
+      value: String(amount),
+      type,
+      reason,
+    }),
   });
 }
 
@@ -408,7 +490,10 @@ export async function deleteUser(userId: string): Promise<void> {
   });
 }
 
-export async function updateUserReferralCode(userId: string, code: string): Promise<true | "taken" | "not_found"> {
+export async function updateUserReferralCode(
+  userId: string,
+  code: string,
+): Promise<true | "taken" | "not_found"> {
   try {
     await apiFetch(`/admin/users/${userId}`, {
       method: "PATCH",
@@ -423,7 +508,11 @@ export async function updateUserReferralCode(userId: string, code: string): Prom
   }
 }
 
-export async function processDeposit(userId: string, amount: number, network: string): Promise<void> {
+export async function processDeposit(
+  userId: string,
+  amount: number,
+  network: string,
+): Promise<void> {
   await apiFetch("/admin/deposit", {
     method: "POST",
     adminAuth: true,
@@ -439,7 +528,11 @@ export async function sendAirdrop(amount: number): Promise<void> {
   });
 }
 
-export async function sendAdminNotification(title: string, message: string, type: string): Promise<void> {
+export async function sendAdminNotification(
+  title: string,
+  message: string,
+  type: string,
+): Promise<void> {
   await apiFetch("/admin/notify", {
     method: "POST",
     adminAuth: true,
@@ -449,8 +542,11 @@ export async function sendAdminNotification(title: string, message: string, type
 
 export async function getAdminNotifications(): Promise<AdminNotif[]> {
   try {
-    const r = await apiFetch<{ notifications: AdminNotif[] }>("/admin/notifications", { adminAuth: true });
-    return r.notifications.map(n => ({ ...n, date: n.createdAt, read: [] }));
+    const r = await apiFetch<{ notifications: AdminNotif[] }>(
+      "/admin/notifications",
+      { adminAuth: true },
+    );
+    return r.notifications.map((n) => ({ ...n, date: n.createdAt, read: [] }));
   } catch {
     return [];
   }
@@ -458,8 +554,14 @@ export async function getAdminNotifications(): Promise<AdminNotif[]> {
 
 export async function getAdminLogs(): Promise<AdminLog[]> {
   try {
-    const r = await apiFetch<{ logs: AdminLog[] }>("/admin/logs", { adminAuth: true });
-    return r.logs.map(l => ({ ...l, timestamp: l.createdAt, amount: parseFloat(String(l.amount)) || 0 }));
+    const r = await apiFetch<{ logs: AdminLog[] }>("/admin/logs", {
+      adminAuth: true,
+    });
+    return r.logs.map((l) => ({
+      ...l,
+      timestamp: l.createdAt,
+      amount: parseFloat(String(l.amount)) || 0,
+    }));
   } catch {
     return [];
   }
@@ -467,14 +569,20 @@ export async function getAdminLogs(): Promise<AdminLog[]> {
 
 export async function getAdminSettings(): Promise<Record<string, string>> {
   try {
-    const r = await apiFetch<{ settings: Record<string, string> }>("/admin/settings", { adminAuth: true });
+    const r = await apiFetch<{ settings: Record<string, string> }>(
+      "/admin/settings",
+      { adminAuth: true },
+    );
     return r.settings;
   } catch {
     return {};
   }
 }
 
-export async function changeAdminPassword(newPassword: string, newEmail?: string): Promise<void> {
+export async function changeAdminPassword(
+  newPassword: string,
+  newEmail?: string,
+): Promise<void> {
   await apiFetch("/admin/password", {
     method: "PATCH",
     adminAuth: true,
@@ -484,14 +592,20 @@ export async function changeAdminPassword(newPassword: string, newEmail?: string
 
 export async function getAdminWithdrawals(): Promise<WithdrawalRequest[]> {
   try {
-    const r = await apiFetch<{ withdrawals: WithdrawalRequest[] }>("/admin/withdrawals", { adminAuth: true });
-    return r.withdrawals.map(w => ({ ...w, requestDate: w.requestedAt }));
+    const r = await apiFetch<{ withdrawals: WithdrawalRequest[] }>(
+      "/admin/withdrawals",
+      { adminAuth: true },
+    );
+    return r.withdrawals.map((w) => ({ ...w, requestDate: w.requestedAt }));
   } catch {
     return [];
   }
 }
 
-export async function approveWithdrawal(id: number, txHash: string): Promise<void> {
+export async function approveWithdrawal(
+  id: number,
+  txHash: string,
+): Promise<void> {
   await apiFetch(`/admin/withdrawals/${id}/approve`, {
     method: "PATCH",
     adminAuth: true,
@@ -499,7 +613,10 @@ export async function approveWithdrawal(id: number, txHash: string): Promise<voi
   });
 }
 
-export async function rejectWithdrawal(id: number, reason: string): Promise<void> {
+export async function rejectWithdrawal(
+  id: number,
+  reason: string,
+): Promise<void> {
   await apiFetch(`/admin/withdrawals/${id}/reject`, {
     method: "PATCH",
     adminAuth: true,
@@ -511,7 +628,10 @@ export async function rejectWithdrawal(id: number, reason: string): Promise<void
 
 export async function getAdminDeposits(): Promise<DepositRequest[]> {
   try {
-    const r = await apiFetch<{ deposits: DepositRequest[] }>("/admin/deposits", { adminAuth: true });
+    const r = await apiFetch<{ deposits: DepositRequest[] }>(
+      "/admin/deposits",
+      { adminAuth: true },
+    );
     return r.deposits;
   } catch {
     return [];
@@ -536,8 +656,9 @@ export async function rejectDeposit(id: number, reason: string): Promise<void> {
 // ── Admin income controls ─────────────────────────────────────────────────────
 
 export async function addUserIncome(
-  userId: string, amount: number,
-  incomeType: "reserve" | "team" | "referral"
+  userId: string,
+  amount: number,
+  incomeType: "reserve" | "team" | "referral",
 ): Promise<void> {
   await apiFetch("/admin/income", {
     method: "POST",
@@ -548,9 +669,13 @@ export async function addUserIncome(
 
 // ── NFT orders ────────────────────────────────────────────────────────────────
 
-export async function getMyOrders(userId: string | number): Promise<NftOrder[]> {
+export async function getMyOrders(
+  userId: string | number,
+): Promise<NftOrder[]> {
   try {
-    const r = await apiFetch<{ orders: NftOrder[] }>(`/me/orders?userId=${userId}`);
+    const r = await apiFetch<{ orders: NftOrder[] }>(
+      `/me/orders?userId=${userId}`,
+    );
     return r.orders;
   } catch {
     return [];
@@ -558,12 +683,20 @@ export async function getMyOrders(userId: string | number): Promise<NftOrder[]> 
 }
 
 export async function reserveNft(
-  userId: string | number, nftName: string, nftImage: string, nftPrice: number
+  userId: string | number,
+  nftName: string,
+  nftImage: string,
+  nftPrice: number,
 ): Promise<"ok" | "insufficient"> {
   try {
     await apiFetch("/me/orders", {
       method: "POST",
-      body: JSON.stringify({ userId: String(userId), nftName, nftImage, nftPrice }),
+      body: JSON.stringify({
+        userId: String(userId),
+        nftName,
+        nftImage,
+        nftPrice,
+      }),
     });
     return "ok";
   } catch (e: unknown) {
@@ -573,7 +706,10 @@ export async function reserveNft(
   }
 }
 
-export async function sellNft(userId: string | number, orderId: number): Promise<void> {
+export async function sellNft(
+  userId: string | number,
+  orderId: number,
+): Promise<void> {
   await apiFetch(`/me/orders/${orderId}/sell`, {
     method: "PUT",
     body: JSON.stringify({ userId: String(userId) }),
@@ -582,14 +718,18 @@ export async function sellNft(userId: string | number, orderId: number): Promise
 
 export async function getPlatformSettings(): Promise<Record<string, string>> {
   try {
-    const r = await apiFetch<{ settings: Record<string, string> }>("/public/settings");
+    const r = await apiFetch<{ settings: Record<string, string> }>(
+      "/public/settings",
+    );
     return r.settings;
   } catch {
     return {};
   }
 }
 
-export async function saveAdminSettings(updates: Record<string, string>): Promise<void> {
+export async function saveAdminSettings(
+  updates: Record<string, string>,
+): Promise<void> {
   await apiFetch("/admin/settings", {
     method: "PATCH",
     adminAuth: true,
@@ -597,7 +737,9 @@ export async function saveAdminSettings(updates: Record<string, string>): Promis
   });
 }
 
-export async function adminForgotPassword(email: string): Promise<"ok" | "not_admin"> {
+export async function adminForgotPassword(
+  email: string,
+): Promise<"ok" | "not_admin"> {
   try {
     await apiFetch("/admin/forgot-password", {
       method: "POST",
@@ -610,7 +752,9 @@ export async function adminForgotPassword(email: string): Promise<"ok" | "not_ad
 }
 
 export async function adminResetPassword(
-  email: string, otp: string, newPassword: string
+  email: string,
+  otp: string,
+  newPassword: string,
 ): Promise<"ok" | "invalid" | "expired"> {
   try {
     await apiFetch("/admin/reset-password", {
@@ -626,12 +770,34 @@ export async function adminResetPassword(
 }
 
 // ── Stubs kept for import compatibility ───────────────────────────────────────
-export function initializeApp() { /* no-op: DB is seeded on server */ }
-export function addToUserHistory(_uid: string, _item: unknown) { /* no-op */ }
-export function updateUser(_uid: string, _updates: Partial<User>) { /* no-op */ }
+export function initializeApp() {
+  /* no-op: DB is seeded on server */
+}
+export function addToUserHistory(_uid: string, _item: unknown) {
+  /* no-op */
+}
+export function updateUser(_uid: string, _updates: Partial<User>) {
+  /* no-op */
+}
 export function getRewardSettings(): RewardSettings {
-  return { depositBonusPct: 5, minDepositForBonus: 20, referralBonusPct: 5, level2BonusPct: 2, levelThresholds: [0, 50, 200, 500], levelBonuses: [0, 10, 25, 50] };
+  return {
+    depositBonusPct: 5,
+    minDepositForBonus: 20,
+    referralBonusPct: 5,
+    level2BonusPct: 2,
+    levelThresholds: [0, 50, 200, 500],
+    levelBonuses: [0, 10, 25, 50],
+  };
 }
 export function getWithdrawalSettings(): WithdrawalSettings {
-  return { enabled: true, minAmount: 10, maxAmount: 10000, requireGoogleAuth: false, requireAddress: true, addressBindDelay: 0, timeRestriction: false, allowedHours: [0, 24] };
+  return {
+    enabled: true,
+    minAmount: 10,
+    maxAmount: 10000,
+    requireGoogleAuth: false,
+    requireAddress: true,
+    addressBindDelay: 0,
+    timeRestriction: false,
+    allowedHours: [0, 24],
+  };
 }
