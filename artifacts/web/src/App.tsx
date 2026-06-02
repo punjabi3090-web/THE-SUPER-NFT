@@ -130,6 +130,11 @@ function AppProvider({ children }: { children: ReactNode }) {
   // Listen for auth state changes
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_OUT') {
+        setUser(null); setCachedUserId(null);
+        window.location.replace('/login');
+        return;
+      }
       if (!session) { setUser(null); setCachedUserId(null); return; }
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         try {
@@ -209,7 +214,7 @@ function Routes() {
     // Supabase session guard
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session && location !== '/login') window.location.replace('/login');
-      if (session && location === '/login') window.location.replace('/showcase');
+      if (session && location === '/login') window.location.replace('/dashboard');
     });
   }, [location]);
 

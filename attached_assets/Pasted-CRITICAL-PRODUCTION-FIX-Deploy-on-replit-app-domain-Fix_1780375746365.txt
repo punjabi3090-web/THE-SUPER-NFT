@@ -1,0 +1,62 @@
+CRITICAL PRODUCTION FIX: Deploy on replit.app domain. Fix 3 issues in one go.
+
+DATABASE CONTEXT:
+Table: public.users 
+Columns: id uuid, created_at timestamptz, email text, username text, wallet_balance numeric, total_income numeric, referred_by text
+RLS is currently disabled. Keep it disabled for now to avoid auth errors.
+
+ISSUE 1: LOGOUT BUG - User logs out but auto login ho jata hai
+FIX:
+1. Update logout function:
+   await supabase.auth.signOut({ scope: 'global' })
+   localStorage.clear()
+   sessionStorage.clear() 
+   document.cookie.split(";").forEach(c => document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"))
+   window.location.replace('/login')
+
+2. Update Supabase client config:
+   createClient(SUPABASE_URL, SUPABASE_KEY, {
+     auth: { 
+       persistSession: true, 
+       autoRefreshToken: true, 
+       detectSessionInUrl: true,
+       storage: window.localStorage
+     }
+   })
+
+3. Add auth listener: 
+   supabase.auth.onAuthStateChange((event, session) => {
+     if (event === 'SIGNED_OUT') window.location.replace('/login')
+     if (event === 'SIGNED_IN') window.location.replace('/dashboard')
+   })
+
+ISSUE 2: REFERRAL SYSTEM NOT SAVING
+IMPLEMENT COMPLETE FLOW:
+1. FRONTEND: On every page load, check URL for ?ref=USERNAME
+   If found: localStorage.setItem('referral_code', USERNAME)
+   On /signup page: If localStorage.referral_code exists, show banner "Referred by: USERNAME"
+
+2. BACKEND SIGNUP API: 
+   - Accept 'referral_code' from frontend body
+   - After supabase.auth.signUp() success, INSERT into public.users table:
+     { 
+       id: user.id, 
+       email: user.email, 
+       username: username,
+       wallet_balance: 0,
+       total_income: 0,
+       referred_by: referral_code || null 
+     }
+   - After insert success: localStorage.removeItem('referral_code')
+
+3. VERIFICATION: New user must appear in Supabase Table Editor > users table with all columns filled. referred_by should show the username from ?ref= link.
+
+ISSUE 3: NEW USER NOT SHOWING IN TABLE
+Ensure signup API creates entry in public.users immediately after auth.users is created. Use Supabase service_role key on backend to bypass RLS. Do not rely on triggers.
+
+TEST CASES TO PASS:
+1. Logout Test: Login → Logout → Refresh page → Must stay on /login, not auto-login to /dashboard
+2. Referral Test: Open /signup?ref=Hamza786 → Create account → Check Supabase users table → referred_by column = 'Hamza786' 
+3. New User Test: Signup → User must appear in public.users with id, email, username, wallet_balance=0, total_income=0, referred_by value
+
+Deploy and give me the test URL. Confirm all 3 tests pass.

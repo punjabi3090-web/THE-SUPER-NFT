@@ -54,9 +54,12 @@ export default function My() {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: 'global' });
     localStorage.clear();
     sessionStorage.clear();
+    document.cookie.split(";").forEach(c => {
+      document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+    });
     window.location.replace('/login');
   };
 

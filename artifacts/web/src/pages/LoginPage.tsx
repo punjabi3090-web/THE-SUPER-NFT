@@ -72,17 +72,23 @@ export default function LoginPage() {
   useEffect(() => {
     // If already logged in, go straight to showcase
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) window.location.replace('/showcase');
+      if (session) window.location.replace('/dashboard');
     });
     // Also listen for SIGNED_IN event (covers cases where session arrives async)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session) window.location.replace('/showcase');
+      if (event === 'SIGNED_IN' && session) window.location.replace('/dashboard');
     });
     const params = new URLSearchParams(window.location.search);
     const ref = params.get('ref');
-    if (ref) setForm(f => ({...f, referralCode: ref }));
+    if (ref) {
+      localStorage.setItem('referral_code', ref);
+      setForm(f => ({...f, referralCode: ref}));
+    } else {
+      const stored = localStorage.getItem('referral_code');
+      if (stored) setForm(f => ({...f, referralCode: stored}));
+    }
     if (params.get('mode') === 'login') setPage('login');
-    if (ref && params.get('mode')!== 'login') setPage('register');
+    if (ref && params.get('mode') !== 'login') setPage('register');
     return () => subscription.unsubscribe();
   }, []);
 
@@ -126,16 +132,27 @@ export default function LoginPage() {
       const { id, email: userEmail } = authData.user;
       console.log('Auth user created:', id);
 
-      // Insert into public.users only — trigger handles wallets + user_income
+      // Capture referral from localStorage (set when ?ref= URL was visited)
+      const referredBy = localStorage.getItem('referral_code') || form.referralCode || null;
+      const username = form.fullName.trim() || (userEmail ?? '').split('@')[0];
+
       const { error: usersError } = await supabase
         .from('users')
-        .upsert({ id, email: userEmail });
+        .upsert({
+          id,
+          email: userEmail,
+          username,
+          wallet_balance: 0,
+          total_income: 0,
+          referred_by: referredBy || null,
+        });
 
       if (usersError) {
         console.error('FAILED: public.users insert', usersError);
         throw new Error('Failed to create user profile. Please try again.');
       } else {
-        console.log('SUCCESS: public.users insert — trigger will populate wallets + user_income');
+        console.log('SUCCESS: public.users insert — username:', username, 'referred_by:', referredBy);
+        localStorage.removeItem('referral_code');
       }
 
       setOtpEmail(form.email);
@@ -391,6 +408,11 @@ export default function LoginPage() {
 
           {page === "register" && (
             <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {form.referralCode && (
+                <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '8px 12px', textAlign: 'center' }}>
+                  <p style={{ fontSize: 11, color: '#166534', fontWeight: 600 }}>🎁 Referred by: <strong>{form.referralCode}</strong></p>
+                </div>
+              )}
               <input type="text" placeholder="Full Name" value={form.fullName}
                 onChange={e => setForm({...form, fullName: e.target.value})} className={inp} required />
               <input type="email" placeholder="Email" value={form.email}
