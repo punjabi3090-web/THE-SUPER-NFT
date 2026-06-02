@@ -54,7 +54,8 @@ export default function My() {
   };
 
   const forceLogout = async () => {
-    await supabase.auth.signOut({ scope: 'global' });
+    alert("LOGOUT BUTTON CLICKED - STARTING");
+    try { await supabase.auth.signOut({ scope: 'global' }); } catch { /* ignore */ }
     localStorage.clear();
     sessionStorage.clear();
     window.location.replace('/login');

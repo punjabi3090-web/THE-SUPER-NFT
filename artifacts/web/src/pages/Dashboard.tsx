@@ -164,7 +164,7 @@ function ProfileTab({ onAvatarClick }: { onAvatarClick: () => void }) {
   const refLink = `${window.location.origin}/signup?ref=${user?.username || 'user'}`;
 
   const forceLogout = async () => {
-    await supabase.auth.signOut({ scope: 'global' });
+    try { await supabase.auth.signOut({ scope: 'global' }); } catch { /* ignore */ }
     localStorage.clear();
     sessionStorage.clear();
     window.location.replace('/login');

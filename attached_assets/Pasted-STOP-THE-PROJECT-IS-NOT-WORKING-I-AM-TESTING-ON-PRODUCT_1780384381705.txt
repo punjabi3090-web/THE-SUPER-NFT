@@ -1,0 +1,50 @@
+STOP. THE PROJECT IS NOT WORKING. I AM TESTING ON PRODUCTION LINK: 
+https://the-super-nft--hamzakhanjam309.replit.app
+
+PROBLEMS:
+1. The site opens but NO CHANGES ARE VISIBLE. It's running old code.
+2. My old account 'tufailahmad23255@gmail.com' is STUCK LOGGED IN. It doesn't log out.
+3. The Logout button does NOTHING. Especially the RED Logout button inside Dashboard > My page. Clicking it does nothing. No redirect, no error, nothing.
+
+WHAT I NEED YOU TO DO RIGHT NOW:
+
+TASK 1: VERIFY DEPLOYMENT
+Check if the latest code is actually deployed to production. Run `git log` and confirm the last commit has the `forceLogout` and `username` fixes. If not, FORCE REDEPLOY.
+
+TASK 2: FIX THE RED LOGOUT BUTTON IN MY PAGE
+1. Open file `My.tsx` or `Dashboard/My.tsx`.
+2. Find the RED Logout button JSX. 
+3. DELETE any old `logout`, `handleLogout`, `signOut` functions.
+4. Make sure the button looks EXACTLY like this:
+   <button onClick={forceLogout} className="bg-red-500 ...">
+     Logout
+   </button>
+5. Make sure `forceLogout` function exists in the same file and has this code:
+   const forceLogout = async () => {
+     alert("LOGOUT BUTTON CLICKED - STARTING");
+     await supabase.auth.signOut({ scope: 'global' });
+     localStorage.clear();
+     sessionStorage.clear();
+     window.location.replace('/login');
+   }
+
+TASK 3: CHECK FOR BUILD CACHE ISSUE
+The old code is cached. Run these commands before deploying:
+rm -rf .next
+rm -rf dist 
+rm -rf node_modules/.cache
+npm run build
+
+TASK 4: TEST YOURSELF BEFORE SAYING "DONE"
+After deploying, YOU open https://the-super-nft--hamzakhanjam309.replit.app in YOUR browser.
+1. Login with any account.
+2. Go to Dashboard > My page.
+3. Click the RED Logout button.
+4. If you see the alert "LOGOUT BUTTON CLICKED" AND it redirects to /login, THEN it's fixed.
+5. If NOT, DO NOT SAY "DONE". FIX IT AGAIN.
+
+CRITICAL: I don't care about preview links. Only test on the .replit.app production link.
+
+The referral link is also still showing UUID instead of username. Fix that in the same files.
+
+DO NOT RESPOND UNTIL YOU HAVE TESTED THE RED LOGOUT BUTTON YOURSELF ON PRODUCTION AND IT WORKS.
