@@ -140,7 +140,7 @@ export default function LoginPage() {
       // 2. Insert into public.wallets - ALL REQUIRED COLUMNS
       const { error: walletsError } = await supabase
         .from('wallets')
-        .upsert({
+        .insert({
           user_id: id,
           balance: 0,
           total_deposit: 0,
@@ -157,7 +157,7 @@ export default function LoginPage() {
       // 3. Insert into public.user_income
       const { error: incomeError } = await supabase
         .from('user_income')
-        .upsert({
+        .insert({
           user_id: id,
           total_income: 0,
           reserve_income: 0
