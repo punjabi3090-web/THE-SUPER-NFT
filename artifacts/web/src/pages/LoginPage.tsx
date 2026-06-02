@@ -145,7 +145,9 @@ export default function LoginPage() {
           balance: 0,
           total_deposit: 0,
           total_withdraw: 0,
-          frozen_amount: 0
+          frozen_amount: 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         });
 
       if (walletsError) {
@@ -160,7 +162,9 @@ export default function LoginPage() {
         .insert({
           user_id: id,
           total_income: 0,
-          reserve_income: 0
+          reserve_income: 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         });
 
       if (incomeError) {
