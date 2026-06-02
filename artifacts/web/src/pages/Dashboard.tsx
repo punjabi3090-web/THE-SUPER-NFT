@@ -164,10 +164,10 @@ function ProfileTab({ onAvatarClick }: { onAvatarClick: () => void }) {
   const refLink = `${window.location.origin}/signup?ref=${user?.username || 'user'}`;
 
   const forceLogout = async () => {
-    try { await supabase.auth.signOut({ scope: 'global' }); } catch { /* ignore */ }
+    await supabase.auth.signOut();
     localStorage.clear();
     sessionStorage.clear();
-    window.location.replace('/login');
+    window.location.href = '/login';
   };
 
   const handleCopyRef = () => {
