@@ -101,7 +101,7 @@ export default function LoginPage() {
     if (form.password.length < 6) { showMsg("Password must be at least 6 characters"); return; }
     setLoading(true);
     try {
-      const { data, error } = await supabase.auth.signUp({
+      const { data: authData, error } = await supabase.auth.signUp({
         email: form.email,
         password: form.password,
         options: {
@@ -123,31 +123,26 @@ export default function LoginPage() {
         return;
       }
 
-      // Insert profile rows into Supabase tables.
-      // Uses upsert so re-attempts (duplicate UUID) never throw.
-      // Wrapped in try/catch — RLS failures are non-fatal because the
-      // Express supabase-sync route will create the app-layer record on login.
-      if (data.user?.id) {
-        try {
-          await supabase
-            .from('users')
-            .upsert(
-              { id: data.user.id, email: form.email.toLowerCase().trim() },
-              { onConflict: 'id' }
-            );
-          await supabase
-            .from('wallets')
-            .upsert(
-              { user_id: data.user.id, balance: 0 },
-              { onConflict: 'user_id' }
-            );
-          await supabase
-            .from('user_income')
-            .upsert(
-              { user_id: data.user.id, total_income: 0 },
-              { onConflict: 'user_id' }
-            );
-        } catch { /* silent — profile rows created by supabase-sync on first login */ }
+      if (authData.user) {
+        const { id, email } = authData.user;
+
+        await Promise.all([
+          supabase.from('users').upsert({ id, email }),
+
+          supabase.from('wallets').upsert({
+            user_id: id,
+            balance: 0,
+            total_deposit: 0,
+            total_withdraw: 0,
+            frozen_amount: 0
+          }),
+
+          supabase.from('user_income').upsert({
+            user_id: id,
+            total_income: 0,
+            reserve_income: 0
+          })
+        ]);
       }
 
       setOtpEmail(form.email);
