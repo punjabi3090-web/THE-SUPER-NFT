@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 import { Switch, Route, useLocation } from "wouter";
 import LoginPage from "./pages/LoginPage";
+import SignupPage from "./pages/SignupPage";
 import Home from "./pages/Home";
 import Stake from "./pages/Stake";
 import Reserve from "./pages/Reserve";
@@ -208,24 +209,27 @@ function Routes() {
   const [location] = useLocation();
 
   useEffect(() => {
-    // Auto-redirect ?ref= links to /login so signup form pre-fills referral code
+    // Auto-redirect ?ref= links to /signup so referral code pre-fills
     const search = window.location.search;
-    if (search.includes('ref=') && location !== '/login' && !location.startsWith('/admin')) {
-      window.location.replace('/login' + search);
+    if (search.includes('ref=') && location !== '/signup' && !location.startsWith('/admin')) {
+      window.location.replace('/signup' + search);
       return;
     }
-    // Admin and reset-password routes manage their own auth
-    if (location.startsWith('/admin') || location.startsWith('/reset-password')) return;
+    // Public routes — no auth required
+    const publicRoutes = ['/login', '/signup', '/reset-password'];
+    if (publicRoutes.some(r => location.startsWith(r))) return;
+    // Admin routes manage their own auth
+    if (location.startsWith('/admin')) return;
     // Supabase session guard
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session && location !== '/login') window.location.replace('/login');
-      if (session && location === '/login') window.location.replace('/dashboard');
+      if (!session) window.location.replace('/login');
     });
   }, [location]);
 
   return (
     <Switch>
       <Route path="/login"           component={LoginPage} />
+      <Route path="/signup"          component={SignupPage} />
       <Route path="/"                component={Home} />
       <Route path="/stake"           component={Stake} />
       <Route path="/reserve"         component={Reserve} />

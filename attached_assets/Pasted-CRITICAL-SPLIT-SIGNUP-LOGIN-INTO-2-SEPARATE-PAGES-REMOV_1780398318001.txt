@@ -1,0 +1,192 @@
+CRITICAL: SPLIT SIGNUP & LOGIN INTO 2 SEPARATE PAGES. REMOVE OTP. DIRECT SIGNUP.
+
+STEP 1: SUPABASE SETTINGS
+1. Dashboard > Authentication > Providers > Email
+2. TURN OFF "Enable email confirmations"
+3. SAVE
+
+STEP 2: SUPABASE SQL - RUN THIS
+
+CREATE TABLE IF NOT EXISTS public.profiles (
+  id UUID REFERENCES auth.users(id) PRIMARY KEY,
+  full_name TEXT,
+  username TEXT UNIQUE,
+  email TEXT UNIQUE,
+  phone TEXT,
+  country_code TEXT,
+  balance NUMERIC DEFAULT 0,
+  level INTEGER DEFAULT 1,
+  referral_code TEXT UNIQUE DEFAULT substring(md5(random()::text), 1, 8),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
+CREATE POLICY "Users can view own profile" ON public.profiles FOR SELECT USING (auth.uid() = id);
+
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.profiles (id, email, full_name, username, phone, country_code)
+  VALUES (new.id, new.email, new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'username', new.raw_user_meta_data->>'phone', new.raw_user_meta_data->>'country_code');
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
+STEP 3: CREATE 3 SEPARATE FILES
+
+1. DELETE LoginPage.tsx if it has both forms.
+
+2. CREATE src/pages/SignupPage.tsx
+
+import { useState } from 'react';
+import { supabase } from '../lib/supabase';
+
+export default function SignupPage() {
+  const [fullName, setFullName] = useState('');
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [countryCode, setCountryCode] = useState('+92');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
+
+  const handleSignup = async () => {
+    if (!fullName || !username || !email || !phone || !password || !confirmPassword) {
+      return alert("Please fill all fields");
+    }
+    if (password !== confirmPassword) {
+      return alert("Passwords do not match");
+    }
+    if (!termsAccepted) {
+      return alert("Please accept Terms & Conditions");
+    }
+
+    const { error } = await supabase.auth.signUp({
+      email: email,
+      password: password,
+      options: {
+        data: { full_name: fullName, username: username, phone: phone, country_code: countryCode }
+      }
+    });
+
+    if (error) {
+      alert("Signup failed: " + error.message);
+    } else {
+      alert("Account created successfully!");
+      window.location.replace('/login');
+    }
+  };
+
+  return (
+    <div>
+      <h1>Sign Up</h1>
+      <input placeholder="Full Name" onChange={e => setFullName(e.target.value)} />
+      <input placeholder="Username" onChange={e => setUsername(e.target.value)} />
+      <input placeholder="Email" type="email" onChange={e => setEmail(e.target.value)} />
+      <div>
+        <select onChange={e => setCountryCode(e.target.value)}>
+          <option>+92</option><option>+1</option><option>+44</option>
+        </select>
+        <input placeholder="Phone Number" onChange={e => setPhone(e.target.value)} />
+      </div>
+      <input placeholder="Password" type="password" onChange={e => setPassword(e.target.value)} />
+      <input placeholder="Confirm Password" type="password" onChange={e => setConfirmPassword(e.target.value)} />
+      <label>
+        <input type="checkbox" onChange={e => setTermsAccepted(e.target.checked)} />
+        I agree to Terms & Conditions
+      </label>
+      <button onClick={handleSignup}>Register</button>
+      <p>Already have account? <a href="/login">Login</a></p>
+    </div>
+  );
+}
+
+3. CREATE src/pages/LoginPage.tsx
+
+import { useState } from 'react';
+import { supabase } from '../lib/supabase';
+
+export default function LoginPage() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  const handleLogin = async () => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      alert("Invalid email or password");
+    } else {
+      window.location.replace('/showcase');
+    }
+  };
+
+  return (
+    <div>
+      <h1>Login</h1>
+      <input placeholder="Email" type="email" onChange={e => setEmail(e.target.value)} />
+      <input placeholder="Password" type="password" onChange={e => setPassword(e.target.value)} />
+      <button onClick={handleLogin}>Login</button>
+      <p><a href="#">Forgot Password</a></p>
+      <p>Don't have account? <a href="/signup">Sign Up</a></p>
+    </div>
+  );
+}
+
+4. CREATE src/pages/ShowcasePage.tsx - Simple page for now
+
+export default function ShowcasePage() {
+  return <div><h1>Showcase Page</h1><button onClick={() => window.location.replace('/my')}>Go to My Page</button></div>;
+}
+
+STEP 4: UPDATE App.tsx ROUTING
+
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { supabase } from './lib/supabase';
+import SignupPage from './pages/SignupPage';
+import LoginPage from './pages/LoginPage';
+import ShowcasePage from './pages/ShowcasePage';
+
+function App() {
+  const [session, setSession] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setLoading(false);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  if (loading) return <div>Loading...</div>;
+
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/signup" element={!session ? <SignupPage /> : <Navigate to="/showcase" />} />
+        <Route path="/login" element={!session ? <LoginPage /> : <Navigate to="/showcase" />} />
+        <Route path="/showcase" element={session ? <ShowcasePage /> : <Navigate to="/login" />} />
+        <Route path="/" element={<Navigate to={session ? "/showcase" : "/signup"} />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+export default App;
+
+STEP 5: PUBLISH + TEST
+
+1. Publish karo
+2. Test: https://the-super-nft--hamzakhanjam309.replit.app
+3. Pehli screen /signup khulegi
+4. Register dabao > /login khulega
+5. Login dabao > /showcase khulega
