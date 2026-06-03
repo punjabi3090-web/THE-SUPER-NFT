@@ -1,27 +1,65 @@
-import { ArrowLeft, User, Mail, Phone, MapPin, Tag, Copy, Check } from "lucide-react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { useState } from "react";
-import { useBalance } from "../App";
+import { User, Mail, Phone, MapPin, Tag, ArrowLeft, Copy, Check } from "lucide-react";
+import { supabase } from "../../supabasClient"; // Path check kar lena
 
 export default function Settings() {
   const [, setLocation] = useLocation();
-  const { user } = useBalance();
+  const [user, setUser] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
   const [copied, setCopied] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadUserData = async () => {
+      alert("STEP 1: Page load hua");
+
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+      if (userError ||!user) {
+        alert("ERROR: Login nahi hai");
+        setLocation("/login");
+        return;
+      }
+
+      alert("STEP 2: User ID - " + user.id);
+      setUser(user);
+
+      const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+
+      if (error) {
+        alert("STEP 3 ERROR: " + error.message);
+      } else {
+        alert("STEP 3 SUCCESS: Name - " + data?.full_name);
+      }
+
+      setProfile(data);
+      setLoading(false);
+    };
+
+    loadUserData();
+  }, [setLocation]);
 
   const fields = [
-    { icon: User,   label: "Full Name",      value: user?.name || "—" },
-    { icon: Mail,   label: "Email",          value: user?.email || "—" },
-    { icon: Phone,  label: "Phone",          value: user?.phone || "—" },
-    { icon: MapPin, label: "Country",        value: user?.country || "—" },
-    { icon: Tag,    label: "User ID",        value: user?.userId || "—" },
+    { icon: User, label: "Full Name", value: profile?.full_name || "—" },
+    { icon: Mail, label: "Email", value: user?.email || "—" },
+    { icon: Phone, label: "Phone", value: profile?.phone || "—" },
+    { icon: MapPin, label: "Country", value: profile?.country || "—" },
+    { icon: Tag, label: "User ID", value: profile?.user_id || "—" },
   ];
 
   const copyRef = () => {
-    if (user?.referralCode) {
-      navigator.clipboard.writeText(user.referralCode);
+    if (profile?.referral_code) {
+      navigator.clipboard.writeText(profile.referral_code);
       setCopied(true); setTimeout(() => setCopied(false), 2000);
     }
   };
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>
 
   return (
     <div className="min-h-screen max-w-md mx-auto bg-gradient-to-br from-blue-50 to-purple-50 pb-10">
@@ -31,19 +69,17 @@ export default function Settings() {
       </div>
 
       <div className="px-4 py-4 space-y-3">
-        {/* Avatar */}
         <div className="bg-white rounded-2xl p-4 shadow-sm flex items-center gap-4">
           <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-2xl" style={{ background: 'linear-gradient(135deg,#1E3A8A,#7C3AED)' }}>
-            {(user?.name || 'U')[0].toUpperCase()}
+            {(profile?.full_name || 'U')[0].toUpperCase()}
           </div>
           <div>
-            <p className="font-bold text-slate-800">{user?.name || 'User'}</p>
-            <p className="text-xs text-slate-400">Level {user?.level ?? 1} Member</p>
-            <p className="text-xs text-slate-400">Joined {user?.joinDate ? new Date(user.joinDate).toLocaleDateString() : '—'}</p>
+            <p className="font-bold text-slate-800">{profile?.full_name || 'User'}</p>
+            <p className="text-xs text-slate-400">Level {profile?.level?? 1} Member</p>
+            <p className="text-xs text-slate-400">Joined {profile?.created_at? new Date(profile.created_at).toLocaleDateString() : '—'}</p>
           </div>
         </div>
 
-        {/* Fields */}
         {fields.map(f => (
           <div key={f.label} className="bg-white rounded-2xl px-4 py-3.5 shadow-sm flex items-center gap-3">
             <f.icon size={18} className="text-slate-400 shrink-0" />
@@ -54,24 +90,22 @@ export default function Settings() {
           </div>
         ))}
 
-        {/* Referral Code */}
         <div className="bg-white rounded-2xl px-4 py-3.5 shadow-sm flex items-center gap-3">
           <Tag size={18} className="text-blue-500 shrink-0" />
           <div className="flex-1">
             <p className="text-xs text-slate-400">My Referral Code</p>
-            <p className="text-sm font-bold text-blue-600">{user?.referralCode || '—'}</p>
+            <p className="text-sm font-bold text-blue-600">{profile?.referral_code || '—'}</p>
           </div>
           <button onClick={copyRef} style={{ color: '#1E3A8A' }}>
-            {copied ? <Check size={16} /> : <Copy size={16} />}
+            {copied? <Check size={16} /> : <Copy size={16} />}
           </button>
         </div>
 
-        {/* Referral link */}
-        {user?.referralCode && (
+        {profile?.referral_code && (
           <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-2xl p-4">
             <p className="text-xs font-semibold text-[#1E3A8A] mb-1">Share Your Referral Link</p>
             <p className="text-xs text-slate-600 font-mono break-all">
-              {window.location.origin}/login?ref={user.referralCode}
+              {window.location.origin}/login?ref={profile.referral_code}
             </p>
           </div>
         )}
