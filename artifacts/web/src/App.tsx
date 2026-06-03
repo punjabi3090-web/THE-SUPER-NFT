@@ -1,33 +1,45 @@
-import { useEffect } from "react";
-import { Switch, Route, useLocation } from "wouter";
+import { Route, Switch, useLocation } from "wouter";
+import { useEffect, useState } from "react";
 import { supabase } from "./lib/supabase";
-import LoginPage from "./pages/LoginPage";
+import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
-import Home from "./pages/Home";
 import './index.css';
 
-function AuthGuard({ children }: { children: React.ReactNode }) {
-  const [location] = useLocation();
+function App() {
+  const [location, setLocation] = useLocation();
+  const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState<any>(null);
 
   useEffect(() => {
-    const publicRoutes = ['/login'];
-    if (publicRoutes.some(r => location.startsWith(r))) return;
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) window.location.replace('/login');
+      setSession(session);
+      setLoading(false);
     });
-  }, [location]);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
-  return <>{children}</>;
-}
+  useEffect(() => {
+    if (loading) return;
+    if (!session && location !== '/login') setLocation('/login');
+    if (session && location === '/login') setLocation('/dashboard');
+  }, [session, location, loading, setLocation]);
 
-export default function App() {
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">
+      Loading...
+    </div>
+  );
+
   return (
-    <AuthGuard>
-      <Switch>
-        <Route path="/login"     component={LoginPage} />
-        <Route path="/dashboard" component={Dashboard} />
-        <Route path="/"          component={Home} />
-      </Switch>
-    </AuthGuard>
+    <Switch>
+      <Route path="/login"     component={Login} />
+      <Route path="/dashboard" component={Dashboard} />
+      <Route path="/">{session ? <Dashboard /> : <Login />}</Route>
+    </Switch>
   );
 }
+
+export default App;
