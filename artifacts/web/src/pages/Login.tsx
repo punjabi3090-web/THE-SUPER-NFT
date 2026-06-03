@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
+import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Mail, ArrowLeft } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
 type PageState = "register" | "register_otp" | "login";
 
 export default function Login() {
-  const [, setLocation] = useLocation();
+  const navigate = useNavigate();
   const [page, setPage] = useState<PageState>("register");
   const [loading, setLoading] = useState(false);
   const [showPw, setShowPw] = useState(false);
@@ -68,7 +68,7 @@ export default function Login() {
     if (error) showMsg("Invalid or expired OTP");
     else {
       showMsg("Account created successfully!", "success");
-      setTimeout(() => setLocation('/dashboard'), 1000);
+      setTimeout(() => navigate('/'), 1000);
     }
     setLoading(false);
   };
@@ -83,7 +83,7 @@ export default function Login() {
     if (error) {
       showMsg(error.message.includes("confirm") ? "Please verify your email first" : "Wrong email or password");
     } else {
-      setLocation('/dashboard');
+      navigate('/');
     }
     setLoading(false);
   };
