@@ -272,12 +272,20 @@ export default function Admin() {
               <p className="text-xs text-slate-400">{user?.email}</p>
             </div>
           </div>
-          <button
-            onClick={() => navigate("/")}
-            className="text-sm text-slate-400 hover:text-white bg-slate-800 px-3 py-2 rounded-xl transition-colors"
-          >
-            ← Dashboard
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => navigate("/cron-test")}
+              className="text-sm text-purple-300 hover:text-white bg-purple-900/50 hover:bg-purple-800 px-3 py-2 rounded-xl transition-colors"
+            >
+              ⏱ Cron
+            </button>
+            <button
+              onClick={() => navigate("/")}
+              className="text-sm text-slate-400 hover:text-white bg-slate-800 px-3 py-2 rounded-xl transition-colors"
+            >
+              ← Dashboard
+            </button>
+          </div>
         </div>
 
         {/* ── Stats Cards ── */}

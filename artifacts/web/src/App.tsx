@@ -8,6 +8,7 @@ import Withdraw from "./pages/Withdraw";
 import NFT from "./pages/NFT";
 import MyTeam from "./pages/MyTeam";
 import Admin from "./pages/Admin";
+import CronTest from "./pages/CronTest";
 import './index.css';
 
 function AppRoutes() {
@@ -40,6 +41,7 @@ function AppRoutes() {
       <Route path="/nft"      element={session ? <NFT />      : <Navigate to="/login" replace />} />
       <Route path="/team"     element={session ? <MyTeam />   : <Navigate to="/login" replace />} />
       <Route path="/admin"    element={session ? <Admin />    : <Navigate to="/login" replace />} />
+      <Route path="/cron-test" element={session ? <CronTest /> : <Navigate to="/login" replace />} />
     </Routes>
   );
 }
