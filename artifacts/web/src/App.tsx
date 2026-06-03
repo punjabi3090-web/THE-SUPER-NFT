@@ -216,7 +216,7 @@ function Routes() {
       return;
     }
     // Public routes — no auth required
-    const publicRoutes = ['/login', '/signup', '/reset-password'];
+    const publicRoutes = ['/', '/login', '/signup', '/reset-password', '/showcase'];
     if (publicRoutes.some(r => location.startsWith(r))) return;
     // Admin routes manage their own auth
     if (location.startsWith('/admin')) return;
@@ -230,7 +230,8 @@ function Routes() {
     <Switch>
       <Route path="/login"           component={LoginPage} />
       <Route path="/signup"          component={SignupPage} />
-      <Route path="/"                component={Home} />
+      <Route path="/"                component={Showcase} />
+      <Route path="/home"            component={Home} />
       <Route path="/stake"           component={Stake} />
       <Route path="/reserve"         component={Reserve} />
       <Route path="/assets"          component={Assets} />

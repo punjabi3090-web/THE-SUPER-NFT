@@ -1,0 +1,50 @@
+TASK: Complete Dashboard system ko delete karke naya Supabase Auth wala Dashboard banao + Auth flow fix karo.
+
+REQUIREMENTS:
+
+1. PURANA SYSTEM DELETE KARO:
+   - `artifacts/web/src/pages/Dashboard.tsx` file ka poora code delete kar ke naya banao
+   - Purane `useBalance` context ya custom user state ko Dashboard me use mat karna
+
+2. AUTH FLOW SET KARO:
+   A) SIGNUP PAGE `/signup`:
+      - Signup success hone ke baad `setLocation('/login')` redirect karo
+      - Message dikhao: "Account created! Please login"
+   
+   B) LOGIN PAGE `/login`:
+      - Login success hone ke baad `setLocation('/')` redirect karo yani Show Case page pe
+      - Logged in user agar `/login` khole to auto `/` pe bhej do
+   
+   C) SHOW CASE PAGE `/` :
+      - Page ke bilkul center me "Continue to Dashboard" ka button add karo
+      - Button styling: Large, gradient, `onClick={() => setLocation('/dashboard')}`
+      - Sirf logged in user ko ye button dikhe, logged out ko "Login/Signup" buttons dikhen
+      - Check karo: `const { data: { user } } = await supabase.auth.getUser()`
+
+3. NAYA DASHBOARD.TSX BANAO:
+   - File: `artifacts/web/src/pages/Dashboard.tsx`
+   - Direct Supabase Auth: `supabase.auth.getUser()`
+   - Login check: Agar user nahi mila to `/login` pe redirect
+   - Data fetch: `supabase.from('profiles').select('*').eq('id', user.id).single()`
+   - Loading state dikhao
+   - Fields show karo: full_name, email, phone, country, user_id, referral_code, level, balance, total_earned, total_withdrawn, created_at
+   - Logout button: `supabase.auth.signOut()` then `/login` redirect
+   - UI: Modern gradient cards, balance card, stats cards, profile info card
+   - Icons: lucide-react se LogOut, User, Wallet, TrendingUp, Users
+
+4. SUPABASE CONNECTION:
+   - Import: `import { supabase } from "../lib/supabase";`
+
+5. TYPESCRIPT TYPES:
+   Profile type banao sab columns ke sath
+
+IMPORTANT: 
+- Login page aur Show Case page ka design same rahe, bas routing logic aur button add karna hai
+- Purane users delete karne honge kyunki naya profiles table hai
+- Koi alert ya console.log debug mat lagana
+
+OUTPUT: 
+1. Dashboard.tsx ka complete code
+2. Login.tsx me redirect logic ka code snippet 
+3. Signup.tsx me redirect logic ka code snippet
+4. ShowCase/Landing page me "Continue to Dashboard" button ka code snippet

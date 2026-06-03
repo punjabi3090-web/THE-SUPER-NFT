@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 
 const NFT_CARDS = [
@@ -37,13 +37,12 @@ const NFT_CARDS = [
 ];
 
 export default function Showcase() {
+  const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
+
   useEffect(() => {
-    const checkAuth = async () => {
-      await new Promise(r => setTimeout(r, 300));
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) window.location.replace('/login');
-    };
-    checkAuth();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setLoggedIn(!!session);
+    });
   }, []);
 
   return (
@@ -110,15 +109,35 @@ export default function Showcase() {
         ))}
       </div>
 
-      {/* ── Enter Dashboard ────────────────────────────────────────── */}
-      <div className="text-center px-4 pb-12">
-        <button
-          onClick={() => { window.location.replace('/dashboard'); }}
-          className="px-10 py-4 rounded-2xl font-extrabold text-base bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-white shadow-lg shadow-emerald-900/40 active:scale-95 transition-all"
-        >
-          Enter Dashboard →
-        </button>
-        <p className="text-slate-600 text-xs mt-3">Tap to continue to your wallet</p>
+      {/* ── CTA Section ────────────────────────────────────────────── */}
+      <div className="flex flex-col items-center justify-center px-6 pb-16 gap-4">
+        {loggedIn === true && (
+          <>
+            <button
+              onClick={() => { window.location.replace('/dashboard'); }}
+              className="w-full max-w-sm px-10 py-4 rounded-2xl font-extrabold text-lg bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-white shadow-lg shadow-emerald-900/40 active:scale-95 transition-all"
+            >
+              Continue to Dashboard →
+            </button>
+            <p className="text-slate-500 text-xs">Tap to open your wallet & portfolio</p>
+          </>
+        )}
+        {loggedIn === false && (
+          <>
+            <button
+              onClick={() => { window.location.replace('/login'); }}
+              className="w-full max-w-sm px-10 py-4 rounded-2xl font-extrabold text-base bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-lg active:scale-95 transition-all"
+            >
+              Login
+            </button>
+            <button
+              onClick={() => { window.location.replace('/signup'); }}
+              className="w-full max-w-sm px-10 py-3.5 rounded-2xl font-bold text-base border-2 border-purple-600 text-purple-400 hover:bg-purple-600/10 active:scale-95 transition-all"
+            >
+              Create Account
+            </button>
+          </>
+        )}
       </div>
 
     </div>

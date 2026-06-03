@@ -37,7 +37,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) window.location.replace('/showcase');
+      if (session) window.location.replace('/');
     });
   }, []);
 
