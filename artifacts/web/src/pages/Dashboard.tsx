@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/useAuth";
 import { supabase } from "../lib/supabase";
-import { LogOut, Copy, Check, User, DollarSign, TrendingUp, ArrowUpRight, Users } from "lucide-react";
+import { LogOut, Copy, Check, User, DollarSign, TrendingUp, ArrowUpRight, Users, Shield } from "lucide-react";
 
 type Profile = {
   full_name: string | null;
@@ -11,6 +11,7 @@ type Profile = {
   country: string | null;
   user_id: string | null;
   referral_code: string | null;
+  role: string | null;
   level: number | null;
   balance: number | null;
   total_earned: number | null;
@@ -173,6 +174,17 @@ export default function Dashboard() {
             </button>
           ))}
         </div>
+
+        {/* ── Admin Panel Button (admin only) ─── */}
+        {profile?.role === "admin" && (
+          <button
+            onClick={() => navigate("/admin")}
+            className="w-full mb-4 flex items-center justify-center gap-2 bg-purple-700 hover:bg-purple-600 rounded-2xl p-4 transition-colors active:scale-95"
+          >
+            <Shield size={16} className="text-purple-200" />
+            <span className="text-sm font-semibold text-white">Admin Panel</span>
+          </button>
+        )}
 
         {/* ── Referral Link ─── */}
         <div className="bg-slate-800 rounded-2xl p-5">

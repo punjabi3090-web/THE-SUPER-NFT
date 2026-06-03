@@ -7,6 +7,7 @@ import Deposit from "./pages/Deposit";
 import Withdraw from "./pages/Withdraw";
 import NFT from "./pages/NFT";
 import MyTeam from "./pages/MyTeam";
+import Admin from "./pages/Admin";
 import './index.css';
 
 function AppRoutes() {
@@ -38,6 +39,7 @@ function AppRoutes() {
       <Route path="/withdraw" element={session ? <Withdraw /> : <Navigate to="/login" replace />} />
       <Route path="/nft"      element={session ? <NFT />      : <Navigate to="/login" replace />} />
       <Route path="/team"     element={session ? <MyTeam />   : <Navigate to="/login" replace />} />
+      <Route path="/admin"    element={session ? <Admin />    : <Navigate to="/login" replace />} />
     </Routes>
   );
 }
