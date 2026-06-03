@@ -12,6 +12,60 @@ type NftPackage = {
   duration_days: number;
 };
 
+async function distributeReferralEarnings(
+  buyerId: string,
+  price: number,
+  packageName: string
+) {
+  // Get buyer's profile to find their referrer
+  const { data: buyerProf } = await supabase
+    .from('profiles')
+    .select('referred_by')
+    .eq('id', buyerId)
+    .single();
+
+  const l1Id = buyerProf?.referred_by;
+  if (!l1Id) return;
+
+  // Helper: credit a referrer
+  const credit = async (referrerId: string, level: number, pct: number) => {
+    const amount = parseFloat(((price * pct) / 100).toFixed(4));
+    await Promise.all([
+      supabase.from('referral_earnings').insert({
+        user_id:          referrerId,
+        from_user_id:     buyerId,
+        level,
+        amount,
+        nft_package_name: packageName,
+      }),
+      supabase.rpc('increment_balance', { uid: referrerId, inc: amount }),
+    ]);
+  };
+
+  // Level 1 — 10%
+  await credit(l1Id, 1, 10);
+
+  // Level 2 — 5%
+  const { data: l1Prof } = await supabase
+    .from('profiles')
+    .select('referred_by')
+    .eq('id', l1Id)
+    .single();
+  const l2Id = l1Prof?.referred_by;
+  if (!l2Id) return;
+  await credit(l2Id, 2, 5);
+
+  // Level 3 — 2%
+  const { data: l2Prof } = await supabase
+    .from('profiles')
+    .select('referred_by')
+    .eq('id', l2Id)
+    .single();
+  const l3Id = l2Prof?.referred_by;
+  if (!l3Id) return;
+  await credit(l3Id, 3, 2);
+}
+
 export default function NFT() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -52,6 +106,7 @@ export default function NFT() {
     if (balance < pkg.price) return;
     setBuying(pkg.id);
 
+    // Insert purchase
     const { error } = await supabase.from('user_nfts').insert({
       user_id:        user.id,
       nft_package_id: pkg.id,
@@ -63,6 +118,9 @@ export default function NFT() {
       setBuying(null);
       return;
     }
+
+    // Distribute referral commissions (best-effort, non-blocking)
+    distributeReferralEarnings(user.id, pkg.price, pkg.name).catch(() => {});
 
     alert("NFT Purchased! Daily profit start");
     await fetchData(user.id);
@@ -110,15 +168,11 @@ export default function NFT() {
         ) : (
           <div className="space-y-4">
             {packages.map(pkg => {
-              const canBuy     = balance >= pkg.price;
-              const isLoading  = buying === pkg.id;
+              const canBuy    = balance >= pkg.price;
+              const isLoading = buying === pkg.id;
 
               return (
-                <div
-                  key={pkg.id}
-                  className="bg-slate-800 rounded-2xl p-5 border border-slate-700"
-                >
-                  {/* Package name + price */}
+                <div key={pkg.id} className="bg-slate-800 rounded-2xl p-5 border border-slate-700">
                   <div className="flex items-start justify-between mb-4">
                     <div>
                       <h2 className="font-bold text-white text-base">{pkg.name}</h2>
@@ -131,16 +185,13 @@ export default function NFT() {
                     </span>
                   </div>
 
-                  {/* Stats row */}
                   <div className="grid grid-cols-3 gap-2 mb-4">
                     <div className="bg-slate-700/60 rounded-xl p-2.5 text-center">
                       <div className="flex items-center justify-center gap-1 mb-1">
                         <TrendingUp size={11} className="text-emerald-400" />
                         <p className="text-[10px] text-slate-400">Daily</p>
                       </div>
-                      <p className="text-sm font-bold text-emerald-400">
-                        {pkg.daily_profit_percent}%
-                      </p>
+                      <p className="text-sm font-bold text-emerald-400">{pkg.daily_profit_percent}%</p>
                     </div>
                     <div className="bg-slate-700/60 rounded-xl p-2.5 text-center">
                       <div className="flex items-center justify-center gap-1 mb-1">
@@ -154,9 +205,7 @@ export default function NFT() {
                         <DollarSign size={11} className="text-yellow-400" />
                         <p className="text-[10px] text-slate-400">Total</p>
                       </div>
-                      <p className="text-sm font-bold text-yellow-400">
-                        ${totalReturn(pkg)}
-                      </p>
+                      <p className="text-sm font-bold text-yellow-400">${totalReturn(pkg)}</p>
                     </div>
                   </div>
 
@@ -164,7 +213,6 @@ export default function NFT() {
                     Daily profit: <span className="text-emerald-400 font-semibold">${dailyReturn(pkg)} USDT/day</span>
                   </p>
 
-                  {/* Buy button */}
                   <button
                     onClick={() => handleBuy(pkg)}
                     disabled={!canBuy || isLoading}
@@ -175,11 +223,7 @@ export default function NFT() {
                         : { background: '#1e293b', color: '#475569', border: '1px solid #334155' }
                     }
                   >
-                    {isLoading
-                      ? "Processing..."
-                      : canBuy
-                        ? `Buy for $${pkg.price}`
-                        : "Insufficient Balance"}
+                    {isLoading ? "Processing..." : canBuy ? `Buy for $${pkg.price}` : "Insufficient Balance"}
                   </button>
                 </div>
               );

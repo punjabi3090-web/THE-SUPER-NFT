@@ -15,7 +15,8 @@ export default function Login() {
     fullName: "", email: "", confirmEmail: "", password: "",
     confirmPassword: "", phone: "", country: "+92", referralCode: ""
   });
-  const [otpCode, setOtpCode] = useState("");
+  const [otpCode, setOtpCode]           = useState("");
+  const [referrerEmail, setReferrerEmail] = useState<string | null>(null);
 
   useEffect(() => {
     const ref = new URLSearchParams(window.location.search).get('ref');
@@ -34,15 +35,31 @@ export default function Login() {
     if (form.password.length < 6) return showMsg("Password min 6 chars");
 
     setLoading(true);
+
+    // Look up referrer's profile id from referral code
+    let referredById: string | null = null;
+    let referredByEmail: string | null = null;
+    if (form.referralCode.trim()) {
+      const { data: refProf } = await supabase
+        .from('profiles')
+        .select('id, email')
+        .eq('referral_code', form.referralCode.trim().toUpperCase())
+        .single();
+      if (refProf) {
+        referredById    = refProf.id;
+        referredByEmail = refProf.email;
+      }
+    }
+
     const { error } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
       options: {
         data: {
-          full_name: form.fullName,
-          phone: form.country + form.phone,
-          country: form.country,
-          referral_code: form.referralCode || null,
+          full_name:   form.fullName,
+          phone:       form.country + form.phone,
+          country:     form.country,
+          referred_by: referredById,
         }
       }
     });
@@ -50,6 +67,7 @@ export default function Login() {
     if (error) {
       showMsg(error.message.includes("already") ? "Email already registered. Login instead." : error.message);
     } else {
+      if (referredByEmail) setReferrerEmail(referredByEmail);
       setPage("register_otp");
       showMsg("6-digit OTP sent to your email", "success");
     }
@@ -180,9 +198,15 @@ export default function Login() {
             <input
               placeholder="Referral Code (Optional)"
               value={form.referralCode}
-              onChange={e => setForm({ ...form, referralCode: e.target.value })}
+              onChange={e => { setForm({ ...form, referralCode: e.target.value }); setReferrerEmail(null); }}
               className={inp}
             />
+            {referrerEmail && (
+              <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 flex items-center gap-2">
+                <span className="text-green-600 text-xs">✓</span>
+                <p className="text-xs text-green-700 font-medium">Referred by: {referrerEmail}</p>
+              </div>
+            )}
             <p className="text-xs text-center text-slate-400">Click "Send OTP" to get a 6-digit code on your email</p>
             <button onClick={() => setPage("login")} className="text-sm text-purple-600 font-semibold w-full text-center">
               Already have an account? Login
