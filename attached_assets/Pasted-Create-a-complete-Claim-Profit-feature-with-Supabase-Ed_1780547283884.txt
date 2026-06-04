@@ -1,0 +1,73 @@
+Create a complete "Claim Profit" feature with Supabase Edge Function and React button:
+
+1. SUPABASE EDGE FUNCTION:
+   - Create folder: supabase/functions/claim-profit/
+   - Create file: supabase/functions/claim-profit/index.ts with this code:
+
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    
+    const authHeader = req.headers.get('Authorization')!
+    const token = authHeader.replace('Bearer ', '')
+    
+    const userRes = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'apikey': supabaseKey
+      }
+    })
+    const userData = await userRes.json()
+    if (!userData.id) throw new Error('Unauthorized')
+    
+    const userId = userData.id
+
+    const claimRes = await fetch(`${supabaseUrl}/rest/v1/rpc/claim_user_profit`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseKey}`,
+        'apikey': supabaseKey
+      },
+      body: JSON.stringify({ p_user_id: userId })
+    })
+
+    const result = await claimRes.json()
+    
+    return new Response(JSON.stringify(result), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
+    })
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 400,
+    })
+  }
+})
+
+   - Deploy it using: npx supabase functions deploy claim-profit --no-verify-jwt
+
+2. REACT CLAIM BUTTON:
+   - Create src/components/ClaimProfitButton.tsx
+   - Auto-get user session from Supabase Auth
+   - Call edge function with Bearer token
+   - Show loading/success/error states
+   - Disable button after claim
+   - Refresh balance after claim
+
+3. INTEGRATION:
+   - Add button to Dashboard.tsx
+   - Show toast on success: "Claimed 100"

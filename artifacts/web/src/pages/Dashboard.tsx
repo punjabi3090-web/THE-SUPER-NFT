@@ -1,8 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/useAuth";
 import { supabase } from "../lib/supabase";
 import { LogOut, Copy, Check, User, DollarSign, TrendingUp, ArrowUpRight, Users, Shield } from "lucide-react";
+import { Toaster } from "react-hot-toast";
+import ClaimProfitButton from "../components/ClaimProfitButton";
 
 type Profile = {
   full_name: string | null;
@@ -26,18 +28,14 @@ export default function Dashboard() {
   const [profLoading, setProfLoading] = useState(true);
   const [copied, setCopied]     = useState(false);
 
-  useEffect(() => {
+  const fetchProfile = useCallback(async () => {
     if (!user) return;
-    supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single()
-      .then(({ data }) => {
-        setProfile(data);
-        setProfLoading(false);
-      });
+    const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+    setProfile(data);
+    setProfLoading(false);
   }, [user]);
+
+  useEffect(() => { fetchProfile(); }, [fetchProfile]);
 
   const handleLogout = async () => {
     localStorage.clear();
@@ -74,6 +72,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-slate-900 text-white pb-10">
+      <Toaster position="top-right" toastOptions={{ style: { background: "#1e293b", color: "#fff", border: "1px solid #334155" } }} />
       <div className="max-w-md mx-auto px-4">
 
         {/* ── Header ─── */}
@@ -109,6 +108,11 @@ export default function Dashboard() {
           </div>
           <p className="text-4xl font-extrabold">${balance.toFixed(2)}</p>
           <p className="text-xs opacity-50 mt-1">USDT</p>
+        </div>
+
+        {/* ── Claim Profit ─── */}
+        <div className="mb-4">
+          <ClaimProfitButton onClaimed={fetchProfile} />
         </div>
 
         {/* ── Stats ─── */}
