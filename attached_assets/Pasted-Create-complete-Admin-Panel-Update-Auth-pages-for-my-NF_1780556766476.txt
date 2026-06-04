@@ -1,0 +1,81 @@
+Create complete Admin Panel + Update Auth pages for my NFT project.
+
+PART 1: UPDATE LOGIN & SIGNUP PAGES
+
+TASK 1 - LOGIN PAGE /login:
+1. Add "Forgot Password?" link below password input
+   - Text color: #1E3A8A, hover: #DC2626 → /forgot-password
+2. Create /forgot-password page with email input + "Send Reset Link" btn #DC2626
+
+TASK 2 - SIGNUP PAGE /signup:
+1. Add checkbox: [ ] I agree to the Terms & Conditions and Privacy Policy
+   - Required - button disabled if unchecked, tick color #DC2626
+   - "Terms & Conditions" + "Privacy Policy" clickable → open modals
+2. Create both modals with dummy text, Close btn #DC2626
+
+PART 2: ADMIN PANEL /admin
+
+1. LOGIN: /admin/login - admin@tiger.com / Admin@123
+
+2. DASHBOARD: /admin/dashboard
+   - Stats: Total Users, Total Deposit, Total Withdraw, Active NFTs
+   - Colors: Headings #1E3A8A, Numbers #DC2626
+
+3. USER MANAGEMENT: /admin/users
+   - Table + Search + Block/Unblock + Add/Deduct Balance
+
+4. WITHDRAW REQUESTS: /admin/withdraws
+   - Approve #DC2626 / Reject actions
+
+5. DEPOSIT CONTROL: /admin/deposits
+   - Table: all deposits
+   - "Manual Add Deposit" button
+
+6. NFT CONTROL: /admin/nfts
+   - Edit price, daily %, duration + Add New NFT
+
+7. SETTINGS: /admin/settings - YAHAN NAYA FEATURE ADD KARO
+   
+   SECTION A - SOCIAL LINKS:
+   - Telegram Link input: https://t.me/+uE-PlUgGg-wzOWRk
+   - Customer Service Link: https://t.me/TigerProtocolGlobal
+   
+   SECTION B - DEPOSIT ADDRESSES: ⭐ IMPORTANT
+   - USDT BEP20 Address input: placeholder "Enter BEP20 address 0x..."
+   - USDT TRC20 Address input: placeholder "Enter TRC20 address T..."
+   - QR Code upload for BEP20 - optional
+   - QR Code upload for TRC20 - optional
+   - Note text: "Ye addresses users ko Deposit page pe dikhenge"
+   
+   SECTION C - LIMITS:
+   - Min Withdraw USDT input
+   - Max Withdraw USDT input
+   
+   - "Save All Settings" button bg #DC2626
+
+PART 3: USER SIDE DEPOSIT PAGE /deposit
+
+Update deposit page to show admin addresses:
+
+1. Fetch admin_settings table se BEP20 + TRC20 addresses
+2. Show 2 tabs: "BEP20" | "TRC20" 
+   - Active tab: border-bottom 2px #DC2626, text #1E3A8A
+3. Selected tab ka address + QR code show karo
+4. "Copy Address" button #DC2626 with copy icon
+5. Warning text: "Only send USDT, minimum 10 USDT" color #DC2626
+6. Upload TXN Screenshot input + "Submit Deposit" btn #DC2626
+7. After submit: Status "Pending" + toast "Admin will verify in 5-30 mins"
+
+DATABASE:
+admin_settings table me ye keys add karo:
+- usdt_bep20_address
+- usdt_trc20_address  
+- bep20_qr_url
+- trc20_qr_url
+- telegram_link
+- customer_service_link
+- min_withdraw
+- max_withdraw
+
+THEME: All pages #F8F9FA bg, #DC2626 primary, #1E3A8A headings
+SECURITY: All /admin/* routes protected

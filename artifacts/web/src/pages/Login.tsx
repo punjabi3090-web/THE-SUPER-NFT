@@ -1,9 +1,38 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Eye, EyeOff, Mail, ArrowLeft } from "lucide-react";
+import { Eye, EyeOff, Mail, ArrowLeft, X } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
 type PageState = "register" | "register_otp" | "login";
+
+const BRAND = { red: "#DC2626", blue: "#1E3A8A", bg: "#F8F9FA" };
+
+function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.5)" }}>
+      <div className="bg-white rounded-2xl w-full max-w-md max-h-[80vh] flex flex-col shadow-2xl">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <h3 className="font-bold text-base" style={{ color: BRAND.blue }}>{title}</h3>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-gray-100 transition-colors" style={{ color: BRAND.red }}>
+            <X size={18} />
+          </button>
+        </div>
+        <div className="overflow-y-auto px-5 py-4 text-sm text-gray-600 leading-relaxed space-y-3">
+          {children}
+        </div>
+        <div className="px-5 py-4 border-t border-gray-100">
+          <button
+            onClick={onClose}
+            className="w-full py-2.5 rounded-xl font-bold text-white text-sm"
+            style={{ background: BRAND.red }}
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Login() {
   const navigate = useNavigate();
@@ -11,6 +40,9 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const [msg, setMsg] = useState({ text: "", type: "" });
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
   const [form, setForm] = useState({
     fullName: "", email: "", confirmEmail: "", password: "",
     confirmPassword: "", phone: "", country: "+92", referralCode: ""
@@ -33,10 +65,10 @@ export default function Login() {
     if (!form.email || form.email !== form.confirmEmail) return showMsg("Emails do not match");
     if (form.password !== form.confirmPassword) return showMsg("Passwords do not match");
     if (form.password.length < 6) return showMsg("Password min 6 chars");
+    if (!agreedToTerms) return showMsg("Please agree to Terms & Conditions");
 
     setLoading(true);
 
-    // Look up referrer's profile id from referral code
     let referredById: string | null = null;
     let referredByEmail: string | null = null;
     if (form.referralCode.trim()) {
@@ -106,22 +138,65 @@ export default function Login() {
     setLoading(false);
   };
 
-  const inp = "w-full bg-white text-slate-900 px-3 py-2.5 rounded-lg border border-purple-200 focus:border-purple-500 outline-none text-sm";
-  const btn = "w-full py-2.5 rounded-lg font-bold text-white text-sm disabled:opacity-50";
-  const grad = { background: 'linear-gradient(135deg, #6b21a8 0%, #4f46e5 100%)' };
+  const inp = `w-full bg-white text-gray-800 px-3 py-2.5 rounded-xl border border-gray-200 focus:border-[#1E3A8A] outline-none text-sm`;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-900 px-4">
+    <div className="min-h-screen flex items-center justify-center px-4 py-8" style={{ background: BRAND.bg }}>
+      {/* Modals */}
+      {showTerms && (
+        <Modal title="Terms & Conditions" onClose={() => setShowTerms(false)}>
+          <p><strong>1. Acceptance of Terms</strong></p>
+          <p>By accessing and using THE SUPER NFT platform, you accept and agree to be bound by these Terms & Conditions.</p>
+          <p><strong>2. NFT Investments</strong></p>
+          <p>All NFT investments carry risk. Past performance is not indicative of future results. Only invest what you can afford to lose.</p>
+          <p><strong>3. Profit Distribution</strong></p>
+          <p>Daily profits are distributed based on NFT package terms. Profits must be claimed manually through the platform.</p>
+          <p><strong>4. Withdrawals</strong></p>
+          <p>Withdrawals are subject to minimum limits and admin approval. Processing time is 5-30 minutes during business hours.</p>
+          <p><strong>5. Account Security</strong></p>
+          <p>Users are responsible for maintaining their account security. Do not share your login credentials with anyone.</p>
+          <p><strong>6. Prohibited Activities</strong></p>
+          <p>Users may not engage in fraud, money laundering, or any illegal activities on the platform.</p>
+          <p><strong>7. Termination</strong></p>
+          <p>THE SUPER NFT reserves the right to terminate accounts that violate these terms.</p>
+        </Modal>
+      )}
+      {showPrivacy && (
+        <Modal title="Privacy Policy" onClose={() => setShowPrivacy(false)}>
+          <p><strong>1. Information We Collect</strong></p>
+          <p>We collect information you provide during registration: name, email, phone number, and country.</p>
+          <p><strong>2. How We Use Your Information</strong></p>
+          <p>Your information is used to provide platform services, process transactions, and communicate important updates.</p>
+          <p><strong>3. Data Security</strong></p>
+          <p>We use industry-standard encryption and security measures to protect your personal data.</p>
+          <p><strong>4. Data Sharing</strong></p>
+          <p>We do not sell or share your personal data with third parties except as required by law.</p>
+          <p><strong>5. Cookies</strong></p>
+          <p>We use cookies to maintain your session and improve user experience on our platform.</p>
+          <p><strong>6. Your Rights</strong></p>
+          <p>You have the right to access, correct, or delete your personal data at any time by contacting support.</p>
+          <p><strong>7. Contact</strong></p>
+          <p>For privacy-related inquiries, contact us through our Customer Service on Telegram.</p>
+        </Modal>
+      )}
+
       {msg.text && (
-        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-lg text-white font-semibold text-sm shadow-lg ${msg.type === "success" ? "bg-green-500" : "bg-red-500"}`}>
+        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-xl text-white font-semibold text-sm shadow-lg ${msg.type === "success" ? "bg-green-500" : "bg-red-500"}`}>
           {msg.text}
         </div>
       )}
 
-      <div className="bg-white rounded-2xl p-8 w-full max-w-md">
-        <h1 className="text-2xl font-bold text-center mb-6 text-slate-900">
-          {page === "login" ? "Login" : page === "register_otp" ? "Verify OTP" : "Create Account"}
-        </h1>
+      <div className="bg-white rounded-2xl p-8 w-full max-w-md shadow-sm border border-gray-100">
+        {/* Logo */}
+        <div className="text-center mb-6">
+          <div className="w-14 h-14 rounded-2xl mx-auto flex items-center justify-center mb-3" style={{ background: BRAND.blue }}>
+            <span className="text-white font-extrabold text-xl">N</span>
+          </div>
+          <h1 className="text-2xl font-bold" style={{ color: BRAND.blue }}>
+            {page === "login" ? "Welcome Back" : page === "register_otp" ? "Verify Email" : "Create Account"}
+          </h1>
+          <p className="text-xs text-gray-400 mt-1">THE SUPER NFT</p>
+        </div>
 
         {/* ── Register Form ─── */}
         {page === "register" && (
@@ -143,8 +218,8 @@ export default function Login() {
               <button
                 onClick={handleSendOtp}
                 disabled={loading}
-                className="px-4 rounded-lg text-white font-bold text-xs whitespace-nowrap disabled:opacity-50"
-                style={grad}
+                className="px-4 rounded-xl text-white font-bold text-xs whitespace-nowrap disabled:opacity-50"
+                style={{ background: BRAND.red }}
               >
                 {loading ? "..." : "Send OTP"}
               </button>
@@ -160,7 +235,7 @@ export default function Login() {
               <select
                 value={form.country}
                 onChange={e => setForm({ ...form, country: e.target.value })}
-                className="w-24 px-2 rounded-lg border border-purple-200 text-sm bg-white"
+                className="w-24 px-2 rounded-xl border border-gray-200 text-sm bg-white text-gray-800"
               >
                 <option value="+92">🇵🇰 +92</option>
                 <option value="+91">🇮🇳 +91</option>
@@ -184,7 +259,7 @@ export default function Login() {
                 onChange={e => setForm({ ...form, password: e.target.value })}
                 className={inp}
               />
-              <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-3 text-slate-400">
+              <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-3 text-gray-400">
                 {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
@@ -202,13 +277,66 @@ export default function Login() {
               className={inp}
             />
             {referrerEmail && (
-              <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 flex items-center gap-2">
+              <div className="bg-green-50 border border-green-200 rounded-xl px-3 py-2 flex items-center gap-2">
                 <span className="text-green-600 text-xs">✓</span>
                 <p className="text-xs text-green-700 font-medium">Referred by: {referrerEmail}</p>
               </div>
             )}
-            <p className="text-xs text-center text-slate-400">Click "Send OTP" to get a 6-digit code on your email</p>
-            <button onClick={() => setPage("login")} className="text-sm text-purple-600 font-semibold w-full text-center">
+
+            {/* Terms & Conditions Checkbox */}
+            <div className="flex items-start gap-2.5 pt-1">
+              <div className="relative flex-shrink-0 mt-0.5">
+                <input
+                  type="checkbox"
+                  id="terms"
+                  checked={agreedToTerms}
+                  onChange={e => setAgreedToTerms(e.target.checked)}
+                  className="sr-only"
+                />
+                <div
+                  onClick={() => setAgreedToTerms(v => !v)}
+                  className="w-4.5 h-4.5 rounded border-2 flex items-center justify-center cursor-pointer transition-colors"
+                  style={{
+                    width: 18, height: 18,
+                    borderColor: agreedToTerms ? BRAND.red : "#D1D5DB",
+                    background: agreedToTerms ? BRAND.red : "white",
+                  }}
+                >
+                  {agreedToTerms && (
+                    <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                      <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  )}
+                </div>
+              </div>
+              <label htmlFor="terms" className="text-xs text-gray-500 leading-relaxed cursor-pointer">
+                I agree to the{" "}
+                <button
+                  type="button"
+                  onClick={e => { e.preventDefault(); setShowTerms(true); }}
+                  className="font-semibold underline"
+                  style={{ color: BRAND.blue }}
+                >
+                  Terms & Conditions
+                </button>
+                {" "}and{" "}
+                <button
+                  type="button"
+                  onClick={e => { e.preventDefault(); setShowPrivacy(true); }}
+                  className="font-semibold underline"
+                  style={{ color: BRAND.blue }}
+                >
+                  Privacy Policy
+                </button>
+              </label>
+            </div>
+
+            <p className="text-xs text-center text-gray-400">Click "Send OTP" to get a 6-digit code on your email</p>
+            <button
+              onClick={() => setPage("login")}
+              className="text-sm font-semibold w-full text-center"
+              style={{ color: BRAND.blue }}
+            >
               Already have an account? Login
             </button>
           </div>
@@ -217,9 +345,9 @@ export default function Login() {
         {/* ── OTP Verify Form ─── */}
         {page === "register_otp" && (
           <form onSubmit={handleVerifyOtp} className="space-y-4">
-            <div className="bg-blue-50 p-4 rounded-xl text-center">
-              <Mail className="mx-auto mb-1 text-blue-600" size={22} />
-              <p className="text-xs text-slate-600">OTP sent to <b>{form.email}</b></p>
+            <div className="rounded-xl p-4 text-center" style={{ background: "#EFF6FF" }}>
+              <Mail className="mx-auto mb-1" size={22} style={{ color: BRAND.blue }} />
+              <p className="text-xs text-gray-600">OTP sent to <b>{form.email}</b></p>
             </div>
             <input
               type="text"
@@ -233,15 +361,15 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading || otpCode.length !== 6}
-              className={btn}
-              style={grad}
+              className="w-full py-3 rounded-xl font-bold text-white text-sm disabled:opacity-50"
+              style={{ background: BRAND.red }}
             >
               {loading ? "Verifying..." : "Verify & Create Account"}
             </button>
             <button
               type="button"
               onClick={() => setPage("register")}
-              className="text-sm text-slate-500 w-full flex items-center justify-center gap-1"
+              className="text-sm text-gray-400 w-full flex items-center justify-center gap-1"
             >
               <ArrowLeft size={14} /> Back to Sign Up
             </button>
@@ -268,17 +396,38 @@ export default function Login() {
                 className={inp}
                 required
               />
-              <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-3 text-slate-400">
+              <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-3 text-gray-400">
                 {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
-            <button type="submit" disabled={loading} className={btn} style={grad}>
+
+            {/* Forgot Password Link */}
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => navigate('/forgot-password')}
+                className="text-xs font-semibold transition-colors"
+                style={{ color: BRAND.blue }}
+                onMouseEnter={e => ((e.target as HTMLElement).style.color = BRAND.red)}
+                onMouseLeave={e => ((e.target as HTMLElement).style.color = BRAND.blue)}
+              >
+                Forgot Password?
+              </button>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 rounded-xl font-bold text-white text-sm disabled:opacity-50"
+              style={{ background: BRAND.red }}
+            >
               {loading ? "Logging in..." : "Login"}
             </button>
             <button
               type="button"
               onClick={() => setPage("register")}
-              className="text-sm text-purple-600 font-semibold w-full text-center"
+              className="text-sm font-semibold w-full text-center"
+              style={{ color: BRAND.blue }}
             >
               No account? Sign Up
             </button>

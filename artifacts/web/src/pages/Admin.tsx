@@ -4,14 +4,17 @@ import { useAuth } from "../lib/useAuth";
 import { supabase } from "../lib/supabase";
 import toast, { Toaster } from "react-hot-toast";
 import {
-  Users, DollarSign, Clock, ShoppingBag,
-  ChevronDown, ChevronUp, Search, Plus, Trash2, Edit2, Check, X, Shield
+  Users, DollarSign, Clock, ShoppingBag, Shield, Search,
+  Plus, Trash2, Edit2, Check, X, ChevronDown, ChevronUp,
+  Settings, Send, Headphones, Link, AlertCircle, RefreshCw,
 } from "lucide-react";
 
-type Tab = "deposits" | "withdrawals" | "users" | "nfts";
+const BRAND = { red: "#DC2626", blue: "#1E3A8A", bg: "#F8F9FA" };
+
+type Tab = "deposits" | "withdrawals" | "users" | "nfts" | "settings";
 
 type DepositRow = {
-  id: string; amount: number; transaction_hash: string | null;
+  id: string; amount: number; tx_hash: string | null; screenshot_url?: string | null;
   status: string; created_at: string; user_id: string;
   profiles: { email: string | null } | null;
 };
@@ -22,7 +25,7 @@ type WithdrawalRow = {
 };
 type UserRow = {
   id: string; email: string | null; balance: number | null;
-  referral_code: string | null; role: string | null; full_name: string | null;
+  referral_code: string | null; role: string | null; full_name: string | null; is_blocked?: boolean;
 };
 type NftPackage = {
   id: string; name: string; price: number;
@@ -32,41 +35,71 @@ type Stats = {
   totalUsers: number; totalDeposits: number;
   pendingWithdrawals: number; totalNftsSold: number;
 };
-
-const tabCls = (active: boolean) =>
-  `px-4 py-2.5 text-sm font-semibold rounded-xl transition-colors ${
-    active ? "bg-purple-600 text-white" : "text-slate-400 hover:text-white hover:bg-slate-700"
-  }`;
-
-const btn = (color: "green" | "red" | "blue" | "purple") => {
-  const map = {
-    green: "bg-emerald-600 hover:bg-emerald-500",
-    red:   "bg-red-600 hover:bg-red-500",
-    blue:  "bg-blue-600 hover:bg-blue-500",
-    purple:"bg-purple-600 hover:bg-purple-500",
-  };
-  return `${map[color]} text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50`;
+type AdminSettings = {
+  telegram_link: string;
+  customer_service_link: string;
+  usdt_bep20_address: string;
+  usdt_trc20_address: string;
+  bep20_qr_url: string;
+  trc20_qr_url: string;
+  min_withdraw: string;
+  max_withdraw: string;
 };
+
+const DEFAULT_SETTINGS: AdminSettings = {
+  telegram_link:          "https://t.me/+uE-PlUgGg-wzOWRk",
+  customer_service_link:  "https://t.me/TigerProtocolGlobal",
+  usdt_bep20_address:     "",
+  usdt_trc20_address:     "",
+  bep20_qr_url:           "",
+  trc20_qr_url:           "",
+  min_withdraw:           "10",
+  max_withdraw:           "10000",
+};
+
+const inp = `w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#1E3A8A] text-gray-800 placeholder-gray-300`;
+
+function ActionBtn({ color, disabled, onClick, children }: {
+  color: "red" | "blue" | "green" | "gray";
+  disabled?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  const bg = { red: BRAND.red, blue: BRAND.blue, green: "#16a34a", gray: "#6B7280" }[color];
+  return (
+    <button
+      disabled={disabled}
+      onClick={onClick}
+      className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-lg text-white disabled:opacity-50 transition-colors"
+      style={{ background: bg }}
+    >
+      {children}
+    </button>
+  );
+}
 
 export default function Admin() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
-  const [role, setRole]       = useState<string | null>(null);
+  const [role, setRole]             = useState<string | null>(null);
   const [roleLoading, setRoleLoading] = useState(true);
-  const [tab, setTab]         = useState<Tab>("deposits");
+  const [tab, setTab]               = useState<Tab>("deposits");
 
   const [deposits, setDeposits]       = useState<DepositRow[]>([]);
   const [withdrawals, setWithdrawals] = useState<WithdrawalRow[]>([]);
   const [users, setUsers]             = useState<UserRow[]>([]);
   const [nfts, setNfts]               = useState<NftPackage[]>([]);
   const [stats, setStats]             = useState<Stats>({ totalUsers: 0, totalDeposits: 0, pendingWithdrawals: 0, totalNftsSold: 0 });
+  const [settings, setSettings]       = useState<AdminSettings>(DEFAULT_SETTINGS);
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [savingSettings, setSavingSettings]   = useState(false);
 
-  const [busy, setBusy]         = useState<Record<string, boolean>>({});
+  const [busy, setBusy]             = useState<Record<string, boolean>>({});
   const [userSearch, setUserSearch] = useState("");
-  const [balEdit, setBalEdit]   = useState<Record<string, string>>({});
-  const [editNft, setEditNft]   = useState<NftPackage | null>(null);
-  const [nftForm, setNftForm]   = useState({ name: "", price: "", daily_profit_percent: "", duration_days: "", image_url: "" });
+  const [balEdit, setBalEdit]       = useState<Record<string, string>>({});
+  const [editNft, setEditNft]       = useState<NftPackage | null>(null);
+  const [nftForm, setNftForm]       = useState({ name: "", price: "", daily_profit_percent: "", duration_days: "", image_url: "" });
   const [showAddNft, setShowAddNft] = useState(false);
 
   useEffect(() => {
@@ -92,19 +125,14 @@ export default function Admin() {
       supabase.from("user_nfts").select("*", { count: "exact", head: true }),
     ]);
     const totalDeposits = (depData ?? []).reduce((s, r) => s + (r.amount ?? 0), 0);
-    setStats({
-      totalUsers: totalUsers ?? 0,
-      totalDeposits,
-      pendingWithdrawals: pendingWithdrawals ?? 0,
-      totalNftsSold: totalNftsSold ?? 0,
-    });
+    setStats({ totalUsers: totalUsers ?? 0, totalDeposits, pendingWithdrawals: pendingWithdrawals ?? 0, totalNftsSold: totalNftsSold ?? 0 });
   }, []);
 
   const loadDeposits = useCallback(async () => {
     const { data } = await supabase
-      .from("deposits").select("*, profiles(email)")
+      .from("deposits").select("id, amount, tx_hash, screenshot_url, status, created_at, user_id, profiles(email)")
       .eq("status", "pending").order("created_at", { ascending: false });
-    setDeposits((data ?? []) as DepositRow[]);
+    setDeposits((data ?? []) as unknown as DepositRow[]);
   }, []);
 
   const loadWithdrawals = useCallback(async () => {
@@ -126,6 +154,17 @@ export default function Admin() {
     setNfts((data ?? []) as NftPackage[]);
   }, []);
 
+  const loadSettings = useCallback(async () => {
+    setSettingsLoading(true);
+    const { data } = await supabase.from("admin_settings").select("key, value");
+    if (data) {
+      const map: Record<string, string> = {};
+      data.forEach((r: { key: string; value: string }) => { map[r.key] = r.value ?? ""; });
+      setSettings({ ...DEFAULT_SETTINGS, ...map });
+    }
+    setSettingsLoading(false);
+  }, []);
+
   useEffect(() => {
     if (role !== "admin") return;
     loadStats();
@@ -133,7 +172,8 @@ export default function Admin() {
     loadWithdrawals();
     loadUsers();
     loadNfts();
-  }, [role, loadStats, loadDeposits, loadWithdrawals, loadUsers, loadNfts]);
+    loadSettings();
+  }, [role, loadStats, loadDeposits, loadWithdrawals, loadUsers, loadNfts, loadSettings]);
 
   const setBusyKey = (k: string, v: boolean) => setBusy(p => ({ ...p, [k]: v }));
 
@@ -145,7 +185,7 @@ export default function Admin() {
     if (!error) await supabase.rpc("increment_balance", { uid: dep.user_id, inc: dep.amount });
     setBusyKey(dep.id, false);
     if (error) { toast.error(error.message); return; }
-    toast.success("Deposit Approved + Balance Added ✓");
+    toast.success("Deposit Approved ✓ Balance Added");
     loadDeposits(); loadStats();
   }
 
@@ -240,50 +280,69 @@ export default function Admin() {
     loadNfts();
   }
 
+  async function saveSettings() {
+    setSavingSettings(true);
+    const rows = Object.entries(settings).map(([key, value]) => ({ key, value: value ?? "" }));
+    const { error } = await supabase.from("admin_settings").upsert(rows, { onConflict: "key" });
+    setSavingSettings(false);
+    if (error) { toast.error("Failed: " + error.message); return; }
+    toast.success("Settings Saved ✓");
+  }
+
   if (authLoading || roleLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900">
-        <div className="w-10 h-10 rounded-full border-4 border-purple-500 border-t-transparent animate-spin" />
+      <div className="min-h-screen flex items-center justify-center" style={{ background: BRAND.bg }}>
+        <div className="w-10 h-10 rounded-full border-4 border-t-transparent animate-spin" style={{ borderColor: `${BRAND.red} transparent transparent transparent` }} />
       </div>
     );
   }
 
   if (role !== "admin") return null;
 
-  const inp = "w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-purple-500";
   const filteredUsers = users.filter(u =>
     !userSearch || (u.email ?? "").toLowerCase().includes(userSearch.toLowerCase())
+      || (u.full_name ?? "").toLowerCase().includes(userSearch.toLowerCase())
   );
 
-  return (
-    <div className="min-h-screen bg-slate-900 text-white pb-16">
-      <Toaster position="top-right" toastOptions={{ style: { background: "#1e293b", color: "#fff", border: "1px solid #334155" } }} />
+  const TABS: { id: Tab; label: string; Icon: React.ElementType }[] = [
+    { id: "deposits",    label: "Deposits",    Icon: DollarSign },
+    { id: "withdrawals", label: "Withdrawals", Icon: Clock },
+    { id: "users",       label: "Users",       Icon: Users },
+    { id: "nfts",        label: "NFTs",        Icon: ShoppingBag },
+    { id: "settings",    label: "Settings",    Icon: Settings },
+  ];
 
-      <div className="max-w-5xl mx-auto px-4">
+  return (
+    <div className="min-h-screen pb-16" style={{ background: BRAND.bg }}>
+      <Toaster position="top-right" toastOptions={{ style: { background: "#fff", color: BRAND.blue, border: "1px solid #e5e7eb" } }} />
+
+      <div className="max-w-3xl mx-auto px-4">
 
         {/* ── Header ── */}
         <div className="flex items-center justify-between pt-10 pb-6">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-600 flex items-center justify-center">
-              <Shield size={20} />
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: BRAND.blue }}>
+              <Shield size={18} className="text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-extrabold">Admin Panel</h1>
-              <p className="text-xs text-slate-400">{user?.email}</p>
+              <h1 className="text-xl font-bold" style={{ color: BRAND.blue }}>Admin Panel</h1>
+              <p className="text-xs text-gray-400">{user?.email}</p>
             </div>
           </div>
           <div className="flex gap-2">
             <button
               onClick={() => navigate("/cron-test")}
-              className="text-sm text-purple-300 hover:text-white bg-purple-900/50 hover:bg-purple-800 px-3 py-2 rounded-xl transition-colors"
+              className="text-xs font-semibold px-3 py-2 rounded-xl border transition-colors"
+              style={{ color: BRAND.blue, borderColor: "#BFDBFE", background: "#EFF6FF" }}
             >
               ⏱ Cron
             </button>
             <button
               onClick={() => navigate("/")}
-              className="text-sm text-slate-400 hover:text-white bg-slate-800 px-3 py-2 rounded-xl transition-colors"
+              className="text-xs font-semibold px-3 py-2 rounded-xl border transition-colors"
+              style={{ color: "#6B7280", borderColor: "#E5E7EB", background: "#F9FAFB" }}
             >
-              ← Dashboard
+              ← Back
             </button>
           </div>
         </div>
@@ -291,23 +350,34 @@ export default function Admin() {
         {/* ── Stats Cards ── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           {[
-            { icon: <Users size={16} />, label: "Total Users",         value: stats.totalUsers,                    color: "text-purple-400" },
-            { icon: <DollarSign size={16} />, label: "Approved Deposits", value: `$${stats.totalDeposits.toFixed(2)}`, color: "text-emerald-400" },
-            { icon: <Clock size={16} />, label: "Pending Withdrawals",  value: stats.pendingWithdrawals,            color: "text-yellow-400" },
-            { icon: <ShoppingBag size={16} />, label: "NFTs Sold",      value: stats.totalNftsSold,                 color: "text-blue-400" },
+            { icon: <Users size={15} />,      label: "Total Users",        value: stats.totalUsers,                    color: BRAND.blue },
+            { icon: <DollarSign size={15} />, label: "Approved Deposits",  value: `$${stats.totalDeposits.toFixed(0)}`, color: "#16a34a" },
+            { icon: <Clock size={15} />,      label: "Pending Withdrawals", value: stats.pendingWithdrawals,            color: BRAND.red },
+            { icon: <ShoppingBag size={15} />,label: "NFTs Sold",          value: stats.totalNftsSold,                 color: "#D97706" },
           ].map(s => (
-            <div key={s.label} className="bg-slate-800 rounded-2xl p-4">
-              <div className={`flex items-center gap-1.5 mb-2 ${s.color}`}>{s.icon}<p className="text-xs text-slate-400">{s.label}</p></div>
-              <p className={`text-2xl font-extrabold ${s.color}`}>{s.value}</p>
+            <div key={s.label} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
+              <div className="flex items-center gap-1.5 mb-2" style={{ color: s.color }}>
+                {s.icon}
+                <p className="text-xs text-gray-400">{s.label}</p>
+              </div>
+              <p className="text-2xl font-bold" style={{ color: s.color }}>{s.value}</p>
             </div>
           ))}
         </div>
 
-        {/* ── Tabs ── */}
-        <div className="flex gap-2 mb-5 overflow-x-auto pb-1">
-          {(["deposits", "withdrawals", "users", "nfts"] as Tab[]).map(t => (
-            <button key={t} onClick={() => setTab(t)} className={tabCls(tab === t)}>
-              {t.charAt(0).toUpperCase() + t.slice(1)}
+        {/* ── Tab Bar ── */}
+        <div className="flex gap-1.5 mb-5 overflow-x-auto pb-1">
+          {TABS.map(({ id, label, Icon }) => (
+            <button
+              key={id}
+              onClick={() => setTab(id)}
+              className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold rounded-xl whitespace-nowrap transition-colors"
+              style={tab === id
+                ? { background: BRAND.blue, color: "white" }
+                : { background: "white", color: "#6B7280", border: "1px solid #E5E7EB" }
+              }
+            >
+              <Icon size={13} /> {label}
             </button>
           ))}
         </div>
@@ -315,27 +385,42 @@ export default function Admin() {
         {/* ─────────── DEPOSITS TAB ─────────── */}
         {tab === "deposits" && (
           <div className="space-y-3">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-bold" style={{ color: BRAND.blue }}>Pending Deposits ({deposits.length})</p>
+              <button onClick={loadDeposits} className="p-1.5 rounded-lg hover:bg-white transition-colors text-gray-400"><RefreshCw size={14} /></button>
+            </div>
             {deposits.length === 0 && (
-              <div className="bg-slate-800 rounded-2xl p-8 text-center text-slate-400 text-sm">No pending deposits</div>
+              <div className="bg-white rounded-2xl p-8 text-center text-gray-400 text-sm border border-gray-100">No pending deposits 🎉</div>
             )}
             {deposits.map(dep => (
-              <div key={dep.id} className="bg-slate-800 rounded-2xl p-4">
+              <div key={dep.id} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="space-y-1 min-w-0">
-                    <p className="text-sm font-semibold text-white">{dep.profiles?.email ?? "—"}</p>
-                    <p className="text-xl font-extrabold text-emerald-400">${dep.amount.toFixed(2)}</p>
-                    {dep.transaction_hash && (
-                      <p className="text-xs text-slate-400 font-mono truncate max-w-[220px]">Tx: {dep.transaction_hash}</p>
+                    <p className="text-sm font-bold" style={{ color: BRAND.blue }}>{dep.profiles?.email ?? "—"}</p>
+                    <p className="text-2xl font-bold" style={{ color: "#16a34a" }}>${dep.amount.toFixed(2)}</p>
+                    {dep.tx_hash && !dep.tx_hash.startsWith("SCREENSHOT") && (
+                      <p className="text-xs text-gray-400 font-mono truncate max-w-[200px]">Tx: {dep.tx_hash}</p>
                     )}
-                    <p className="text-xs text-slate-500">{new Date(dep.created_at).toLocaleString()}</p>
+                    {(dep.screenshot_url || dep.tx_hash?.startsWith("http")) && (
+                      <a
+                        href={dep.screenshot_url ?? dep.tx_hash ?? ""}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs font-semibold underline"
+                        style={{ color: BRAND.blue }}
+                      >
+                        📷 View Screenshot
+                      </a>
+                    )}
+                    <p className="text-xs text-gray-400">{new Date(dep.created_at).toLocaleString()}</p>
                   </div>
                   <div className="flex gap-2 flex-shrink-0">
-                    <button disabled={busy[dep.id]} onClick={() => approveDeposit(dep)} className={btn("green")}>
-                      <Check size={12} className="inline mr-1" />Approve
-                    </button>
-                    <button disabled={busy[dep.id + "r"]} onClick={() => rejectDeposit(dep.id)} className={btn("red")}>
-                      <X size={12} className="inline mr-1" />Reject
-                    </button>
+                    <ActionBtn color="green" disabled={busy[dep.id]} onClick={() => approveDeposit(dep)}>
+                      <Check size={11} /> Approve
+                    </ActionBtn>
+                    <ActionBtn color="red" disabled={busy[dep.id + "r"]} onClick={() => rejectDeposit(dep.id)}>
+                      <X size={11} /> Reject
+                    </ActionBtn>
                   </div>
                 </div>
               </div>
@@ -346,27 +431,31 @@ export default function Admin() {
         {/* ─────────── WITHDRAWALS TAB ─────────── */}
         {tab === "withdrawals" && (
           <div className="space-y-3">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-bold" style={{ color: BRAND.blue }}>Pending Withdrawals ({withdrawals.length})</p>
+              <button onClick={loadWithdrawals} className="p-1.5 rounded-lg hover:bg-white transition-colors text-gray-400"><RefreshCw size={14} /></button>
+            </div>
             {withdrawals.length === 0 && (
-              <div className="bg-slate-800 rounded-2xl p-8 text-center text-slate-400 text-sm">No pending withdrawals</div>
+              <div className="bg-white rounded-2xl p-8 text-center text-gray-400 text-sm border border-gray-100">No pending withdrawals 🎉</div>
             )}
             {withdrawals.map(w => (
-              <div key={w.id} className="bg-slate-800 rounded-2xl p-4">
+              <div key={w.id} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="space-y-1 min-w-0">
-                    <p className="text-sm font-semibold text-white">{w.profiles?.email ?? "—"}</p>
-                    <p className="text-xl font-extrabold text-blue-400">${w.amount.toFixed(2)}</p>
+                    <p className="text-sm font-bold" style={{ color: BRAND.blue }}>{w.profiles?.email ?? "—"}</p>
+                    <p className="text-2xl font-bold" style={{ color: BRAND.red }}>${w.amount.toFixed(2)}</p>
                     {w.wallet_address && (
-                      <p className="text-xs text-slate-400 font-mono truncate max-w-[220px]">Wallet: {w.wallet_address}</p>
+                      <p className="text-xs text-gray-400 font-mono truncate max-w-[200px]">To: {w.wallet_address}</p>
                     )}
-                    <p className="text-xs text-slate-500">{new Date(w.created_at).toLocaleString()}</p>
+                    <p className="text-xs text-gray-400">{new Date(w.created_at).toLocaleString()}</p>
                   </div>
                   <div className="flex gap-2 flex-shrink-0">
-                    <button disabled={busy[w.id]} onClick={() => approveWithdrawal(w.id)} className={btn("green")}>
-                      <Check size={12} className="inline mr-1" />Approve
-                    </button>
-                    <button disabled={busy[w.id + "r"]} onClick={() => rejectWithdrawal(w)} className={btn("red")}>
-                      <X size={12} className="inline mr-1" />Reject + Refund
-                    </button>
+                    <ActionBtn color="green" disabled={busy[w.id]} onClick={() => approveWithdrawal(w.id)}>
+                      <Check size={11} /> Approve
+                    </ActionBtn>
+                    <ActionBtn color="red" disabled={busy[w.id + "r"]} onClick={() => rejectWithdrawal(w)}>
+                      <X size={11} /> Reject + Refund
+                    </ActionBtn>
                   </div>
                 </div>
               </div>
@@ -378,28 +467,29 @@ export default function Admin() {
         {tab === "users" && (
           <div className="space-y-4">
             <div className="relative">
-              <Search size={14} className="absolute left-3 top-3 text-slate-400" />
+              <Search size={14} className="absolute left-3.5 top-3 text-gray-300" />
               <input
-                placeholder="Search by email..."
+                placeholder="Search by email or name..."
                 value={userSearch}
                 onChange={e => setUserSearch(e.target.value)}
-                className={inp + " pl-8"}
+                className={inp + " pl-9"}
               />
             </div>
+            <p className="text-xs text-gray-400">{filteredUsers.length} users</p>
             <div className="space-y-3">
               {filteredUsers.map(u => (
-                <div key={u.id} className="bg-slate-800 rounded-2xl p-4">
+                <div key={u.id} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
                   <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                     <div>
-                      <p className="text-sm font-semibold text-white">{u.email ?? "—"}</p>
+                      <p className="text-sm font-bold" style={{ color: BRAND.blue }}>{u.full_name ?? u.email ?? "—"}</p>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-xs text-slate-400">Code: {u.referral_code ?? "—"}</span>
+                        <p className="text-xs text-gray-400">{u.email ?? "—"}</p>
                         {u.role === "admin" && (
-                          <span className="text-xs bg-purple-700 text-purple-200 px-1.5 py-0.5 rounded font-semibold">ADMIN</span>
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: "#FEF2F2", color: BRAND.red }}>ADMIN</span>
                         )}
                       </div>
                     </div>
-                    <p className="text-lg font-extrabold text-emerald-400">${(u.balance ?? 0).toFixed(2)}</p>
+                    <p className="text-lg font-bold" style={{ color: "#16a34a" }}>${(u.balance ?? 0).toFixed(2)}</p>
                   </div>
                   <div className="flex gap-2">
                     <input
@@ -407,29 +497,21 @@ export default function Admin() {
                       placeholder="±Amount (e.g. 50 or -20)"
                       value={balEdit[u.id] ?? ""}
                       onChange={e => setBalEdit(p => ({ ...p, [u.id]: e.target.value }))}
-                      className={inp + " flex-1 text-xs py-1.5"}
+                      className={inp + " flex-1 py-2 text-xs"}
                     />
-                    <button
-                      disabled={busy["bal_" + u.id]}
-                      onClick={() => updateBalance(u)}
-                      className={btn("blue")}
-                    >
+                    <ActionBtn color="blue" disabled={busy["bal_" + u.id]} onClick={() => updateBalance(u)}>
                       Update
-                    </button>
+                    </ActionBtn>
                     {u.role !== "admin" && (
-                      <button
-                        disabled={busy["adm_" + u.id]}
-                        onClick={() => makeAdmin(u.id)}
-                        className={btn("purple")}
-                      >
-                        <Shield size={11} className="inline mr-1" />Admin
-                      </button>
+                      <ActionBtn color="gray" disabled={busy["adm_" + u.id]} onClick={() => makeAdmin(u.id)}>
+                        <Shield size={10} /> Admin
+                      </ActionBtn>
                     )}
                   </div>
                 </div>
               ))}
               {filteredUsers.length === 0 && (
-                <div className="bg-slate-800 rounded-2xl p-8 text-center text-slate-400 text-sm">No users found</div>
+                <div className="bg-white rounded-2xl p-8 text-center text-gray-400 text-sm border border-gray-100">No users found</div>
               )}
             </div>
           </div>
@@ -438,10 +520,10 @@ export default function Admin() {
         {/* ─────────── NFTs TAB ─────────── */}
         {tab === "nfts" && (
           <div className="space-y-4">
-            {/* Add NFT Form Toggle */}
             <button
               onClick={() => setShowAddNft(v => !v)}
-              className="flex items-center gap-2 bg-purple-700 hover:bg-purple-600 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+              className="flex items-center gap-2 text-white text-sm font-bold px-4 py-2.5 rounded-xl transition-colors"
+              style={{ background: BRAND.blue }}
             >
               <Plus size={14} />
               {showAddNft ? "Cancel" : "Add NFT Package"}
@@ -449,78 +531,89 @@ export default function Admin() {
             </button>
 
             {showAddNft && (
-              <div className="bg-slate-800 rounded-2xl p-5 space-y-3">
-                <p className="text-sm font-semibold text-white mb-1">New NFT Package</p>
+              <div className="bg-white rounded-2xl p-5 space-y-3 border border-gray-100 shadow-sm">
+                <p className="text-sm font-bold mb-1" style={{ color: BRAND.blue }}>New NFT Package</p>
                 {[
-                  { key: "name",                  placeholder: "Package Name *",         type: "text" },
-                  { key: "price",                 placeholder: "Price (USDT) *",         type: "number" },
-                  { key: "daily_profit_percent",  placeholder: "Daily Profit % *",       type: "number" },
-                  { key: "duration_days",         placeholder: "Duration (days) *",      type: "number" },
-                  { key: "image_url",             placeholder: "Image URL (optional)",   type: "text" },
+                  { key: "name",                 placeholder: "Package Name *",       type: "text" },
+                  { key: "price",                placeholder: "Price (USDT) *",       type: "number" },
+                  { key: "daily_profit_percent", placeholder: "Daily Profit % *",     type: "number" },
+                  { key: "duration_days",        placeholder: "Duration (days) *",    type: "number" },
+                  { key: "image_url",            placeholder: "Image URL (optional)", type: "text" },
                 ].map(f => (
                   <input
                     key={f.key}
                     type={f.type}
                     placeholder={f.placeholder}
-                    value={(nftForm as any)[f.key]}
+                    value={(nftForm as Record<string, string>)[f.key]}
                     onChange={e => setNftForm(p => ({ ...p, [f.key]: e.target.value }))}
                     className={inp}
                   />
                 ))}
-                <button onClick={addNft} className={btn("green") + " w-full py-2.5"}>
-                  <Plus size={13} className="inline mr-1" />Add Package
-                </button>
+                <ActionBtn color="green" onClick={addNft}>
+                  <Plus size={12} /> Add Package
+                </ActionBtn>
               </div>
             )}
 
-            {/* NFT List */}
             <div className="space-y-3">
               {nfts.map(nft => (
-                <div key={nft.id} className="bg-slate-800 rounded-2xl p-4">
+                <div key={nft.id} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
                   {editNft?.id === nft.id ? (
                     <div className="space-y-2">
                       {[
-                        { key: "name",                 label: "Name",          type: "text" },
-                        { key: "price",                label: "Price",         type: "number" },
-                        { key: "daily_profit_percent", label: "Daily %",       type: "number" },
-                        { key: "duration_days",        label: "Duration days", type: "number" },
-                        { key: "image_url",            label: "Image URL",     type: "text" },
+                        { key: "name",                 label: "Name",    type: "text" },
+                        { key: "price",                label: "Price",   type: "number" },
+                        { key: "daily_profit_percent", label: "Daily %", type: "number" },
+                        { key: "duration_days",        label: "Days",    type: "number" },
+                        { key: "image_url",            label: "Image URL", type: "text" },
                       ].map(f => (
                         <input
                           key={f.key}
                           type={f.type}
                           placeholder={f.label}
-                          value={String((editNft as any)[f.key] ?? "")}
-                          onChange={e => setEditNft(p => p ? ({ ...p, [f.key]: f.type === "number" ? parseFloat(e.target.value) || 0 : e.target.value }) : p)}
-                          className={inp + " text-xs py-1.5"}
+                          value={String((editNft as Record<string, unknown>)[f.key] ?? "")}
+                          onChange={e => setEditNft(p => p ? ({
+                            ...p,
+                            [f.key]: f.type === "number" ? parseFloat(e.target.value) || 0 : e.target.value
+                          }) : p)}
+                          className={inp + " py-2 text-xs"}
                         />
                       ))}
                       <div className="flex gap-2 pt-1">
-                        <button disabled={busy["nft_" + nft.id]} onClick={saveEditNft} className={btn("green")}>
-                          <Check size={12} className="inline mr-1" />Save
-                        </button>
-                        <button onClick={() => setEditNft(null)} className={btn("red")}>
-                          <X size={12} className="inline mr-1" />Cancel
-                        </button>
+                        <ActionBtn color="green" disabled={busy["nft_" + nft.id]} onClick={saveEditNft}>
+                          <Check size={11} /> Save
+                        </ActionBtn>
+                        <ActionBtn color="red" onClick={() => setEditNft(null)}>
+                          <X size={11} /> Cancel
+                        </ActionBtn>
                       </div>
                     </div>
                   ) : (
                     <div className="flex items-center gap-3">
                       {nft.image_url && (
-                        <img src={nft.image_url} alt={nft.name} className="w-12 h-12 rounded-xl object-cover flex-shrink-0" />
+                        <img src={nft.image_url} alt={nft.name} className="w-12 h-12 rounded-xl object-cover flex-shrink-0 border border-gray-100" />
                       )}
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-white">{nft.name}</p>
-                        <p className="text-xs text-slate-400">
+                        <p className="text-sm font-bold" style={{ color: BRAND.blue }}>{nft.name}</p>
+                        <p className="text-xs text-gray-400">
                           ${nft.price} · {nft.daily_profit_percent}%/day · {nft.duration_days}d
                         </p>
                       </div>
-                      <div className="flex gap-2 flex-shrink-0">
-                        <button onClick={() => setEditNft(nft)} className={btn("blue")}>
-                          <Edit2 size={11} className="inline mr-1" />Edit
+                      <div className="flex gap-1.5 flex-shrink-0">
+                        <button
+                          onClick={() => setEditNft(nft)}
+                          className="p-2 rounded-lg border text-xs font-semibold transition-colors hover:bg-gray-50"
+                          style={{ color: BRAND.blue, borderColor: "#BFDBFE" }}
+                        >
+                          <Edit2 size={12} />
                         </button>
-                        <button disabled={busy["del_" + nft.id]} onClick={() => deleteNft(nft.id)} className={btn("red")}>
-                          <Trash2 size={11} className="inline mr-1" />Delete
+                        <button
+                          disabled={busy["del_" + nft.id]}
+                          onClick={() => deleteNft(nft.id)}
+                          className="p-2 rounded-lg border text-xs font-semibold transition-colors hover:bg-red-50"
+                          style={{ color: BRAND.red, borderColor: "#FECACA" }}
+                        >
+                          <Trash2 size={12} />
                         </button>
                       </div>
                     </div>
@@ -528,9 +621,170 @@ export default function Admin() {
                 </div>
               ))}
               {nfts.length === 0 && (
-                <div className="bg-slate-800 rounded-2xl p-8 text-center text-slate-400 text-sm">No NFT packages yet</div>
+                <div className="bg-white rounded-2xl p-8 text-center text-gray-400 text-sm border border-gray-100">No NFT packages yet</div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* ─────────── SETTINGS TAB ─────────── */}
+        {tab === "settings" && (
+          <div className="space-y-5">
+            {settingsLoading ? (
+              <div className="flex justify-center py-10">
+                <div className="w-8 h-8 rounded-full border-4 border-t-transparent animate-spin" style={{ borderColor: `${BRAND.red} transparent transparent transparent` }} />
+              </div>
+            ) : (
+              <>
+                {/* Section A — Social Links */}
+                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "#EFF6FF" }}>
+                      <Link size={14} style={{ color: BRAND.blue }} />
+                    </div>
+                    <p className="text-sm font-bold" style={{ color: BRAND.blue }}>Section A — Social Links</p>
+                  </div>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="flex items-center gap-1.5 text-xs text-gray-500 font-medium mb-1.5">
+                        <Send size={12} style={{ color: BRAND.red }} /> Telegram Link
+                      </label>
+                      <input
+                        type="url"
+                        placeholder="https://t.me/..."
+                        value={settings.telegram_link}
+                        onChange={e => setSettings(p => ({ ...p, telegram_link: e.target.value }))}
+                        className={inp}
+                      />
+                    </div>
+                    <div>
+                      <label className="flex items-center gap-1.5 text-xs text-gray-500 font-medium mb-1.5">
+                        <Headphones size={12} style={{ color: BRAND.red }} /> Customer Service Link
+                      </label>
+                      <input
+                        type="url"
+                        placeholder="https://t.me/..."
+                        value={settings.customer_service_link}
+                        onChange={e => setSettings(p => ({ ...p, customer_service_link: e.target.value }))}
+                        className={inp}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section B — Deposit Addresses */}
+                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "#FEF2F2" }}>
+                      <DollarSign size={14} style={{ color: BRAND.red }} />
+                    </div>
+                    <p className="text-sm font-bold" style={{ color: BRAND.blue }}>Section B — Deposit Addresses</p>
+                  </div>
+                  <div className="flex items-start gap-1.5 mb-4 rounded-xl p-3" style={{ background: "#FFF7ED" }}>
+                    <AlertCircle size={13} className="flex-shrink-0 mt-0.5 text-orange-400" />
+                    <p className="text-xs text-orange-600">These addresses will be shown to users on the Deposit page</p>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">USDT BEP20 (BSC)</p>
+                      <input
+                        type="text"
+                        placeholder="Enter BEP20 address 0x..."
+                        value={settings.usdt_bep20_address}
+                        onChange={e => setSettings(p => ({ ...p, usdt_bep20_address: e.target.value }))}
+                        className={inp + " font-mono text-xs"}
+                      />
+                      <div>
+                        <p className="text-xs text-gray-400 mb-1.5">QR Code URL (optional)</p>
+                        <input
+                          type="url"
+                          placeholder="https://... (paste image URL)"
+                          value={settings.bep20_qr_url}
+                          onChange={e => setSettings(p => ({ ...p, bep20_qr_url: e.target.value }))}
+                          className={inp}
+                        />
+                        {settings.bep20_qr_url && (
+                          <img src={settings.bep20_qr_url} alt="BEP20 QR" className="mt-2 w-28 h-28 rounded-xl object-contain border border-gray-200" />
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="h-px bg-gray-100" />
+
+                    <div className="space-y-2">
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">USDT TRC20 (TRON)</p>
+                      <input
+                        type="text"
+                        placeholder="Enter TRC20 address T..."
+                        value={settings.usdt_trc20_address}
+                        onChange={e => setSettings(p => ({ ...p, usdt_trc20_address: e.target.value }))}
+                        className={inp + " font-mono text-xs"}
+                      />
+                      <div>
+                        <p className="text-xs text-gray-400 mb-1.5">QR Code URL (optional)</p>
+                        <input
+                          type="url"
+                          placeholder="https://... (paste image URL)"
+                          value={settings.trc20_qr_url}
+                          onChange={e => setSettings(p => ({ ...p, trc20_qr_url: e.target.value }))}
+                          className={inp}
+                        />
+                        {settings.trc20_qr_url && (
+                          <img src={settings.trc20_qr_url} alt="TRC20 QR" className="mt-2 w-28 h-28 rounded-xl object-contain border border-gray-200" />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section C — Limits */}
+                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "#F0FDF4" }}>
+                      <AlertCircle size={14} className="text-green-600" />
+                    </div>
+                    <p className="text-sm font-bold" style={{ color: BRAND.blue }}>Section C — Withdraw Limits</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-gray-500 font-medium mb-1.5 block">Min Withdraw (USDT)</label>
+                      <input
+                        type="number"
+                        placeholder="e.g. 10"
+                        value={settings.min_withdraw}
+                        onChange={e => setSettings(p => ({ ...p, min_withdraw: e.target.value }))}
+                        className={inp}
+                        min="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 font-medium mb-1.5 block">Max Withdraw (USDT)</label>
+                      <input
+                        type="number"
+                        placeholder="e.g. 10000"
+                        value={settings.max_withdraw}
+                        onChange={e => setSettings(p => ({ ...p, max_withdraw: e.target.value }))}
+                        className={inp}
+                        min="0"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Save Button */}
+                <button
+                  onClick={saveSettings}
+                  disabled={savingSettings}
+                  className="w-full py-4 rounded-2xl font-bold text-white text-sm disabled:opacity-50 transition-all active:scale-95 flex items-center justify-center gap-2"
+                  style={{ background: BRAND.red }}
+                >
+                  {savingSettings
+                    ? <><RefreshCw size={16} className="animate-spin" /> Saving...</>
+                    : <><Check size={16} /> Save All Settings</>
+                  }
+                </button>
+              </>
+            )}
           </div>
         )}
 
