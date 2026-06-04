@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import {
   LogOut, Shield, Users, ShoppingBag, Copy, Check,
-  Mail, Phone, Globe, Hash, Calendar
+  Mail, Phone, Globe, Hash, Calendar, ChevronRight,
 } from "lucide-react";
 
 type Profile = {
@@ -51,8 +51,8 @@ export default function ProfileTab() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="w-10 h-10 rounded-full border-4 border-purple-500 border-t-transparent animate-spin" />
+      <div className="flex items-center justify-center min-h-[60vh]" style={{ background: "#F8F9FA" }}>
+        <div className="w-10 h-10 rounded-full border-4 border-t-transparent animate-spin" style={{ borderColor: "#DC2626 transparent transparent transparent" }} />
       </div>
     );
   }
@@ -62,26 +62,32 @@ export default function ProfileTab() {
   const isAdmin     = profile?.role === "admin";
 
   return (
-    <div className="max-w-md mx-auto px-4 pt-10 pb-4">
-      <h1 className="text-2xl font-extrabold text-white mb-6">Profile</h1>
+    <div className="max-w-md mx-auto px-4 pt-10 pb-4" style={{ background: "#F8F9FA", minHeight: "100vh" }}>
+      <h1 className="text-2xl font-bold mb-6" style={{ color: "#1E3A8A" }}>Profile</h1>
 
       {/* ── Avatar + Name ── */}
-      <div className="bg-slate-800 rounded-3xl p-6 flex items-center gap-4 mb-4">
+      <div className="bg-white rounded-3xl p-6 flex items-center gap-4 mb-4 shadow-sm border border-gray-100">
         <div
-          className="w-16 h-16 rounded-2xl flex items-center justify-center text-white text-2xl font-extrabold flex-shrink-0"
-          style={{ background: "linear-gradient(135deg, #6b21a8, #4f46e5)" }}
+          className="w-16 h-16 rounded-2xl flex items-center justify-center text-white text-2xl font-bold flex-shrink-0"
+          style={{ background: "#1E3A8A" }}
         >
           {initial}
         </div>
-        <div className="min-w-0">
-          <p className="text-lg font-extrabold text-white truncate">{displayName}</p>
-          <p className="text-xs text-slate-400 truncate">{email ?? "—"}</p>
+        <div className="min-w-0 flex-1">
+          <p className="text-lg font-bold truncate" style={{ color: "#1E3A8A" }}>{displayName}</p>
+          <p className="text-xs text-gray-500 truncate">{email ?? "—"}</p>
           <div className="flex items-center gap-2 mt-1.5">
-            <span className="text-[10px] bg-purple-700/40 text-purple-300 border border-purple-600/30 px-2 py-0.5 rounded-full font-semibold">
+            <span
+              className="text-[10px] px-2 py-0.5 rounded-full font-semibold border"
+              style={{ color: "#1E3A8A", background: "#EFF6FF", borderColor: "#BFDBFE" }}
+            >
               Level {profile?.level ?? 1}
             </span>
             {isAdmin && (
-              <span className="text-[10px] bg-amber-700/40 text-amber-300 border border-amber-600/30 px-2 py-0.5 rounded-full font-semibold">
+              <span
+                className="text-[10px] px-2 py-0.5 rounded-full font-semibold border"
+                style={{ color: "#DC2626", background: "#FEF2F2", borderColor: "#FECACA" }}
+              >
                 Admin
               </span>
             )}
@@ -90,9 +96,9 @@ export default function ProfileTab() {
       </div>
 
       {/* ── Info Rows ── */}
-      <div className="bg-slate-800 rounded-2xl p-5 mb-4">
-        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Account Details</p>
-        <div className="divide-y divide-slate-700/60">
+      <div className="bg-white rounded-2xl p-5 mb-4 shadow-sm border border-gray-100">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Account Details</p>
+        <div className="divide-y divide-gray-100">
           {[
             { Icon: Mail,     label: "Email",         value: email },
             { Icon: Hash,     label: "Referral Code", value: profile?.referral_code },
@@ -103,11 +109,11 @@ export default function ProfileTab() {
                 : null },
           ].map(row => (
             <div key={row.label} className="flex items-center justify-between py-3 gap-3">
-              <div className="flex items-center gap-2 text-slate-400">
+              <div className="flex items-center gap-2 text-gray-400">
                 <row.Icon size={13} />
                 <p className="text-xs">{row.label}</p>
               </div>
-              <p className="text-xs font-medium text-white text-right truncate max-w-[55%]">
+              <p className="text-xs font-semibold text-right truncate max-w-[55%]" style={{ color: "#1E3A8A" }}>
                 {row.value || "—"}
               </p>
             </div>
@@ -117,57 +123,52 @@ export default function ProfileTab() {
 
       {/* ── Referral Link ── */}
       {profile?.referral_code && (
-        <div className="bg-slate-800 rounded-2xl p-5 mb-4">
+        <div className="bg-white rounded-2xl p-5 mb-4 shadow-sm border border-gray-100">
           <div className="flex items-center gap-2 mb-3">
-            <Users size={14} className="text-purple-400" />
-            <p className="text-sm font-semibold text-white">My Referral Link</p>
+            <Users size={14} style={{ color: "#DC2626" }} />
+            <p className="text-sm font-bold" style={{ color: "#1E3A8A" }}>My Referral Link</p>
           </div>
-          <div className="bg-slate-700/60 rounded-xl px-3 py-3 flex items-center gap-2">
-            <p className="text-xs text-slate-300 font-mono flex-1 truncate">
+          <div className="rounded-xl px-3 py-3 flex items-center gap-2" style={{ background: "#F8F9FA", border: "1px solid #e5e7eb" }}>
+            <p className="text-xs font-mono flex-1 truncate text-gray-500">
               {`${window.location.origin}/login?ref=${profile.referral_code}`}
             </p>
-            <button onClick={handleCopy} className="text-purple-400 hover:text-purple-300 p-1 flex-shrink-0">
+            <button onClick={handleCopy} className="p-1 flex-shrink-0" style={{ color: "#DC2626" }}>
               {copied ? <Check size={15} /> : <Copy size={15} />}
             </button>
           </div>
-          {copied && <p className="text-xs text-emerald-400 mt-2 text-center font-medium">✓ Copied!</p>}
+          {copied && <p className="text-xs text-green-600 mt-2 text-center font-medium">✓ Copied!</p>}
         </div>
       )}
 
       {/* ── Action Buttons ── */}
-      <div className="space-y-3">
-        <button
-          onClick={() => navigate("/team")}
-          className="w-full flex items-center gap-3 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl px-5 py-4 transition-colors"
-        >
-          <Users size={18} className="text-purple-400" />
-          <span className="text-sm font-semibold">My Team</span>
-        </button>
-
-        <button
-          onClick={() => navigate("/nft")}
-          className="w-full flex items-center gap-3 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl px-5 py-4 transition-colors"
-        >
-          <ShoppingBag size={18} className="text-blue-400" />
-          <span className="text-sm font-semibold">NFT Collections</span>
-        </button>
-
-        {isAdmin && (
+      <div className="space-y-2">
+        {[
+          { icon: <Users size={18} />, label: "My Team",          onClick: () => navigate("/team"),  accent: "#1E3A8A" },
+          { icon: <ShoppingBag size={18} />, label: "NFT Collections", onClick: () => navigate("/nft"), accent: "#1E3A8A" },
+          ...(isAdmin ? [{ icon: <Shield size={18} />, label: "Admin Panel", onClick: () => navigate("/admin"), accent: "#DC2626" }] : []),
+        ].map(btn => (
           <button
-            onClick={() => navigate("/admin")}
-            className="w-full flex items-center gap-3 bg-purple-900/40 hover:bg-purple-800/50 border border-purple-700/40 text-white rounded-2xl px-5 py-4 transition-colors"
+            key={btn.label}
+            onClick={btn.onClick}
+            className="w-full flex items-center justify-between bg-white rounded-2xl px-5 py-4 transition-colors hover:bg-gray-50 shadow-sm border border-gray-100"
           >
-            <Shield size={18} className="text-purple-400" />
-            <span className="text-sm font-semibold">Admin Panel</span>
+            <div className="flex items-center gap-3">
+              <span style={{ color: btn.accent }}>{btn.icon}</span>
+              <span className="text-sm font-semibold" style={{ color: "#1E3A8A" }}>{btn.label}</span>
+            </div>
+            <ChevronRight size={16} className="text-gray-300" />
           </button>
-        )}
+        ))}
 
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-3 bg-red-900/30 hover:bg-red-900/50 border border-red-700/30 text-red-400 rounded-2xl px-5 py-4 transition-colors"
+          className="w-full flex items-center gap-3 rounded-2xl px-5 py-4 transition-colors border font-semibold text-sm"
+          style={{ color: "#DC2626", borderColor: "#FECACA", background: "#FEF2F2" }}
+          onMouseEnter={e => ((e.target as HTMLElement).closest("button")!.style.background = "#FEE2E2")}
+          onMouseLeave={e => ((e.target as HTMLElement).closest("button")!.style.background = "#FEF2F2")}
         >
           <LogOut size={18} />
-          <span className="text-sm font-semibold">Logout</span>
+          Logout
         </button>
       </div>
     </div>

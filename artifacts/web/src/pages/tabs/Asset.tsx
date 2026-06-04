@@ -8,10 +8,10 @@ type Tx      = { id: string; type: string; amount: number; description: string |
 
 export default function AssetTab() {
   const navigate = useNavigate();
-  const [profile, setProfile]     = useState<Profile | null>(null);
-  const [txs, setTxs]             = useState<Tx[]>([]);
+  const [profile, setProfile]       = useState<Profile | null>(null);
+  const [txs, setTxs]               = useState<Tx[]>([]);
   const [claimedSum, setClaimedSum] = useState(0);
-  const [loading, setLoading]     = useState(true);
+  const [loading, setLoading]       = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async (silent = false) => {
@@ -38,22 +38,22 @@ export default function AssetTab() {
   useEffect(() => { load(); }, [load]);
 
   const txIcon = (type: string) => {
-    if (type === "nft_profit") return <TrendingUp size={13} className="text-emerald-400" />;
-    if (type === "deposit")    return <ArrowDownLeft size={13} className="text-blue-400" />;
-    if (type === "withdraw")   return <ArrowUpRight size={13} className="text-red-400" />;
-    return <Clock size={13} className="text-slate-400" />;
+    if (type === "nft_profit") return <TrendingUp size={13} style={{ color: "#16a34a" }} />;
+    if (type === "deposit")    return <ArrowDownLeft size={13} style={{ color: "#1E3A8A" }} />;
+    if (type === "withdraw")   return <ArrowUpRight size={13} style={{ color: "#DC2626" }} />;
+    return <Clock size={13} className="text-gray-400" />;
   };
 
   const txColor = (type: string) => {
-    if (type === "nft_profit" || type === "deposit") return "text-emerald-400";
-    if (type === "withdraw") return "text-red-400";
-    return "text-slate-300";
+    if (type === "nft_profit" || type === "deposit") return "#16a34a";
+    if (type === "withdraw") return "#DC2626";
+    return "#1E3A8A";
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="w-10 h-10 rounded-full border-4 border-purple-500 border-t-transparent animate-spin" />
+      <div className="flex items-center justify-center min-h-[60vh]" style={{ background: "#F8F9FA" }}>
+        <div className="w-10 h-10 rounded-full border-4 border-t-transparent animate-spin" style={{ borderColor: "#DC2626 transparent transparent transparent" }} />
       </div>
     );
   }
@@ -63,16 +63,19 @@ export default function AssetTab() {
   const withdrawn = profile?.total_withdrawn ?? 0;
 
   return (
-    <div className="max-w-md mx-auto px-4 pt-10 pb-4">
+    <div className="max-w-md mx-auto px-4 pt-10 pb-4" style={{ background: "#F8F9FA", minHeight: "100vh" }}>
+
+      {/* ── Header ── */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-extrabold text-white">Assets</h1>
-          <p className="text-slate-400 text-sm mt-0.5">Your full financial overview</p>
+          <h1 className="text-2xl font-bold" style={{ color: "#1E3A8A" }}>Assets</h1>
+          <p className="text-gray-500 text-sm mt-0.5">Your full financial overview</p>
         </div>
         <button
           onClick={() => load(true)}
           disabled={refreshing}
-          className="p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white transition-colors"
+          className="p-2 rounded-xl bg-white border border-gray-200 transition-colors hover:bg-gray-50"
+          style={{ color: "#1E3A8A" }}
         >
           <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
         </button>
@@ -81,30 +84,30 @@ export default function AssetTab() {
       {/* ── Balance Card ── */}
       <div
         className="rounded-3xl p-6 mb-4 relative overflow-hidden"
-        style={{ background: "linear-gradient(135deg, #6b21a8 0%, #4f46e5 100%)" }}
+        style={{ background: "#1E3A8A" }}
       >
-        <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-white/5 -translate-y-8 translate-x-8" />
+        <div className="absolute top-0 right-0 w-32 h-32 rounded-full opacity-10 bg-white -translate-y-8 translate-x-8" />
         <div className="relative z-10">
           <div className="flex items-center gap-1.5 mb-1 opacity-70">
-            <Wallet size={13} />
-            <p className="text-xs font-medium">Available Balance</p>
+            <Wallet size={13} className="text-white" />
+            <p className="text-xs font-medium text-white">Available Balance</p>
           </div>
-          <p className="text-4xl font-extrabold">${balance.toFixed(2)}</p>
-          <p className="text-xs opacity-50 mt-1">USDT</p>
+          <p className="text-4xl font-bold text-white">${balance.toFixed(2)}</p>
+          <p className="text-xs text-white opacity-50 mt-1">USDT</p>
         </div>
       </div>
 
       {/* ── Stats Grid ── */}
       <div className="grid grid-cols-3 gap-3 mb-5">
         {[
-          { label: "Total Earned",  value: `$${earned.toFixed(2)}`,    color: "text-emerald-400", Icon: TrendingUp },
-          { label: "Total Claimed", value: `$${claimedSum.toFixed(2)}`, color: "text-purple-400",  Icon: Wallet },
-          { label: "Withdrawn",     value: `$${withdrawn.toFixed(2)}`,  color: "text-blue-400",    Icon: ArrowUpRight },
+          { label: "Total Earned",  value: `$${earned.toFixed(2)}`,     color: "#16a34a",  bg: "#F0FDF4", Icon: TrendingUp },
+          { label: "Total Claimed", value: `$${claimedSum.toFixed(2)}`, color: "#DC2626",  bg: "#FEF2F2", Icon: Wallet },
+          { label: "Withdrawn",     value: `$${withdrawn.toFixed(2)}`,  color: "#1E3A8A",  bg: "#EFF6FF", Icon: ArrowUpRight },
         ].map(s => (
-          <div key={s.label} className="bg-slate-800 rounded-2xl p-3 text-center">
-            <s.Icon size={14} className={`${s.color} mx-auto mb-1.5`} />
-            <p className={`text-base font-extrabold ${s.color}`}>{s.value}</p>
-            <p className="text-[9px] text-slate-500 mt-0.5 leading-tight">{s.label}</p>
+          <div key={s.label} className="rounded-2xl p-3 text-center border border-gray-100 bg-white shadow-sm">
+            <s.Icon size={14} style={{ color: s.color }} className="mx-auto mb-1.5" />
+            <p className="text-base font-bold" style={{ color: s.color }}>{s.value}</p>
+            <p className="text-[9px] text-gray-400 mt-0.5 leading-tight">{s.label}</p>
           </div>
         ))}
       </div>
@@ -113,44 +116,50 @@ export default function AssetTab() {
       <div className="grid grid-cols-2 gap-3 mb-5">
         <button
           onClick={() => navigate("/deposit")}
-          className="flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-600 text-white font-semibold text-sm rounded-2xl py-3.5 transition-colors"
+          className="flex items-center justify-center gap-2 text-white font-semibold text-sm rounded-2xl py-3.5 transition-colors active:scale-95"
+          style={{ background: "#DC2626" }}
+          onMouseEnter={e => ((e.target as HTMLElement).closest("button")!.style.background = "#b91c1c")}
+          onMouseLeave={e => ((e.target as HTMLElement).closest("button")!.style.background = "#DC2626")}
         >
           <ArrowDownLeft size={15} /> Deposit
         </button>
         <button
           onClick={() => navigate("/withdraw")}
-          className="flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-white font-semibold text-sm rounded-2xl py-3.5 transition-colors"
+          className="flex items-center justify-center gap-2 font-semibold text-sm rounded-2xl py-3.5 transition-colors active:scale-95 border"
+          style={{ color: "#1E3A8A", borderColor: "#1E3A8A", background: "white" }}
+          onMouseEnter={e => ((e.target as HTMLElement).closest("button")!.style.background = "#EFF6FF")}
+          onMouseLeave={e => ((e.target as HTMLElement).closest("button")!.style.background = "white")}
         >
           <ArrowUpRight size={15} /> Withdraw
         </button>
       </div>
 
       {/* ── Transaction History ── */}
-      <div className="bg-slate-800 rounded-2xl p-5">
+      <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
         <div className="flex items-center justify-between mb-4">
-          <p className="text-sm font-semibold text-white">Transaction History</p>
-          <span className="text-xs text-slate-500">{txs.length} records</span>
+          <p className="text-sm font-bold" style={{ color: "#1E3A8A" }}>Transaction History</p>
+          <span className="text-xs text-gray-400">{txs.length} records</span>
         </div>
         {txs.length === 0 ? (
-          <p className="text-xs text-slate-400 text-center py-6">No transactions yet</p>
+          <p className="text-xs text-gray-400 text-center py-6">No transactions yet</p>
         ) : (
-          <div className="divide-y divide-slate-700/50">
+          <div className="divide-y divide-gray-100">
             {txs.map(tx => (
               <div key={tx.id} className="flex items-center justify-between py-3">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-8 h-8 rounded-xl bg-slate-700 flex items-center justify-center flex-shrink-0">
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "#F8F9FA" }}>
                     {txIcon(tx.type)}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs font-medium text-white capitalize truncate">
+                    <p className="text-xs font-semibold capitalize truncate" style={{ color: "#1E3A8A" }}>
                       {tx.description ?? tx.type.replace(/_/g, " ")}
                     </p>
-                    <p className="text-[10px] text-slate-500">
+                    <p className="text-[10px] text-gray-400">
                       {new Date(tx.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                     </p>
                   </div>
                 </div>
-                <p className={`text-sm font-extrabold flex-shrink-0 ml-2 ${txColor(tx.type)}`}>
+                <p className="text-sm font-bold flex-shrink-0 ml-2" style={{ color: txColor(tx.type) }}>
                   {tx.type === "withdraw" ? "-" : "+"}${Math.abs(tx.amount).toFixed(2)}
                 </p>
               </div>
