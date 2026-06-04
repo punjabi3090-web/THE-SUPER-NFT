@@ -1,0 +1,134 @@
+Build 4 real-time sections + Admin menu on home page using Supabase auth. Delete all old/fake sections first.
+
+FINAL ORDER ON PAGE:
+1. Stats Table
+2. My Team Section
+3. My Orders Section
+4. Claim Profit Button
+
+=== DELETE THESE OLD THINGS FIRST ===
+1. Remove Level 1, Level 2, Level 3 boxes
+2. Remove Deposit, Withdraw, NFT buttons from My Team area
+3. Remove any hardcoded/fake data sections
+
+=== SECTION 1: STATS TABLE ===
+Container: bg-gray-900 rounded-lg p-4 mb-4
+
+2 Column Table:
+| Daily Income | [today's approved deposits sum] |
+| Total Income | [all approved deposits sum] |
+| Comprehensive 20 | 20 |
+| Claim | 1.5 | 1.5 |
+| Team | [referral count] |
+| Activity | [total deposits count] |
+| Bid | [latest deposit amount] |
+
+QUERIES:
+1. Daily: SELECT COALESCE(SUM(amount),0) FROM deposits WHERE user_id = auth.uid() AND status = 'approved' AND created_at >= CURRENT_DATE
+2. Total: SELECT COALESCE(SUM(amount),0) FROM deposits WHERE user_id = auth.uid() AND status = 'approved'
+3. Team: SELECT COUNT(*) FROM users WHERE referred_by = auth.uid()
+4. Activity: SELECT COUNT(*) FROM deposits WHERE user_id = auth.uid()
+5. Bid: SELECT COALESCE(amount,0) FROM deposits WHERE user_id = auth.uid() ORDER BY created_at DESC LIMIT 1
+
+=== SECTION 2: MY TEAM ===
+Container: bg-white rounded-xl p-4 shadow-sm mb-4
+Title: "My Team" - text-lg font-semibold text-left mb-3
+
+Grid: grid-cols-4 gap-2
+
+BOX 1: [community_rewards] | "Community" "rewards" | Users icon blue | "Community enthusiasts"
+BOX 2: [valid_members] | "Valid" "Members" | Trophy icon yellow | "Community contributions" 
+BOX 3: [a_enthusiast] | "A enthusiast" "" | FileText icon blue | "Community orders"
+BOX 4: [bc_enthusiast] | "B+C" "enthusiasts" | Share2 icon green | "Referral"
+
+QUERIES:
+1. Community rewards: SELECT COUNT(*) FROM users WHERE referred_by = auth.uid()
+2. Valid Members: SELECT COUNT(DISTINCT user_id) FROM deposits WHERE referred_by = auth.uid() AND status = 'approved' AND amount > 0
+3. A enthusiast: SELECT COUNT(DISTINCT user_id) FROM deposits WHERE referred_by = auth.uid() AND status = 'approved' AND amount >= 100
+4. B+C enthusiasts: SELECT COUNT(DISTINCT user_id) FROM deposits WHERE referred_by = auth.uid() AND status = 'approved' AND amount >= 20 AND amount < 100
+
+=== SECTION 3: MY ORDERS ===
+Container: bg-white rounded-xl p-4 shadow-sm mb-4
+Header: "My Orders" left | "Check Orders >" right linking to /orders
+
+Grid: grid-cols-4 gap-2
+
+BOX 1: [total_orders] | "Orders" | ShoppingCart icon blue | "My Bid"
+BOX 2: [processing] | "Processing" | Clock icon yellow | ""
+BOX 3: [bought] | "Bought" | ArrowDownCircle icon green | ""
+BOX 4: [sold] | "Sold" | ArrowUpCircle icon red | "Details"
+
+QUERIES - USE deposits/withdraws TABLES:
+1. Orders: SELECT COUNT(*) FROM deposits WHERE user_id = auth.uid()
+2. Processing: SELECT COUNT(*) FROM deposits WHERE user_id = auth.uid() AND status = 'pending'
+3. Bought: SELECT COUNT(*) FROM deposits WHERE user_id = auth.uid() AND status = 'approved'
+4. Sold: SELECT COUNT(*) FROM withdraws WHERE user_id = auth.uid() AND status = 'approved'
+
+=== SECTION 4: ADMIN PANEL BUTTON IN 3-DOT MENU ===
+Location: Top right header 3 dots ⋮ dropdown menu
+
+LOGIC:
+1. Check if user is admin: SELECT * FROM admins WHERE email = user.email
+2. If admin exists, show "Admin Panel" button with Shield icon in dropdown
+3. If not admin, hide completely
+4. On click: router.push('/admin/dashboard')
+
+CODE:
+const [isAdmin, setIsAdmin] = useState(false)
+useEffect(() => {
+  async function checkAdmin() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data: admin } = await supabase.from('admins').select('email').eq('email', user.email).single()
+    if (admin) setIsAdmin(true)
+  }
+  checkAdmin()
+}, [])
+
+In dropdown: {isAdmin && (<button onClick={() => router.push('/admin/dashboard')} className="flex items-center gap-2 w-full px-4 py-2 hover:bg-gray-100"><Shield className="w-4 h-4" />Admin Panel</button>)}
+
+=== GLOBAL REQUIREMENTS ===
+1. Get user: const { data: { user } } = await supabase.auth.getUser()
+2. If no user logged in, show 0 in all values
+3. Use existing supabase client
+4. Auto-refresh every 30 seconds
+5. Add loading skeleton for all sections
+6. Use lucide-react: Users, Trophy, FileText, Share2, ShoppingCart, Clock, ArrowDownCircle, ArrowUpCircle, Shield
+7. Responsive: mobile grid-cols-4, desktop grid-cols-4
+8. Number: text-2xl font-bold text-gray-900
+9. Label: text-xs text-gray-500 mt-1
+10. Icons: w-6 h-6 mx-auto mt-2
+
+=== RLS POLICIES ===
+ALTER TABLE deposits ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users view own deposits" ON deposits FOR SELECT USING (auth.uid() = user_id);
+
+ALTER TABLE withdraws ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users view own withdraws" ON withdraws FOR SELECT USING (auth.uid() = user_id);
+
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users view referrals" ON users FOR SELECT USING (auth.uid() = id OR auth.uid() = referred_by);
+
+ALTER TABLE admins ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Only admins access" ON admins FOR SELECT USING (auth.jwt() ->> 'email' = email);
+
+=== DATABASE SETUP ===
+ALTER TABLE users ADD COLUMN IF NOT EXISTS referred_by UUID REFERENCES auth.users(id);
+ALTER TABLE deposits ADD COLUMN IF NOT EXISTS referred_by UUID;
+
+CREATE TABLE IF NOT EXISTS admins (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email TEXT UNIQUE NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+INSERT INTO admins (email) VALUES ('thesupernftref88rk56@gmail.com') ON CONFLICT DO NOTHING;
+
+IMPORTANT:
+- All sections use REAL Supabase data for logged-in user
+- Comprehensive 20 and Claim 1.5 are static
+- When user clicks Claim Profit, "Bought" count should +1
+- Admin Panel button only visible to thesupernftref88rk56@gmail.com
+- Use NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+Test: Login with admin email and check all 4 sections + 3-dot admin button work.

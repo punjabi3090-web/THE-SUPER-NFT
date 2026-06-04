@@ -3,29 +3,40 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import toast, { Toaster } from "react-hot-toast";
 import {
-  DollarSign, Sparkles, RefreshCw, ArrowDownLeft, ArrowUpRight,
-  Clock, TrendingUp, MoreVertical, Bell, Send, Headphones, Users,
+  DollarSign, Sparkles, RefreshCw, MoreVertical, Bell, Send, Headphones,
+  Users, Trophy, FileText, Share2, ShoppingCart, Clock,
+  ArrowDownCircle, ArrowUpCircle, Shield,
 } from "lucide-react";
 
-const BRAND = { red: "#DC2626", blue: "#1E3A8A", bg: "#F8F9FA" };
+const R = "#DC2626";
+const B = "#1E3A8A";
+const BG = "#F8F9FA";
 
-type Profile    = { balance: number | null; full_name: string | null; referral_code: string | null };
-type Tx         = { id: string; type: string; amount: number; description: string | null; created_at: string };
-type UserStats  = { dailyIncome: number; totalIncome: number; teamCount: number; activityCount: number; bidAmount: number };
-type TeamCounts = { level1: number; level2: number; level3: number; total: number };
+type Profile    = { balance: number | null; full_name: string | null };
+type UserStats  = { dailyIncome: number; totalIncome: number; team: number; activity: number; bid: number };
+type TeamData   = { community: number; valid: number; aEnthusiast: number; bcEnthusiast: number };
+type OrderData  = { total: number; processing: number; bought: number; sold: number };
 
-const ZERO_STATS: UserStats  = { dailyIncome: 0, totalIncome: 0, teamCount: 0, activityCount: 0, bidAmount: 0 };
-const ZERO_TEAM: TeamCounts  = { level1: 0, level2: 0, level3: 0, total: 0 };
+const Z_STATS: UserStats = { dailyIncome: 0, totalIncome: 0, team: 0, activity: 0, bid: 0 };
+const Z_TEAM: TeamData   = { community: 0, valid: 0, aEnthusiast: 0, bcEnthusiast: 0 };
+const Z_ORD: OrderData   = { total: 0, processing: 0, bought: 0, sold: 0 };
+
+/* ── Skeleton block ── */
+const Skel = ({ h = "h-6", w = "w-full" }: { h?: string; w?: string }) => (
+  <div className={`${h} ${w} rounded-md bg-gray-200 animate-pulse`} />
+);
 
 export default function HomeTab() {
   const navigate = useNavigate();
-  const [profile,    setProfile]   = useState<Profile | null>(null);
-  const [txs,        setTxs]       = useState<Tx[]>([]);
-  const [stats,      setStats]     = useState<UserStats>(ZERO_STATS);
-  const [team,       setTeam]      = useState<TeamCounts>(ZERO_TEAM);
-  const [loading,    setLoading]   = useState(true);
-  const [claiming,   setClaiming]  = useState(false);
-  const [menuOpen,   setMenuOpen]  = useState(false);
+
+  const [profile,  setProfile]  = useState<Profile | null>(null);
+  const [stats,    setStats]    = useState<UserStats>(Z_STATS);
+  const [team,     setTeam]     = useState<TeamData>(Z_TEAM);
+  const [orders,   setOrders]   = useState<OrderData>(Z_ORD);
+  const [isAdmin,  setIsAdmin]  = useState(false);
+  const [loading,  setLoading]  = useState(true);
+  const [claiming, setClaiming] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
@@ -35,77 +46,117 @@ export default function HomeTab() {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
+    /* ── Parallel fetch group 1 ── */
     const [
-      { data: prof },
-      { data: txData },
-      { data: dailyDeps },
-      { data: totalDeps },
-      { count: activityCount },
-      { data: latestDep },
-      { count: teamCount },
+      profRes, dailyRes, totalRes, actRes, bidRes, teamRes,
+      ordTotalRes, ordPendRes, ordApprRes, soldRes, adminRes,
     ] = await Promise.all([
-      supabase.from("profiles").select("balance, full_name, referral_code").eq("id", user.id).single(),
-      supabase.from("transactions").select("id, type, amount, description, created_at")
-        .eq("user_id", user.id).order("created_at", { ascending: false }).limit(5),
+      supabase.from("profiles").select("balance, full_name")
+        .eq("id", user.id).single(),
+
       supabase.from("deposits").select("amount")
         .eq("user_id", user.id).eq("status", "approved")
         .gte("created_at", todayStart.toISOString()),
+
       supabase.from("deposits").select("amount")
         .eq("user_id", user.id).eq("status", "approved"),
-      supabase.from("deposits").select("*", { count: "exact", head: true })
+
+      supabase.from("deposits")
+        .select("*", { count: "exact", head: true })
         .eq("user_id", user.id),
+
       supabase.from("deposits").select("amount")
-        .eq("user_id", user.id).order("created_at", { ascending: false }).limit(1),
-      supabase.from("profiles").select("*", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false }).limit(1),
+
+      /* team / community = profiles where referred_by = me */
+      supabase.from("profiles")
+        .select("*", { count: "exact", head: true })
         .eq("referred_by", user.id),
+
+      /* My Orders: total */
+      supabase.from("deposits")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user.id),
+
+      /* processing */
+      supabase.from("deposits")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user.id).eq("status", "pending"),
+
+      /* bought (approved deposits) */
+      supabase.from("deposits")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user.id).eq("status", "approved"),
+
+      /* sold (approved withdrawals) */
+      supabase.from("withdrawals")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user.id).eq("status", "approved"),
+
+      /* admin check */
+      supabase.from("admins").select("email")
+        .eq("email", user.email ?? "").maybeSingle(),
     ]);
 
-    const dailyIncome  = (dailyDeps  ?? []).reduce((s: number, r: { amount: number }) => s + (r.amount ?? 0), 0);
-    const totalIncome  = (totalDeps  ?? []).reduce((s: number, r: { amount: number }) => s + (r.amount ?? 0), 0);
-    const bidAmount    = (latestDep ?? [])[0]?.amount ?? 0;
-    const l1Count      = teamCount ?? 0;
+    /* ── My Team section: valid/enthusiast need referred_by col on deposits ── */
+    const [validRes, aRes, bcRes] = await Promise.all([
+      supabase.from("deposits")
+        .select("user_id", { count: "exact" })
+        .eq("referred_by", user.id).eq("status", "approved").gt("amount", 0),
 
-    setProfile(prof ?? null);
-    setTxs((txData ?? []) as Tx[]);
-    setStats({ dailyIncome, totalIncome, teamCount: l1Count, activityCount: activityCount ?? 0, bidAmount });
+      supabase.from("deposits")
+        .select("user_id", { count: "exact" })
+        .eq("referred_by", user.id).eq("status", "approved").gte("amount", 100),
 
-    /* ── Multi-level team counts ── */
-    let level1Ids: string[] = [];
-    if (l1Count > 0) {
-      const { data: l1Data } = await supabase.from("profiles").select("id").eq("referred_by", user.id);
-      level1Ids = (l1Data ?? []).map((r: { id: string }) => r.id);
-    }
+      supabase.from("deposits")
+        .select("user_id", { count: "exact" })
+        .eq("referred_by", user.id).eq("status", "approved")
+        .gte("amount", 20).lt("amount", 100),
+    ]);
 
-    let l2Count = 0;
-    let level2Ids: string[] = [];
-    if (level1Ids.length > 0) {
-      const { count, data: l2Data } = await supabase.from("profiles")
-        .select("id", { count: "exact" })
-        .in("referred_by", level1Ids);
-      l2Count    = count ?? 0;
-      level2Ids  = (l2Data ?? []).map((r: { id: string }) => r.id);
-    }
+    const dailyIncome = (dailyRes.data ?? []).reduce((s: number, r: { amount: number }) => s + (r.amount ?? 0), 0);
+    const totalIncome = (totalRes.data ?? []).reduce((s: number, r: { amount: number }) => s + (r.amount ?? 0), 0);
+    const bidAmount   = (bidRes.data ?? [])[0]?.amount ?? 0;
 
-    let l3Count = 0;
-    if (level2Ids.length > 0) {
-      const { count } = await supabase.from("profiles")
-        .select("*", { count: "exact", head: true })
-        .in("referred_by", level2Ids);
-      l3Count = count ?? 0;
-    }
-
-    setTeam({ level1: l1Count, level2: l2Count, level3: l3Count, total: l1Count + l2Count + l3Count });
+    setProfile(profRes.data ?? null);
+    setStats({
+      dailyIncome,
+      totalIncome,
+      team:     teamRes.count ?? 0,
+      activity: actRes.count ?? 0,
+      bid:      bidAmount,
+    });
+    setTeam({
+      community:   teamRes.count ?? 0,
+      valid:       validRes.count ?? 0,
+      aEnthusiast: aRes.count ?? 0,
+      bcEnthusiast: bcRes.count ?? 0,
+    });
+    setOrders({
+      total:      ordTotalRes.count ?? 0,
+      processing: ordPendRes.count ?? 0,
+      bought:     ordApprRes.count ?? 0,
+      sold:       soldRes.count ?? 0,
+    });
+    setIsAdmin(!!adminRes.data);
     setLoading(false);
   }, [navigate]);
 
-  useEffect(() => { load(); }, [load]);
-
+  /* Initial load + 30-second auto-refresh */
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
+    load();
+    const t = setInterval(load, 30_000);
+    return () => clearInterval(t);
+  }, [load]);
+
+  /* Close menu on outside click */
+  useEffect(() => {
+    const h = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
     };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
   }, []);
 
   const handleClaim = async () => {
@@ -118,85 +169,183 @@ export default function HomeTab() {
     } else {
       const amount = Number(data ?? 0);
       if (amount > 0) { toast.success(`Claimed $${amount.toFixed(2)} ✓`); load(); }
-      else { toast("No pending profit to claim.", { icon: "ℹ️" }); }
+      else             { toast("No pending profit to claim.", { icon: "ℹ️" }); }
     }
     setClaiming(false);
   };
 
-  const txIcon = (type: string) => {
-    if (type === "nft_profit") return <TrendingUp size={14} style={{ color: "#16a34a" }} />;
-    if (type === "deposit")    return <ArrowDownLeft size={14} style={{ color: BRAND.blue }} />;
-    if (type === "withdraw")   return <ArrowUpRight size={14} style={{ color: BRAND.red }} />;
-    return <Clock size={14} className="text-gray-400" />;
-  };
+  const balance = profile?.balance ?? 0;
 
-  const txColor = (type: string) => {
-    if (type === "nft_profit" || type === "deposit") return "#16a34a";
-    if (type === "withdraw") return BRAND.red;
-    return BRAND.blue;
-  };
-
+  /* ───────── LOADING SKELETON ───────── */
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]" style={{ background: BRAND.bg }}>
-        <div className="w-10 h-10 rounded-full border-4 border-t-transparent animate-spin"
-          style={{ borderColor: `${BRAND.red} transparent transparent transparent` }} />
+      <div className="max-w-md mx-auto px-4 pt-10 pb-4" style={{ background: BG, minHeight: "100vh" }}>
+        <div className="flex items-center justify-between mb-6">
+          <div className="space-y-2"><Skel h="h-3" w="w-24" /><Skel h="h-7" w="w-36" /></div>
+          <Skel h="h-9" w="w-9" />
+        </div>
+
+        {/* balance card skeleton */}
+        <div className="rounded-3xl p-6 mb-5 space-y-3" style={{ background: "#c7d2e7" }}>
+          <Skel h="h-3" w="w-24" /><Skel h="h-12" w="w-40" /><Skel h="h-3" w="w-12" />
+        </div>
+
+        {/* stats skeleton */}
+        <div className="rounded-lg p-4 mb-4 space-y-3 bg-gray-800">
+          {Array.from({ length: 7 }).map((_, i) => (
+            <div key={i} className="flex justify-between"><Skel h="h-4" w="w-28" /><Skel h="h-4" w="w-20" /></div>
+          ))}
+        </div>
+
+        {/* team skeleton */}
+        <div className="bg-white rounded-xl p-4 mb-4">
+          <Skel h="h-5" w="w-24" /><div className="grid grid-cols-4 gap-2 mt-3">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="space-y-2"><Skel h="h-10" /><Skel h="h-3" /></div>)}</div>
+        </div>
+
+        {/* orders skeleton */}
+        <div className="bg-white rounded-xl p-4 mb-4">
+          <Skel h="h-5" w="w-28" /><div className="grid grid-cols-4 gap-2 mt-3">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="space-y-2"><Skel h="h-10" /><Skel h="h-3" /></div>)}</div>
+        </div>
+
+        {/* claim button skeleton */}
+        <Skel h="h-14" w="w-full" />
       </div>
     );
   }
 
-  const balance = profile?.balance ?? 0;
-
-  /* ── Stats rows ── */
+  /* ───────── MAIN RENDER ───────── */
   const statsRows = [
-    { label: "Daily Income",      value: `$${stats.dailyIncome.toFixed(2)}`,  highlight: true },
-    { label: "Total Income",      value: `$${stats.totalIncome.toFixed(2)}`,  highlight: true },
-    { label: "Comprehensive",     value: "20",                                 highlight: false },
-    { label: "Claim",             value: "1.5",                                highlight: false },
-    { label: "Team",              value: String(stats.teamCount),              highlight: false },
-    { label: "Activity",          value: String(stats.activityCount),          highlight: false },
-    { label: "Bid",               value: stats.bidAmount > 0 ? `$${stats.bidAmount.toFixed(2)}` : "—", highlight: false },
+    { label: "Daily Income",  value: `$${stats.dailyIncome.toFixed(2)}`, hl: true },
+    { label: "Total Income",  value: `$${stats.totalIncome.toFixed(2)}`, hl: true },
+    { label: "Comprehensive", value: "20",                                hl: false },
+    { label: "Claim",         value: "1.5",                               hl: false },
+    { label: "Team",          value: String(stats.team),                  hl: false },
+    { label: "Activity",      value: String(stats.activity),              hl: false },
+    { label: "Bid",           value: stats.bid > 0 ? `$${stats.bid.toFixed(2)}` : "—", hl: false },
+  ];
+
+  const teamBoxes = [
+    {
+      label: ["Community", "rewards"],
+      value: team.community,
+      icon: <Users className="w-6 h-6 mx-auto mt-2" style={{ color: "#3b82f6" }} />,
+      sub: "Community enthusiasts",
+    },
+    {
+      label: ["Valid", "Members"],
+      value: team.valid,
+      icon: <Trophy className="w-6 h-6 mx-auto mt-2" style={{ color: "#eab308" }} />,
+      sub: "Community contributions",
+    },
+    {
+      label: ["A", "enthusiast"],
+      value: team.aEnthusiast,
+      icon: <FileText className="w-6 h-6 mx-auto mt-2" style={{ color: "#3b82f6" }} />,
+      sub: "Community orders",
+    },
+    {
+      label: ["B+C", "enthusiasts"],
+      value: team.bcEnthusiast,
+      icon: <Share2 className="w-6 h-6 mx-auto mt-2" style={{ color: "#22c55e" }} />,
+      sub: "Referral",
+    },
+  ];
+
+  const orderBoxes = [
+    {
+      label: "Orders",
+      value: orders.total,
+      icon: <ShoppingCart className="w-6 h-6 mx-auto mt-2" style={{ color: "#3b82f6" }} />,
+      sub: "My Bid",
+    },
+    {
+      label: "Processing",
+      value: orders.processing,
+      icon: <Clock className="w-6 h-6 mx-auto mt-2" style={{ color: "#eab308" }} />,
+      sub: "",
+    },
+    {
+      label: "Bought",
+      value: orders.bought,
+      icon: <ArrowDownCircle className="w-6 h-6 mx-auto mt-2" style={{ color: "#22c55e" }} />,
+      sub: "",
+    },
+    {
+      label: "Sold",
+      value: orders.sold,
+      icon: <ArrowUpCircle className="w-6 h-6 mx-auto mt-2" style={{ color: R }} />,
+      sub: "Details",
+    },
   ];
 
   return (
-    <div className="max-w-md mx-auto px-4 pt-10 pb-4" style={{ background: BRAND.bg, minHeight: "100vh" }}>
-      <Toaster position="top-right" toastOptions={{ style: { background: "#fff", color: BRAND.blue, border: "1px solid #e5e7eb", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" } }} />
+    <div className="max-w-md mx-auto px-4 pt-10 pb-4" style={{ background: BG, minHeight: "100vh" }}>
+      <Toaster position="top-right" toastOptions={{ style: { background: "#fff", color: B, border: "1px solid #e5e7eb" } }} />
 
       {/* ── Header ── */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <p className="text-sm text-gray-500">Welcome back</p>
-          <h1 className="text-2xl font-bold" style={{ color: BRAND.blue }}>
+          <h1 className="text-2xl font-bold" style={{ color: B }}>
             {profile?.full_name?.split(" ")[0] ?? "User"} 👋
           </h1>
         </div>
 
-        {/* 3 Dots Menu */}
+        {/* 3-dots menu */}
         <div className="relative" ref={menuRef}>
-          <button onClick={() => setMenuOpen(v => !v)} className="p-2 rounded-xl hover:bg-white transition-colors" style={{ color: BRAND.blue }}>
+          <button
+            onClick={() => setMenuOpen(v => !v)}
+            className="p-2 rounded-xl hover:bg-white transition-colors"
+            style={{ color: B }}
+          >
             <MoreVertical size={22} />
           </button>
+
           {menuOpen && (
             <div className="absolute right-0 top-full mt-1 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 w-52 z-50">
-              <button onClick={() => { setMenuOpen(false); toast("Notifications — Coming Soon!", { icon: "🔔" }); }}
-                className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium hover:bg-gray-50 transition-colors" style={{ color: BRAND.blue }}>
-                <Bell size={16} style={{ color: BRAND.red }} /> Notifications
+              <button
+                onClick={() => { setMenuOpen(false); toast("Notifications — Coming Soon!", { icon: "🔔" }); }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium hover:bg-gray-50"
+                style={{ color: B }}
+              >
+                <Bell size={16} style={{ color: R }} /> Notifications
               </button>
-              <button onClick={() => { setMenuOpen(false); window.open("https://t.me/+uE-PlUgGg-wzOWRk", "_blank"); }}
-                className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium hover:bg-gray-50 transition-colors" style={{ color: BRAND.blue }}>
-                <Send size={16} style={{ color: BRAND.red }} /> Telegram
+
+              <button
+                onClick={() => { setMenuOpen(false); window.open("https://t.me/+uE-PlUgGg-wzOWRk", "_blank"); }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium hover:bg-gray-50"
+                style={{ color: B }}
+              >
+                <Send size={16} style={{ color: R }} /> Telegram
               </button>
-              <button onClick={() => { setMenuOpen(false); window.open("https://t.me/TigerProtocolGlobal", "_blank"); }}
-                className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium hover:bg-gray-50 transition-colors" style={{ color: BRAND.blue }}>
-                <Headphones size={16} style={{ color: BRAND.red }} /> Customer Service
+
+              <button
+                onClick={() => { setMenuOpen(false); window.open("https://t.me/TigerProtocolGlobal", "_blank"); }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium hover:bg-gray-50"
+                style={{ color: B }}
+              >
+                <Headphones size={16} style={{ color: R }} /> Customer Service
               </button>
+
+              {isAdmin && (
+                <>
+                  <div className="my-1 border-t border-gray-100" />
+                  <button
+                    onClick={() => { setMenuOpen(false); navigate("/admin"); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium hover:bg-red-50"
+                    style={{ color: R }}
+                  >
+                    <Shield size={16} style={{ color: R }} /> Admin Panel
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>
       </div>
 
       {/* ── Balance Card ── */}
-      <div className="rounded-3xl p-6 mb-5 relative overflow-hidden" style={{ background: BRAND.blue }}>
+      <div className="rounded-3xl p-6 mb-5 relative overflow-hidden" style={{ background: B }}>
         <div className="absolute top-0 right-0 w-40 h-40 rounded-full opacity-10 bg-white -translate-y-10 translate-x-10" />
         <div className="absolute bottom-0 left-0 w-24 h-24 rounded-full opacity-10 bg-white translate-y-8 -translate-x-8" />
         <div className="relative z-10">
@@ -209,129 +358,87 @@ export default function HomeTab() {
         </div>
       </div>
 
-      {/* ═══════════════════════════════════════════
+      {/* ══════════════════════════════════════
           SECTION 1 — STATS TABLE
-      ═══════════════════════════════════════════ */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-4 overflow-hidden">
-        <div className="px-5 pt-4 pb-2 border-b border-gray-50">
-          <p className="text-sm font-bold" style={{ color: BRAND.blue }}>My Statistics</p>
-        </div>
-        <div className="divide-y divide-gray-50">
-          {statsRows.map((row, i) => (
-            <div
-              key={row.label}
-              className="flex items-center justify-between px-5 py-3"
-              style={{ background: i % 2 === 0 ? "#fff" : "#FAFBFF" }}
+      ══════════════════════════════════════ */}
+      <div className="rounded-lg p-4 mb-4" style={{ background: "#111827" }}>
+        {statsRows.map((row, i) => (
+          <div
+            key={row.label}
+            className="flex items-center justify-between py-2.5"
+            style={{ borderBottom: i < statsRows.length - 1 ? "1px solid rgba(255,255,255,0.07)" : "none" }}
+          >
+            <span className="text-sm text-gray-400">{row.label}</span>
+            <span
+              className="text-sm font-bold"
+              style={{ color: row.hl ? R : "#f9fafb" }}
             >
-              <span className="text-sm text-gray-500 font-medium">{row.label}</span>
-              <span
-                className="text-sm font-bold"
-                style={{ color: row.highlight ? BRAND.red : BRAND.blue }}
-              >
-                {row.value}
-              </span>
-            </div>
-          ))}
-        </div>
+              {row.value}
+            </span>
+          </div>
+        ))}
       </div>
 
-      {/* ═══════════════════════════════════════════
+      {/* ══════════════════════════════════════
           SECTION 2 — MY TEAM
-      ═══════════════════════════════════════════ */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-5 p-5">
-        {/* Title */}
-        <div className="flex items-center justify-center gap-2 mb-4">
-          <Users size={16} style={{ color: BRAND.red }} />
-          <p className="text-sm font-bold text-center" style={{ color: BRAND.blue }}>My Team</p>
-        </div>
-
-        {/* 4 boxes: 2×2 on mobile, 4-col on sm+ */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: "Level 1",    value: team.level1, emoji: "🥇", bg: "#FEF2F2", border: "#FECACA", color: BRAND.red },
-            { label: "Level 2",    value: team.level2, emoji: "🥈", bg: "#EFF6FF", border: "#BFDBFE", color: BRAND.blue },
-            { label: "Level 3",    value: team.level3, emoji: "🥉", bg: "#F0FDF4", border: "#BBF7D0", color: "#16a34a" },
-            { label: "Total Team", value: team.total,  emoji: "👥", bg: "#FFF7ED", border: "#FDE68A", color: "#D97706" },
-          ].map(box => (
-            <div
-              key={box.label}
-              className="rounded-2xl p-4 flex flex-col items-center gap-1.5 border"
-              style={{ background: box.bg, borderColor: box.border }}
-            >
-              <span className="text-2xl">{box.emoji}</span>
-              <p className="text-2xl font-bold" style={{ color: box.color }}>{box.value}</p>
-              <p className="text-[11px] font-semibold text-center text-gray-500 leading-tight">{box.label}</p>
+      ══════════════════════════════════════ */}
+      <div className="bg-white rounded-xl p-4 shadow-sm mb-4">
+        <p className="text-lg font-semibold mb-3" style={{ color: B }}>My Team</p>
+        <div className="grid grid-cols-4 gap-2">
+          {teamBoxes.map(box => (
+            <div key={box.label[0]} className="flex flex-col items-center text-center pb-2">
+              {box.icon}
+              <p className="text-2xl font-bold text-gray-900 mt-1">{box.value}</p>
+              <p className="text-xs text-gray-500 mt-1 leading-tight">
+                {box.label[0]}<br />{box.label[1]}
+              </p>
             </div>
           ))}
         </div>
       </div>
 
-      {/* ── Claim Button ── */}
+      {/* ══════════════════════════════════════
+          SECTION 3 — MY ORDERS
+      ══════════════════════════════════════ */}
+      <div className="bg-white rounded-xl p-4 shadow-sm mb-5">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-lg font-semibold" style={{ color: B }}>My Orders</p>
+          <button
+            onClick={() => navigate("/orders")}
+            className="text-xs font-medium"
+            style={{ color: R }}
+          >
+            Check Orders &gt;
+          </button>
+        </div>
+        <div className="grid grid-cols-4 gap-2">
+          {orderBoxes.map(box => (
+            <div key={box.label} className="flex flex-col items-center text-center pb-2">
+              {box.icon}
+              <p className="text-2xl font-bold text-gray-900 mt-1">{box.value}</p>
+              <p className="text-xs text-gray-500 mt-1">{box.label}</p>
+              {box.sub && <p className="text-[10px] text-gray-400">{box.sub}</p>}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ══════════════════════════════════════
+          SECTION 4 — CLAIM PROFIT BUTTON
+      ══════════════════════════════════════ */}
       <button
         onClick={handleClaim}
         disabled={claiming}
-        className="w-full flex items-center justify-center gap-2.5 font-bold text-sm rounded-2xl py-4 mb-5 text-white transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
-        style={{ background: claiming ? "#b91c1c" : BRAND.red }}
+        className="w-full flex items-center justify-center gap-2.5 font-bold text-sm rounded-2xl py-4 text-white transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
+        style={{ background: claiming ? "#b91c1c" : R }}
         onMouseEnter={e => !claiming && ((e.currentTarget as HTMLElement).style.background = "#b91c1c")}
-        onMouseLeave={e => !claiming && ((e.currentTarget as HTMLElement).style.background = BRAND.red)}
+        onMouseLeave={e => !claiming && ((e.currentTarget as HTMLElement).style.background = R)}
       >
         {claiming
           ? <><RefreshCw size={16} className="animate-spin" /> Claiming...</>
           : <><Sparkles size={16} /> Claim Profit</>
         }
       </button>
-
-      {/* ── Quick Actions ── */}
-      <div className="grid grid-cols-3 gap-3 mb-6">
-        {[
-          { emoji: "💰", label: "Deposit",  path: "/deposit" },
-          { emoji: "💸", label: "Withdraw", path: "/withdraw" },
-          { emoji: "🖼️", label: "NFT",     path: "/nft" },
-        ].map(a => (
-          <button
-            key={a.path}
-            onClick={() => navigate(a.path)}
-            className="bg-white hover:bg-gray-50 rounded-2xl p-4 flex flex-col items-center gap-1.5 transition-colors active:scale-95 shadow-sm border border-gray-100"
-          >
-            <span className="text-2xl">{a.emoji}</span>
-            <span className="text-[11px] font-semibold" style={{ color: BRAND.blue }}>{a.label}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* ── Recent Transactions ── */}
-      <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-        <div className="flex items-center justify-between mb-4">
-          <p className="text-sm font-bold" style={{ color: BRAND.blue }}>Recent Transactions</p>
-          <span className="text-xs text-gray-400">Last 5</span>
-        </div>
-        {txs.length === 0 ? (
-          <p className="text-xs text-gray-400 text-center py-4">No transactions yet</p>
-        ) : (
-          <div className="divide-y divide-gray-100">
-            {txs.map(tx => (
-              <div key={tx.id} className="flex items-center justify-between py-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: BRAND.bg }}>
-                    {txIcon(tx.type)}
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold capitalize" style={{ color: BRAND.blue }}>
-                      {tx.type.replace(/_/g, " ")}
-                    </p>
-                    <p className="text-[10px] text-gray-400">
-                      {new Date(tx.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                    </p>
-                  </div>
-                </div>
-                <p className="text-sm font-bold" style={{ color: txColor(tx.type) }}>
-                  {tx.type === "withdraw" ? "-" : "+"}${Math.abs(tx.amount).toFixed(2)}
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 }
