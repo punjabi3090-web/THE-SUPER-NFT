@@ -141,7 +141,10 @@ export default function Login() {
   const inp = `w-full bg-white text-gray-800 px-3 py-2.5 rounded-xl border border-gray-200 focus:border-[#1E3A8A] outline-none text-sm`;
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-8" style={{ background: BRAND.bg }}>
+    <div
+      className="min-h-screen flex items-center justify-center px-4 py-8"
+      style={{ backgroundImage: "url('/assets/login-bg.png')", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" }}
+    >
       {/* Modals */}
       {showTerms && (
         <Modal title="Terms & Conditions" onClose={() => setShowTerms(false)}>
@@ -186,7 +189,7 @@ export default function Login() {
         </div>
       )}
 
-      <div className="bg-white rounded-2xl p-8 w-full max-w-md shadow-sm border border-gray-100">
+      <div className="rounded-2xl p-8 w-full max-w-md shadow-2xl border border-white/20" style={{ background: "rgba(255,255,255,0.92)", backdropFilter: "blur(12px)" }}>
         {/* Logo */}
         <div className="text-center mb-6">
           <div className="w-14 h-14 rounded-2xl mx-auto flex items-center justify-center mb-3" style={{ background: BRAND.blue }}>
