@@ -30,7 +30,7 @@ export default function Dashboard() {
 
   const fetchProfile = useCallback(async () => {
     if (!user) return;
-    const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+    const { data } = await supabase.from('profiles').select('*').eq('user_id', user.id).single();
     setProfile(data);
     setProfLoading(false);
   }, [user]);

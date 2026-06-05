@@ -24,7 +24,7 @@ type WithdrawalRow = {
   profiles: { email: string | null } | null;
 };
 type UserRow = {
-  id: string; email: string | null; balance: number | null;
+  id: string; user_id: string | null; email: string | null; balance: number | null;
   referral_code: string | null; role: string | null; full_name: string | null; is_blocked?: boolean;
 };
 type NftPackage = {
@@ -104,7 +104,7 @@ export default function Admin() {
 
   useEffect(() => {
     if (!user) return;
-    supabase.from("profiles").select("role").eq("id", user.id).single()
+    supabase.from("profiles").select("role").eq("user_id", user.id).single()
       .then(({ data }) => {
         setRole(data?.role ?? null);
         setRoleLoading(false);
@@ -144,7 +144,7 @@ export default function Admin() {
 
   const loadUsers = useCallback(async () => {
     const { data } = await supabase
-      .from("profiles").select("id, email, balance, referral_code, role, full_name")
+      .from("profiles").select("id, user_id, email, balance, referral_code, role, full_name")
       .order("created_at", { ascending: false });
     setUsers((data ?? []) as UserRow[]);
   }, []);
@@ -221,7 +221,7 @@ export default function Admin() {
     const inc = parseFloat(balEdit[u.id] ?? "");
     if (isNaN(inc)) { toast.error("Enter a valid amount"); return; }
     setBusyKey("bal_" + u.id, true);
-    const { error } = await supabase.rpc("increment_balance", { uid: u.id, inc });
+    const { error } = await supabase.rpc("increment_balance", { uid: u.user_id ?? u.id, inc });
     setBusyKey("bal_" + u.id, false);
     if (error) { toast.error(error.message); return; }
     toast.success(`Balance updated by $${inc}`);

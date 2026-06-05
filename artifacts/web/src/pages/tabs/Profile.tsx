@@ -34,7 +34,7 @@ export default function ProfileTab() {
       setUserId(user.id);
       const { data } = await supabase.from("profiles")
         .select("full_name, email, phone, country, referral_code, role, level, created_at")
-        .eq("id", user.id).single();
+        .eq("user_id", user.id).single();
       setProfile(data ?? null);
       setLoading(false);
     })();

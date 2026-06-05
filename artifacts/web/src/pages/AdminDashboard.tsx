@@ -29,7 +29,7 @@ type WithdrawalRow = {
   profiles: { email: string | null; full_name: string | null } | null;
 };
 type UserRow = {
-  id: string; email: string | null; full_name: string | null;
+  id: string; user_id: string | null; email: string | null; full_name: string | null;
   balance: number | null; total_deposit: number | null;
   total_withdrawn: number | null; referral_code: string | null;
   created_at: string | null; role: string | null;
@@ -176,7 +176,7 @@ export default function AdminDashboard() {
     setLoading(true);
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, email, full_name, balance, total_deposit, total_withdrawn, referral_code, created_at, role")
+      .select("id, user_id, email, full_name, balance, total_deposit, total_withdrawn, referral_code, created_at, role")
       .order("created_at", { ascending: false });
     if (error) toast.error(error.message);
     setUsers((data ?? []) as UserRow[]);
@@ -264,7 +264,7 @@ export default function AdminDashboard() {
     const refPct = parseFloat(sMap.referral_reward_percent ?? "0");
     if (refPct > 0) {
       const { data: prof } = await supabase
-        .from("profiles").select("referred_by").eq("id", dep.user_id).single();
+        .from("profiles").select("referred_by").eq("user_id", dep.user_id).single();
       if (prof?.referred_by) {
         const refBonus = parseFloat(((dep.amount * refPct) / 100).toFixed(4));
         await supabase.rpc("increment_balance", { uid: prof.referred_by, inc: refBonus });
@@ -318,7 +318,7 @@ export default function AdminDashboard() {
     const inc = parseFloat(balModal.amount);
     if (isNaN(inc)) { toast.error("Enter a valid number (e.g. 50 or -20)"); return; }
     setK("bal_" + balModal.user.id, true);
-    const { error } = await supabase.rpc("increment_balance", { uid: balModal.user.id, inc });
+    const { error } = await supabase.rpc("increment_balance", { uid: balModal.user.user_id ?? balModal.user.id, inc });
     setK("bal_" + balModal.user.id, false);
     if (error) { toast.error(error.message); return; }
     toast.success(`Balance ${inc >= 0 ? "+" : ""}${inc} applied ✓`);

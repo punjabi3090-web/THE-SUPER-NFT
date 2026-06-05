@@ -20,7 +20,7 @@ export default function AssetTab() {
     if (!user) { navigate("/login", { replace: true }); return; }
 
     const [{ data: prof }, { data: txData }, { data: claimed }] = await Promise.all([
-      supabase.from("profiles").select("balance, total_earned, total_withdrawn").eq("id", user.id).single(),
+      supabase.from("profiles").select("balance, total_earned, total_withdrawn").eq("user_id", user.id).single(),
       supabase.from("transactions").select("id, type, amount, description, created_at")
         .eq("user_id", user.id).order("created_at", { ascending: false }).limit(50),
       supabase.from("transactions").select("amount").eq("user_id", user.id).eq("type", "nft_profit").eq("claimed", true),

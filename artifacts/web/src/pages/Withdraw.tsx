@@ -38,7 +38,7 @@ export default function Withdraw() {
     if (!user) return;
     (async () => {
       const [{ data: prof }, { data: settingsRows }] = await Promise.all([
-        supabase.from("profiles").select("balance").eq("id", user.id).single(),
+        supabase.from("profiles").select("balance").eq("user_id", user.id).single(),
         supabase.from("admin_settings").select("key, value"),
       ]);
       setBalance(prof?.balance ?? 0);

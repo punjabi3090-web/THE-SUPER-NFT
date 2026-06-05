@@ -6,6 +6,7 @@ import { ArrowLeft, Copy, Check, Users, TrendingUp, DollarSign } from "lucide-re
 
 type Member = {
   id: string;
+  user_id: string | null;
   email: string | null;
   full_name: string | null;
   created_at: string | null;
@@ -44,23 +45,23 @@ export default function MyTeam() {
       const { data: prof } = await supabase
         .from('profiles')
         .select('referral_code')
-        .eq('id', user.id)
+        .eq('user_id', user.id)
         .single();
 
       // 2. Level 1 — direct referrals
       const { data: l1 } = await supabase
         .from('profiles')
-        .select('id, email, full_name, created_at')
+        .select('id, user_id, email, full_name, created_at')
         .eq('referred_by', user.id);
       const level1: Member[] = l1 ?? [];
 
       // 3. Level 2 — referrals of level-1
       let level2: Member[] = [];
       if (level1.length > 0) {
-        const l1ids = level1.map(m => m.id);
+        const l1ids = level1.map(m => m.user_id ?? m.id);
         const { data: l2 } = await supabase
           .from('profiles')
-          .select('id, email, full_name, created_at')
+          .select('id, user_id, email, full_name, created_at')
           .in('referred_by', l1ids);
         level2 = l2 ?? [];
       }
@@ -68,10 +69,10 @@ export default function MyTeam() {
       // 4. Level 3 — referrals of level-2
       let level3: Member[] = [];
       if (level2.length > 0) {
-        const l2ids = level2.map(m => m.id);
+        const l2ids = level2.map(m => m.user_id ?? m.id);
         const { data: l3 } = await supabase
           .from('profiles')
-          .select('id, email, full_name, created_at')
+          .select('id, user_id, email, full_name, created_at')
           .in('referred_by', l2ids);
         level3 = l3 ?? [];
       }

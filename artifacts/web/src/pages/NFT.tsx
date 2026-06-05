@@ -21,7 +21,7 @@ async function distributeReferralEarnings(
   const { data: buyerProf } = await supabase
     .from('profiles')
     .select('referred_by')
-    .eq('id', buyerId)
+    .eq('user_id', buyerId)
     .single();
 
   const l1Id = buyerProf?.referred_by;
@@ -49,7 +49,7 @@ async function distributeReferralEarnings(
   const { data: l1Prof } = await supabase
     .from('profiles')
     .select('referred_by')
-    .eq('id', l1Id)
+    .eq('user_id', l1Id)
     .single();
   const l2Id = l1Prof?.referred_by;
   if (!l2Id) return;
@@ -59,7 +59,7 @@ async function distributeReferralEarnings(
   const { data: l2Prof } = await supabase
     .from('profiles')
     .select('referred_by')
-    .eq('id', l2Id)
+    .eq('user_id', l2Id)
     .single();
   const l3Id = l2Prof?.referred_by;
   if (!l3Id) return;
@@ -77,7 +77,7 @@ export default function NFT() {
   const fetchData = async (uid: string) => {
     const [pkgRes, profRes] = await Promise.all([
       supabase.from('nft_packages').select('*').order('price'),
-      supabase.from('profiles').select('balance').eq('id', uid).single(),
+      supabase.from('profiles').select('balance').eq('user_id', uid).single(),
     ]);
     setPackages(pkgRes.data ?? []);
     setBalance(profRes.data?.balance ?? 0);

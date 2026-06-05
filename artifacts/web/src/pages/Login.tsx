@@ -74,11 +74,11 @@ export default function Login() {
     if (form.referralCode.trim()) {
       const { data: refProf } = await supabase
         .from('profiles')
-        .select('id, email')
+        .select('user_id, email')
         .eq('referral_code', form.referralCode.trim().toUpperCase())
         .single();
       if (refProf) {
-        referredById    = refProf.id;
+        referredById    = refProf.user_id;
         referredByEmail = refProf.email;
       }
     }

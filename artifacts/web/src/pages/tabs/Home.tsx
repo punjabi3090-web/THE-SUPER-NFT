@@ -91,7 +91,7 @@ export default function HomeTab() {
 
     /* ── Profile ── */
     const { data: prof } = await supabase
-      .from("profiles").select("balance, full_name").eq("id", uid).single();
+      .from("profiles").select("balance, full_name").eq("user_id", uid).single();
     setProfile(prof ?? null);
 
     /* ── Stats table queries (deposits only, no risk of missing table) ── */

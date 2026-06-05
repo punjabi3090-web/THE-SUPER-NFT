@@ -11,7 +11,7 @@ export default function EarnTab() {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const { data } = await supabase.from("profiles").select("referral_code").eq("id", user.id).single();
+      const { data } = await supabase.from("profiles").select("referral_code").eq("user_id", user.id).single();
       setReferralCode(data?.referral_code ?? null);
     })();
   }, []);
