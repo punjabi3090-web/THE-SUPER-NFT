@@ -41,41 +41,94 @@ export default function HomeTab() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { navigate("/login", { replace: true }); return; }
 
+    const uid = user.id;
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
-    const [
-      profRes, dailyRes, totalRes, actRes, bidRes, teamRes,
-      ordTotalRes, ordPendRes, ordApprRes, soldRes, adminRes,
-    ] = await Promise.all([
-      supabase.from("profiles").select("balance, full_name").eq("id", user.id).single(),
-      supabase.from("deposits").select("amount").eq("user_id", user.id).eq("status", "approved").gte("created_at", todayStart.toISOString()),
-      supabase.from("deposits").select("amount").eq("user_id", user.id).eq("status", "approved"),
-      supabase.from("deposits").select("*", { count: "exact", head: true }).eq("user_id", user.id),
-      supabase.from("deposits").select("amount").eq("user_id", user.id).order("created_at", { ascending: false }).limit(1),
-      supabase.from("profiles").select("*", { count: "exact", head: true }).eq("referred_by", user.id),
-      supabase.from("deposits").select("*", { count: "exact", head: true }).eq("user_id", user.id),
-      supabase.from("deposits").select("*", { count: "exact", head: true }).eq("user_id", user.id).eq("status", "pending"),
-      supabase.from("deposits").select("*", { count: "exact", head: true }).eq("user_id", user.id).eq("status", "approved"),
-      supabase.from("withdrawals").select("*", { count: "exact", head: true }).eq("user_id", user.id).eq("status", "approved"),
-      supabase.from("admins").select("email").eq("email", user.email ?? "").maybeSingle(),
-    ]);
+    /* ── Profile ── */
+    const { data: prof } = await supabase
+      .from("profiles").select("balance, full_name").eq("id", uid).single();
+    setProfile(prof ?? null);
 
-    const [validRes, aRes, bcRes] = await Promise.all([
-      supabase.from("deposits").select("user_id", { count: "exact" }).eq("referred_by", user.id).eq("status", "approved").gt("amount", 0),
-      supabase.from("deposits").select("user_id", { count: "exact" }).eq("referred_by", user.id).eq("status", "approved").gte("amount", 100),
-      supabase.from("deposits").select("user_id", { count: "exact" }).eq("referred_by", user.id).eq("status", "approved").gte("amount", 20).lt("amount", 100),
+    /* ── Admin check — try admins table, fallback to profiles.role ── */
+    try {
+      const { data: adminRow } = await supabase
+        .from("admins").select("email").eq("email", user.email ?? "").maybeSingle();
+      if (adminRow) { setIsAdmin(true); }
+      else {
+        const { data: profRole } = await supabase
+          .from("profiles").select("role").eq("id", uid).single();
+        setIsAdmin(profRole?.role === "admin");
+      }
+    } catch { setIsAdmin(false); }
+
+    /* ── Stats table queries (deposits only, no risk of missing table) ── */
+    const [dailyRes, totalRes, actRes, bidRes] = await Promise.all([
+      supabase.from("deposits").select("amount")
+        .eq("user_id", uid).eq("status", "approved").gte("created_at", todayStart.toISOString()),
+      supabase.from("deposits").select("amount")
+        .eq("user_id", uid).eq("status", "approved"),
+      supabase.from("deposits").select("*", { count: "exact", head: true })
+        .eq("user_id", uid),
+      supabase.from("deposits").select("amount")
+        .eq("user_id", uid).order("created_at", { ascending: false }).limit(1),
     ]);
 
     const dailyIncome = (dailyRes.data ?? []).reduce((s: number, r: { amount: number }) => s + (r.amount ?? 0), 0);
     const totalIncome = (totalRes.data ?? []).reduce((s: number, r: { amount: number }) => s + (r.amount ?? 0), 0);
     const bidAmount   = (bidRes.data ?? [])[0]?.amount ?? 0;
 
-    setProfile(profRes.data ?? null);
-    setStats({ dailyIncome, totalIncome, team: teamRes.count ?? 0, activity: actRes.count ?? 0, bid: bidAmount });
-    setTeam({ community: teamRes.count ?? 0, valid: validRes.count ?? 0, aEnthusiast: aRes.count ?? 0, bcEnthusiast: bcRes.count ?? 0 });
-    setOrders({ total: ordTotalRes.count ?? 0, processing: ordPendRes.count ?? 0, bought: ordApprRes.count ?? 0, sold: soldRes.count ?? 0 });
-    setIsAdmin(!!adminRes.data);
+    /* ── Community count — uses `users` table (referred_by column) ── */
+    const { count: communityCount } = await supabase
+      .from("users").select("*", { count: "exact", head: true }).eq("referred_by", uid);
+
+    setStats({
+      dailyIncome, totalIncome,
+      team:     communityCount ?? 0,
+      activity: actRes.count ?? 0,
+      bid:      bidAmount,
+    });
+
+    /* ── My Team — distinct user_id via Set (deposits.referred_by = uid) ── */
+    const [validData, aData, bData] = await Promise.all([
+      supabase.from("deposits").select("user_id")
+        .eq("referred_by", uid).eq("status", "approved").gt("amount", 0),
+      supabase.from("deposits").select("user_id")
+        .eq("referred_by", uid).eq("status", "approved").gte("amount", 100),
+      supabase.from("deposits").select("user_id")
+        .eq("referred_by", uid).eq("status", "approved").gte("amount", 20).lt("amount", 100),
+    ]);
+
+    setTeam({
+      community:   communityCount ?? 0,
+      valid:       new Set((validData.data ?? []).map((d: { user_id: string }) => d.user_id)).size,
+      aEnthusiast: new Set((aData.data    ?? []).map((d: { user_id: string }) => d.user_id)).size,
+      bcEnthusiast: new Set((bData.data   ?? []).map((d: { user_id: string }) => d.user_id)).size,
+    });
+
+    /* ── My Orders ── */
+    const [ordTotal, ordPend, ordAppr] = await Promise.all([
+      supabase.from("deposits").select("*", { count: "exact", head: true }).eq("user_id", uid),
+      supabase.from("deposits").select("*", { count: "exact", head: true }).eq("user_id", uid).eq("status", "pending"),
+      supabase.from("deposits").select("*", { count: "exact", head: true }).eq("user_id", uid).eq("status", "approved"),
+    ]);
+
+    /* sold — try withdrawals, silently 0 if table missing */
+    let soldCount = 0;
+    try {
+      const { count } = await supabase
+        .from("withdrawals").select("*", { count: "exact", head: true })
+        .eq("user_id", uid).eq("status", "approved");
+      soldCount = count ?? 0;
+    } catch { soldCount = 0; }
+
+    setOrders({
+      total:      ordTotal.count ?? 0,
+      processing: ordPend.count  ?? 0,
+      bought:     ordAppr.count  ?? 0,
+      sold:       soldCount,
+    });
+
     setLoading(false);
   }, [navigate]);
 

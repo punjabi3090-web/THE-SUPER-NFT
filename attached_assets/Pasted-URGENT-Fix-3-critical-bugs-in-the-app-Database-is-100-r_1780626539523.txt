@@ -1,0 +1,90 @@
+URGENT: Fix 3 critical bugs in the app. Database is 100% ready with data but UI shows 0.
+
+CONTEXT:
+SQL query returns: community_rewards: 4, valid_members: 3
+But app shows all 0 in My Team and My Orders. Admin Panel button also missing.
+
+TASK 1: FIX MY TEAM & MY ORDERS QUERIES
+In Home/Dashboard component, replace ALL stats queries with this exact code:
+
+```typescript
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom' // or next/navigation
+import { supabase } from '@/lib/supabase' // adjust path
+
+const [stats, setStats] = useState({
+  community: 0,
+  valid: 0,
+  aEnthusiast: 0,
+  bEnthusiast: 0,
+  orders: 0,
+  processing: 0,
+  bought: 0,
+  sold: 0
+})
+
+useEffect(() => {
+  const fetchAllStats = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const userId = user.id
+
+    // MY TEAM QUERIES
+    const { count: community } = await supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true })
+      .eq('referred_by', userId)
+    
+    const { data: validData } = await supabase
+      .from('deposits')
+      .select('user_id')
+      .eq('referred_by', userId)
+      .eq('status', 'approved')
+    
+    const { data: aData } = await supabase
+      .from('deposits')
+      .select('user_id')
+      .eq('referred_by', userId)
+      .eq('status', 'approved')
+      .gte('amount', 100)
+    
+    const { data: bData } = await supabase
+      .from('deposits')
+      .select('user_id')
+      .eq('referred_by', userId)
+      .eq('status', 'approved')
+      .gte('amount', 20)
+      .lt('amount', 100)
+    
+    // MY ORDERS QUERIES  
+    const { count: orders } = await supabase
+      .from('deposits')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+    
+    const { count: processing } = await supabase
+      .from('deposits')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('status', 'pending')
+    
+    const { count: bought } = await supabase
+      .from('deposits')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('status', 'approved')
+    
+    setStats({
+      community: community || 0,
+      valid: new Set(validData?.map(d => d.user_id) || []).size,
+      aEnthusiast: new Set(aData?.map(d => d.user_id) || []).size,
+      bEnthusiast: new Set(bData?.map(d => d.user_id) || []).size,
+      orders: orders || 0,
+      processing: processing || 0,
+      bought: bought || 0,
+      sold: 0
+    })
+  }
+  
+  fetchAllStats()
+}, [])
