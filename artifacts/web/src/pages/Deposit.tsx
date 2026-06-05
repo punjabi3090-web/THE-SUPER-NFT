@@ -4,6 +4,7 @@ import { useAuth } from "../lib/useAuth";
 import { supabase } from "../lib/supabase";
 import { ArrowLeft, Copy, Check, Upload, AlertCircle } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
+import AnnouncementBanner from "../components/AnnouncementBanner";
 
 const BRAND = { red: "#DC2626", blue: "#1E3A8A", bg: "#F8F9FA" };
 
@@ -38,8 +39,8 @@ export default function Deposit() {
       const map: Record<string, string> = {};
       data.forEach((r: { key: string; value: string }) => { map[r.key] = r.value ?? ""; });
       setSettings({
-        usdt_bep20_address: map.usdt_bep20_address ?? "",
-        usdt_trc20_address: map.usdt_trc20_address ?? "",
+        usdt_bep20_address: map.bep20_address ?? map.usdt_bep20_address ?? "",
+        usdt_trc20_address: map.trc20_address ?? map.usdt_trc20_address ?? "",
         bep20_qr_url:       map.bep20_qr_url ?? "",
         trc20_qr_url:       map.trc20_qr_url ?? "",
         min_withdraw:       map.min_withdraw ?? "10",
@@ -156,6 +157,9 @@ export default function Deposit() {
             <p className="text-xs text-gray-400">Send USDT to the address below</p>
           </div>
         </div>
+
+        {/* Announcement Banner */}
+        <AnnouncementBanner />
 
         {/* Network Tabs */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-4">

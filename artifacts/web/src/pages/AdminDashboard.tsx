@@ -236,14 +236,44 @@ export default function AdminDashboard() {
 
   async function approveDeposit(dep: DepositRow) {
     setK(dep.id, true);
+
+    /* 1. Mark deposit approved */
     const { error } = await supabase.from("deposits").update({
       status: "approved", approved_at: new Date().toISOString(),
     }).eq("id", dep.id);
-    if (!error) await supabase.rpc("increment_balance", { uid: dep.user_id, inc: dep.amount });
+    if (error) { toast.error(error.message); setK(dep.id, false); return; }
+
+    /* 2. Credit deposit amount */
+    await supabase.rpc("increment_balance", { uid: dep.user_id, inc: dep.amount });
+
+    /* 3. Fetch reward settings */
+    const { data: settingsRows } = await supabase
+      .from("admin_settings").select("key, value")
+      .in("key", ["deposit_reward_percent", "referral_reward_percent"]);
+    const sMap: Record<string, string> = {};
+    (settingsRows ?? []).forEach((r: { key: string; value: string }) => { sMap[r.key] = r.value; });
+
+    /* 4. Deposit bonus */
+    const rewardPct = parseFloat(sMap.deposit_reward_percent ?? "0");
+    if (rewardPct > 0) {
+      const bonus = parseFloat(((dep.amount * rewardPct) / 100).toFixed(4));
+      await supabase.rpc("increment_balance", { uid: dep.user_id, inc: bonus });
+    }
+
+    /* 5. Referral bonus to referrer */
+    const refPct = parseFloat(sMap.referral_reward_percent ?? "0");
+    if (refPct > 0) {
+      const { data: prof } = await supabase
+        .from("profiles").select("referred_by").eq("id", dep.user_id).single();
+      if (prof?.referred_by) {
+        const refBonus = parseFloat(((dep.amount * refPct) / 100).toFixed(4));
+        await supabase.rpc("increment_balance", { uid: prof.referred_by, inc: refBonus });
+      }
+    }
+
     setK(dep.id, false);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Deposit approved ✓ Balance updated");
-    loadDeposits();
+    toast.success(`Deposit approved ✓${rewardPct > 0 ? ` +${rewardPct}% bonus applied` : ""}`);
+    loadDeposits(); loadStats();
   }
 
   async function rejectDeposit(id: string) {

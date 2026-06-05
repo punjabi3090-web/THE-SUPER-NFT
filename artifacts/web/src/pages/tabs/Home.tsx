@@ -7,6 +7,7 @@ import {
   Users, Trophy, FileText, Share2, ShoppingCart, Clock,
   ArrowDownCircle, ArrowUpCircle, Shield,
 } from "lucide-react";
+import AnnouncementBanner from "../../components/AnnouncementBanner";
 
 const R = "#DC2626";
 const B = "#1E3A8A";
@@ -251,6 +252,9 @@ export default function HomeTab() {
           )}
         </div>
       </div>
+
+      {/* ── Announcement Banner ── */}
+      <AnnouncementBanner />
 
       {/* ── Balance Card ── */}
       <div className="rounded-2xl p-3 mb-2 relative overflow-hidden" style={{ background: B }}>
