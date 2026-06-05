@@ -12,10 +12,17 @@ type Profile = {
   level: number | null; created_at: string | null;
 };
 
+const getShortUID = (uuid: string | null | undefined) => {
+  if (!uuid) return "------";
+  const numbersOnly = uuid.replace(/\D/g, "");
+  return numbersOnly.slice(-6).padStart(6, "0");
+};
+
 export default function ProfileTab() {
   const navigate = useNavigate();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [email,   setEmail]   = useState<string | null>(null);
+  const [userId,  setUserId]  = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied,  setCopied]  = useState(false);
 
@@ -24,6 +31,7 @@ export default function ProfileTab() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { navigate("/login", { replace: true }); return; }
       setEmail(user.email ?? null);
+      setUserId(user.id);
       const { data } = await supabase.from("profiles")
         .select("full_name, email, phone, country, referral_code, role, level, created_at")
         .eq("id", user.id).single();
@@ -78,7 +86,7 @@ export default function ProfileTab() {
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-bold truncate leading-tight" style={{ color: "#1E3A8A" }}>{displayName}</p>
-          <p className="text-[10px] text-gray-500 truncate">{email ?? "—"}</p>
+          <p className="text-[10px] text-gray-500 truncate">UID: {getShortUID(userId)}</p>
           <div className="flex items-center gap-1.5 mt-1">
             <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold border"
               style={{ color: "#1E3A8A", background: "#EFF6FF", borderColor: "#BFDBFE" }}>

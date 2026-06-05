@@ -102,11 +102,11 @@ export default function Dashboard() {
             <div className="bg-gray-800 p-4 rounded-lg">
               <p className="text-sm text-gray-400">Balance</p>
               <p className="font-semibold">${profile?.balance || '0.00'}</p>
-            </div>
-          </div>
-        )}
+            </div> 
+          </div>            
+            )}
       </div>
-
+       
       {/* Bottom Navigation */}
       <div className="fixed bottom-0 w-full bg-gray-900 border-t border-gray-800">
         <div className="flex justify-around items-center h-16 max-w-md mx-auto">

@@ -68,10 +68,9 @@ export default function AssetTab() {
       <div className="flex items-center justify-between h-14 mb-2">
         <div className="flex items-center gap-2">
           <img src="/assets/logo.png" className="h-8 w-auto" alt="Super NFT" />
-          <div>
-            <h1 className="text-base font-bold leading-tight" style={{ color: "#1E3A8A" }}>Assets</h1>
-            <p className="text-[10px] text-gray-400 leading-tight">Your financial overview</p>
-          </div>
+          <h1 className="text-base font-bold bg-gradient-to-r from-purple-600 via-pink-500 to-orange-500 bg-clip-text text-transparent">
+            THE SUPER NFT
+          </h1>
         </div>
         <button onClick={() => load(true)} disabled={refreshing}
           className="p-1.5 rounded-xl bg-white border border-gray-200 hover:bg-gray-50" style={{ color: "#1E3A8A" }}>

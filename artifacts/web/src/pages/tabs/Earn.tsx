@@ -33,10 +33,9 @@ export default function EarnTab() {
       {/* ── Header ── */}
       <div className="flex items-center gap-2 h-14 mb-2">
         <img src="/assets/logo.png" className="h-8 w-auto" alt="Super NFT" />
-        <div>
-          <h1 className="text-base font-bold leading-tight" style={{ color: "#1E3A8A" }}>Earn</h1>
-          <p className="text-[10px] text-gray-400 leading-tight">Grow your income with referrals</p>
-        </div>
+        <h1 className="text-base font-bold bg-gradient-to-r from-purple-600 via-pink-500 to-orange-500 bg-clip-text text-transparent">
+          THE SUPER NFT
+        </h1>
       </div>
 
       {/* ── Coming Soon Card ── */}

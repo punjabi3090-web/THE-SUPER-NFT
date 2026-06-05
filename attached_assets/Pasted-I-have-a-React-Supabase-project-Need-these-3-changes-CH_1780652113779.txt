@@ -1,0 +1,82 @@
+I have a React + Supabase project. Need these 3 changes:
+
+### CHANGE 1: PROFILE PAGE - SHOW 6 DIGIT UID INSTEAD OF EMAIL
+
+CURRENT SITUATION:
+In Dashboard Profile page, under username it shows email: <p>{user?.email}</p>
+
+WHAT I WANT:
+1. Remove email from Profile page
+2. Show 6-digit numeric UID instead under username
+3. Generate UID from Supabase auth user.id - take last 6 numeric digits
+4. Example: UUID a1b2c3d4-e5f6-7890-abcd-1234567890ef should show 678900
+
+TASK:
+1. Add this helper function in Profile component:
+
+const getShortUID = (uuid) => {
+  if (!uuid) return '------'
+  const numbersOnly = uuid.replace(/\D/g, '')
+  return numbersOnly.slice(-6).padStart(6, '0')
+}
+
+2. Replace email display with:
+<p className="text-sm text-gray-500">
+  UID: {getShortUID(user?.id)}
+</p>
+
+3. Make sure user is fetched using: const { data: { user } } = await supabase.auth.getUser()
+4. Keep same styling as email had before
+
+---
+
+### CHANGE 2: HEADER CONSISTENCY - EARN & ASSETS PAGE
+
+CURRENT ISSUE:
+Earn page shows "Earn" and Assets page shows "Assets" text next to logo on top left.
+But Home page and Profile page show "THE SUPER NFT" in mixed gradient colors next to logo.
+
+WHAT I WANT:
+1. Make header consistent on all pages - Home, Profile, Earn, Assets
+2. Remove "Earn" text from Earn page header, remove "Assets" text from Assets page header
+3. Replace both with "THE SUPER NFT" in same mixed colors as Home/Profile page
+4. Keep logo icon same, only change the text
+
+TASK:
+1. Check how "THE SUPER NFT" is implemented in Home.tsx and Profile.tsx header
+2. Copy exact same component/styling to Earn.tsx and Assets.tsx header
+3. If there's a common Header component, update it once so all 4 pages show "THE SUPER NFT"
+4. Don't show individual page names in top left header, only "THE SUPER NFT" with logo
+
+---
+
+### CHANGE 3: ADMIN PANEL FIX - USE EMAIL INSTEAD OF UID
+
+CURRENT ISSUE:
+Admin panel only shows when user ID matches in admins table. But UID changes every signup, so admin access breaks.
+
+WHAT I WANT:
+1. Admin check should use email, not user.id
+2. So admin access never breaks even if user deletes account and signs up again
+
+TASK:
+1. Find the code where admin is checked in Dashboard.tsx or wherever admin panel is protected
+2. Replace the admin check query from this:
+
+const { data: adminData } = await supabase
+  .from('admins')
+  .select('*')
+  .eq('id', user.id)
+  .single()
+
+TO THIS:
+
+const { data: adminData } = await supabase
+  .from('admins')
+  .select('*')
+  .eq('email', user.email)
+  .single()
+
+3. Make sure admins table has email column with your admin email: thesupernftref88rk56@gmail.com
+
+IMPORTANT: All 3 changes should not break existing functionality. Keep all styles and layout same.
