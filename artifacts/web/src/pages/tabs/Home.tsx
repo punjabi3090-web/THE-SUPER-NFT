@@ -5,7 +5,7 @@ import toast, { Toaster } from "react-hot-toast";
 import {
   DollarSign, Sparkles, RefreshCw, MoreVertical, Bell, Send, Headphones,
   Users, Trophy, FileText, Share2, ShoppingCart, Clock,
-  ArrowDownCircle, ArrowUpCircle, Shield,
+  ArrowDownCircle, ArrowUpCircle, X,
 } from "lucide-react";
 import AnnouncementBanner from "../../components/AnnouncementBanner";
 
@@ -17,6 +17,8 @@ type Profile    = { balance: number | null; full_name: string | null };
 type UserStats  = { dailyIncome: number; totalIncome: number; team: number; activity: number; bid: number };
 type TeamData   = { community: number; valid: number; aEnthusiast: number; bcEnthusiast: number };
 type OrderData  = { total: number; processing: number; bought: number; sold: number };
+type Ann        = { id: string; message: string; created_at: string };
+type Airdrop    = { id: string; title: string; description: string; amount: number };
 
 const Z_STATS: UserStats = { dailyIncome: 0, totalIncome: 0, team: 0, activity: 0, bid: 0 };
 const Z_TEAM: TeamData   = { community: 0, valid: 0, aEnthusiast: 0, bcEnthusiast: 0 };
@@ -35,19 +37,47 @@ export default function HomeTab() {
   const [isAdmin,  setIsAdmin]  = useState(false);
   const [loading,  setLoading]  = useState(true);
   const [claiming, setClaiming] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuOpen,     setMenuOpen]     = useState(false);
+  const [userId,       setUserId]       = useState<string | null>(null);
+  const [anns,         setAnns]         = useState<Ann[]>([]);
+  const [reads,        setReads]        = useState<Set<string>>(new Set());
+  const [bellOpen,     setBellOpen]     = useState(false);
+  const [airdrops,     setAirdrops]     = useState<Airdrop[]>([]);
+  const [airdropOpen,  setAirdropOpen]  = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const bellRef = useRef<HTMLDivElement>(null);
 
-  /* ── Admin check — runs once on mount, independent of load ── */
+  /* ── Admin check + notification fetch — runs once on mount ── */
   useEffect(() => {
     (async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user?.email) return;
-        const { data } = await supabase
-          .from("admins").select("email").eq("email", user.email).single();
-        if (data) setIsAdmin(true);
-      } catch { /* not admin */ }
+        if (!user) return;
+        setUserId(user.id);
+
+        /* Admin check */
+        if (user.email) {
+          const { data } = await supabase
+            .from("admins").select("email").eq("email", user.email).single();
+          if (data) setIsAdmin(true);
+        }
+
+        /* Announcements + reads */
+        const [{ data: annData }, { data: readData }] = await Promise.all([
+          supabase.from("announcements")
+            .select("id, message, created_at")
+            .eq("is_active", true)
+            .order("created_at", { ascending: false })
+            .limit(5),
+          supabase.from("notification_reads")
+            .select("announcement_id")
+            .eq("user_id", user.id),
+        ]);
+        setAnns((annData ?? []) as Ann[]);
+        setReads(new Set(
+          ((readData ?? []) as { announcement_id: string }[]).map(r => r.announcement_id)
+        ));
+      } catch { /* silent */ }
     })();
   }, []);
 
@@ -137,10 +167,25 @@ export default function HomeTab() {
   useEffect(() => { load(); const t = setInterval(load, 30_000); return () => clearInterval(t); }, [load]);
 
   useEffect(() => {
-    const h = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false); };
+    const h = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+      if (bellRef.current && !bellRef.current.contains(e.target as Node)) setBellOpen(false);
+    };
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
   }, []);
+
+  const markRead = async (annId: string) => {
+    if (!userId || reads.has(annId)) return;
+    await supabase.from("notification_reads").insert({ user_id: userId, announcement_id: annId });
+    setReads(prev => new Set([...prev, annId]));
+  };
+
+  const openAirdrops = async () => {
+    const { data } = await supabase.from("airdrops").select("*").eq("is_active", true);
+    setAirdrops((data ?? []) as Airdrop[]);
+    setAirdropOpen(true);
+  };
 
   const handleClaim = async () => {
     setClaiming(true);
@@ -221,35 +266,80 @@ export default function HomeTab() {
             THE SUPER NFT
           </h1>
         </div>
-        <div className="relative" ref={menuRef}>
-          <button onClick={() => setMenuOpen(v => !v)} className="p-1.5 rounded-xl hover:bg-white transition-colors" style={{ color: B }}>
-            <MoreVertical size={20} />
-          </button>
-          {menuOpen && (
-            <div className="absolute right-0 top-full mt-1 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 w-48 z-50">
-              <button onClick={() => { setMenuOpen(false); toast("Notifications — Coming Soon!", { icon: "🔔" }); }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-medium hover:bg-gray-50" style={{ color: B }}>
-                <Bell size={14} style={{ color: R }} /> Notifications
-              </button>
-              <button onClick={() => { setMenuOpen(false); window.open("https://t.me/+uE-PlUgGg-wzOWRk", "_blank"); }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-medium hover:bg-gray-50" style={{ color: B }}>
-                <Send size={14} style={{ color: R }} /> Telegram
-              </button>
-              <button onClick={() => { setMenuOpen(false); window.open("https://t.me/TigerProtocolGlobal", "_blank"); }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-medium hover:bg-gray-50" style={{ color: B }}>
-                <Headphones size={14} style={{ color: R }} /> Customer Service
-              </button>
-              {isAdmin && (
-                <>
-                  <div className="my-1 border-t border-gray-100" />
-                  <button onClick={() => { setMenuOpen(false); navigate("/admin/dashboard"); }}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-medium hover:bg-red-50" style={{ color: R }}>
-                    <Shield size={14} style={{ color: R }} /> Admin Panel
-                  </button>
-                </>
+        <div className="flex items-center gap-1.5">
+
+          {/* ── Bell Notification ── */}
+          <div className="relative" ref={bellRef}>
+            <button
+              onClick={() => setBellOpen(v => !v)}
+              className="relative p-1.5 rounded-xl hover:bg-white transition-colors"
+              style={{ color: B }}
+            >
+              <Bell size={18} />
+              {anns.some(a => !reads.has(a.id)) && (
+                <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full" />
               )}
-            </div>
-          )}
+            </button>
+            {bellOpen && (
+              <div className="absolute right-0 top-full mt-1 bg-white rounded-2xl shadow-xl border border-gray-100 w-72 z-50 overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
+                  <p className="text-xs font-bold" style={{ color: B }}>Notifications</p>
+                  {anns.some(a => !reads.has(a.id)) && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold text-white" style={{ background: R }}>
+                      {anns.filter(a => !reads.has(a.id)).length} new
+                    </span>
+                  )}
+                </div>
+                {anns.length === 0 ? (
+                  <p className="text-xs text-gray-400 text-center py-6">No announcements</p>
+                ) : (
+                  anns.map(ann => (
+                    <button
+                      key={ann.id}
+                      onClick={() => { markRead(ann.id); setBellOpen(false); }}
+                      className={`w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-50 last:border-0 transition-colors${reads.has(ann.id) ? " opacity-60" : ""}`}
+                    >
+                      <div className="flex items-start gap-2">
+                        {!reads.has(ann.id) && (
+                          <span className="w-1.5 h-1.5 bg-red-500 rounded-full flex-shrink-0 mt-1.5" />
+                        )}
+                        <p className="text-xs text-gray-700 leading-relaxed">{ann.message}</p>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* ── Airdrop ── */}
+          <button
+            onClick={openAirdrops}
+            className="text-xs font-bold px-2.5 py-1 rounded-lg"
+            style={{ color: B, background: "#EFF6FF" }}
+          >
+            Airdrop
+          </button>
+
+          {/* ── 3-dots Menu ── */}
+          <div className="relative" ref={menuRef}>
+            <button onClick={() => setMenuOpen(v => !v)} className="p-1.5 rounded-xl hover:bg-white transition-colors" style={{ color: B }}>
+              <MoreVertical size={20} />
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 top-full mt-1 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 w-48 z-50">
+                <button onClick={() => { setMenuOpen(false); window.open("https://t.me/+uE-PlUgGg-wzOWRk", "_blank"); }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-medium hover:bg-gray-50" style={{ color: B }}>
+                  <Send size={14} style={{ color: R }} /> Telegram
+                </button>
+                <button onClick={() => { setMenuOpen(false); window.open("https://t.me/TigerProtocolGlobal", "_blank"); }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-medium hover:bg-gray-50" style={{ color: B }}>
+                  <Headphones size={14} style={{ color: R }} /> Customer Service
+                </button>
+              </div>
+            )}
+          </div>
+
         </div>
       </div>
 
@@ -329,6 +419,49 @@ export default function HomeTab() {
       >
         {claiming ? <><RefreshCw size={14} className="animate-spin" /> Claiming...</> : <><Sparkles size={14} /> Claim Profit</>}
       </button>
+
+      {/* ── Airdrop Modal ── */}
+      {airdropOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center"
+          style={{ background: "rgba(0,0,0,0.5)" }}
+          onClick={() => setAirdropOpen(false)}
+        >
+          <div
+            className="bg-white w-full max-w-md rounded-t-3xl p-5 pb-10"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-bold" style={{ color: B }}>🎁 Airdrop</h2>
+              <button onClick={() => setAirdropOpen(false)} className="p-1 rounded-lg hover:bg-gray-100" style={{ color: B }}>
+                <X size={16} />
+              </button>
+            </div>
+            {airdrops.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-10">No active airdrops at the moment.</p>
+            ) : (
+              <div className="space-y-3">
+                {airdrops.map(a => (
+                  <div key={a.id} className="rounded-xl p-4 border border-blue-100" style={{ background: "#EFF6FF" }}>
+                    <p className="text-sm font-bold mb-1" style={{ color: B }}>{a.title}</p>
+                    {a.description && <p className="text-xs text-gray-500 mb-2">{a.description}</p>}
+                    <p className="text-xl font-extrabold" style={{ color: R }}>${Number(a.amount).toFixed(2)}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+            <button
+              onClick={() => setAirdropOpen(false)}
+              className="w-full mt-5 py-2.5 rounded-xl text-sm font-bold text-white"
+              style={{ background: B }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
