@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import {
   LogOut, Shield, Users, ShoppingBag, Copy, Check,
-  Mail, Phone, Globe, Hash, Calendar, ChevronRight,
+  Phone, Globe, Hash, Calendar, ChevronRight,
 } from "lucide-react";
 
 type Profile = {
@@ -107,7 +107,6 @@ export default function ProfileTab() {
         <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Account Details</p>
         <div className="divide-y divide-gray-100">
           {[
-            { Icon: Mail,     label: "Email",         value: email },
             { Icon: Hash,     label: "Referral Code", value: profile?.referral_code },
             { Icon: Phone,    label: "Phone",         value: profile?.phone },
             { Icon: Globe,    label: "Country",       value: profile?.country },

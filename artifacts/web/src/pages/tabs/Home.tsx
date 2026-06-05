@@ -37,6 +37,19 @@ export default function HomeTab() {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  /* ── Admin check — runs once on mount, independent of load ── */
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user?.email) return;
+        const { data } = await supabase
+          .from("admins").select("email").eq("email", user.email).single();
+        if (data) setIsAdmin(true);
+      } catch { /* not admin */ }
+    })();
+  }, []);
+
   const load = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { navigate("/login", { replace: true }); return; }
@@ -49,18 +62,6 @@ export default function HomeTab() {
     const { data: prof } = await supabase
       .from("profiles").select("balance, full_name").eq("id", uid).single();
     setProfile(prof ?? null);
-
-    /* ── Admin check — try admins table, fallback to profiles.role ── */
-    try {
-      const { data: adminRow } = await supabase
-        .from("admins").select("email").eq("email", user.email ?? "").maybeSingle();
-      if (adminRow) { setIsAdmin(true); }
-      else {
-        const { data: profRole } = await supabase
-          .from("profiles").select("role").eq("id", uid).single();
-        setIsAdmin(profRole?.role === "admin");
-      }
-    } catch { setIsAdmin(false); }
 
     /* ── Stats table queries (deposits only, no risk of missing table) ── */
     const [dailyRes, totalRes, actRes, bidRes] = await Promise.all([
@@ -240,7 +241,7 @@ export default function HomeTab() {
               {isAdmin && (
                 <>
                   <div className="my-1 border-t border-gray-100" />
-                  <button onClick={() => { setMenuOpen(false); navigate("/admin"); }}
+                  <button onClick={() => { setMenuOpen(false); navigate("/admin/dashboard"); }}
                     className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-medium hover:bg-red-50" style={{ color: R }}>
                     <Shield size={14} style={{ color: R }} /> Admin Panel
                   </button>
