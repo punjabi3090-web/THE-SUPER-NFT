@@ -5,7 +5,7 @@ import toast, { Toaster } from "react-hot-toast";
 import {
   DollarSign, Sparkles, RefreshCw, MoreVertical, Bell, Send, Headphones,
   Users, Trophy, FileText, Share2, ShoppingCart, Clock,
-  ArrowDownCircle, ArrowUpCircle, X,
+  ArrowDownCircle, ArrowUpCircle, X, Shield,
 } from "lucide-react";
 import AnnouncementBanner from "../../components/AnnouncementBanner";
 
@@ -328,6 +328,15 @@ export default function HomeTab() {
             </button>
             {menuOpen && (
               <div className="absolute right-0 top-full mt-1 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 w-48 z-50">
+                {isAdmin && (
+                  <>
+                    <button onClick={() => { setMenuOpen(false); navigate("/admin/dashboard"); }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-medium hover:bg-red-50" style={{ color: R }}>
+                      <Shield size={14} style={{ color: R }} /> Admin Panel
+                    </button>
+                    <div className="my-1 border-t border-gray-100" />
+                  </>
+                )}
                 <button onClick={() => { setMenuOpen(false); window.open("https://t.me/+uE-PlUgGg-wzOWRk", "_blank"); }}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-medium hover:bg-gray-50" style={{ color: B }}>
                   <Send size={14} style={{ color: R }} /> Telegram
