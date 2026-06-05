@@ -1,0 +1,50 @@
+Build complete AdminDashboard.jsx with 6 tabs and full admin control:
+
+TECH STACK: React + Vite, Tailwind CSS, shadcn/ui, Supabase client from '@/lib/supabase', sonner for toast, lucide-react icons, react-router-dom.
+
+TABS NEEDED: Deposits, Withdrawals, Users, Settings, Announce, Stats
+
+CORE LOGIC:
+1. Use useState for activeTab default 'deposits'. All tab buttons must update activeTab onClick.
+2. Use useEffect(() => fetchData(), [activeTab]) to load data per tab.
+
+TAB DETAILS:
+
+1. DEPOSITS TAB: 
+   - Fetch pending deposits: supabase.from('deposits').select('*, profiles(email,username)').eq('status','pending')
+   - Show list with amount, email, tx_hash, screenshot link
+   - Approve button calls supabase.rpc('approve_deposit', {deposit_id})
+
+2. WITHDRAWALS TAB:
+   - Fetch pending withdrawals: supabase.from('withdrawals').select('*, profiles(email,username)').eq('status','pending')
+   - Show amount, email, network, wallet_address
+   - Input for TX Hash + Success button calls supabase.rpc('approve_withdrawal', {withdrawal_id, tx_hash_input})
+   - Input for reject reason + Reject button calls supabase.rpc('reject_withdrawal', {withdrawal_id, reason})
+
+3. USERS TAB:
+   - Fetch profiles: supabase.from('profiles').select('id,email,username,balance,created_at').limit(50)
+   - Show UID, email, username, balance for each user
+
+4. SETTINGS TAB:
+   - Fetch admin_settings: supabase.from('admin_settings').select('*').eq('id',1).single()
+   - Input fields for: bep20_address, trc20_address, deposit_reward_percent, referral_reward_percent, level_reward_percent, airdrop_percent, withdrawal_min_hours, withdrawal_max_hours
+   - Save button updates admin_settings table where id=1
+
+5. ANNOUNCE TAB:
+   - Textarea for message + Post button
+   - Insert into announcements table: supabase.from('announcements').insert({message})
+
+6. STATS TAB:
+   - Total Users: count from profiles
+   - Total Deposits: sum of amount from deposits where status='approved' 
+   - Pending Deposits: count from deposits where status='pending'
+   - Pending Withdrawals: count from withdrawals where status='pending'
+
+REQUIREMENTS:
+- Add proper loading states and error handling with toast
+- Use lucide icons: DollarSign, Users, BarChart3, Megaphone, Settings, ArrowDownToLine, Check, X, ArrowLeft
+- Responsive grid for stats
+- Back button to navigate('/dashboard')
+- Show count badges on Deposits/Withdrawals tabs if pending > 0
+
+Give me complete AdminDashboard.jsx file with all imports and full code.
