@@ -194,7 +194,7 @@ export default function HomeTab() {
   ];
 
   const teamBoxes = [
-    { label: ["Community", "rewards"],  value: team.community,    icon: <Users    className="w-5 h-5 mx-auto mt-1" style={{ color: "#3b82f6" }} /> },
+    { label: ["Total Register", "Members"],  value: team.community,    icon: <Users    className="w-5 h-5 mx-auto mt-1" style={{ color: "#3b82f6" }} /> },
     { label: ["Valid",     "Members"],  value: team.valid,        icon: <Trophy   className="w-5 h-5 mx-auto mt-1" style={{ color: "#eab308" }} /> },
     { label: ["A",         "enthusiast"], value: team.aEnthusiast, icon: <FileText className="w-5 h-5 mx-auto mt-1" style={{ color: "#3b82f6" }} /> },
     { label: ["B+C",       "enthusiasts"], value: team.bcEnthusiast, icon: <Share2 className="w-5 h-5 mx-auto mt-1" style={{ color: "#22c55e" }} /> },
@@ -215,12 +215,9 @@ export default function HomeTab() {
       <div className="flex items-center justify-between h-14 mb-2">
         <div className="flex items-center gap-2">
           <img src="/assets/logo.png" className="h-8 w-auto" alt="Super NFT" />
-          <div>
-            <p className="text-[10px] text-gray-400 leading-tight">Welcome back</p>
-            <p className="text-sm font-bold leading-tight" style={{ color: B }}>
-              {profile?.full_name?.split(" ")[0] ?? "User"} 👋
-            </p>
-          </div>
+          <h1 className="text-base font-bold bg-gradient-to-r from-purple-600 via-pink-500 to-orange-500 bg-clip-text text-transparent leading-tight">
+            THE SUPER NFT
+          </h1>
         </div>
         <div className="relative" ref={menuRef}>
           <button onClick={() => setMenuOpen(v => !v)} className="p-1.5 rounded-xl hover:bg-white transition-colors" style={{ color: B }}>

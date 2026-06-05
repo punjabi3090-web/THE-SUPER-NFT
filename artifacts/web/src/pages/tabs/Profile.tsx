@@ -65,7 +65,9 @@ export default function ProfileTab() {
       {/* ── Header ── */}
       <div className="flex items-center gap-2 h-14 mb-2">
         <img src="/assets/logo.png" className="h-8 w-auto" alt="Super NFT" />
-        <h1 className="text-base font-bold" style={{ color: "#1E3A8A" }}>Profile</h1>
+        <h1 className="text-base font-bold bg-gradient-to-r from-purple-600 via-pink-500 to-orange-500 bg-clip-text text-transparent">
+          THE SUPER NFT
+        </h1>
       </div>
 
       {/* ── Avatar + Name ── */}

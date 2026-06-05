@@ -137,7 +137,12 @@ export default function MyTeam() {
           >
             <ArrowLeft size={18} />
           </button>
-          <h1 className="text-xl font-bold">My Team</h1>
+          <div className="flex items-center gap-2">
+            <img src="/assets/logo.png" className="h-8 w-auto" alt="Super NFT" />
+            <h1 className="text-xl font-bold bg-gradient-to-r from-purple-600 via-pink-500 to-orange-500 bg-clip-text text-transparent">
+              THE SUPER NFT
+            </h1>
+          </div>
         </div>
 
         {/* ── Referral Code + Link ─── */}
