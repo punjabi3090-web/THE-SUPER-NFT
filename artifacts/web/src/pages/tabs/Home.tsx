@@ -94,48 +94,31 @@ export default function HomeTab() {
       .from("profiles").select("balance, full_name").eq("user_id", uid).single();
     setProfile(prof ?? null);
 
-    /* ── Stats table queries (deposits only, no risk of missing table) ── */
-    const [dailyRes, totalRes, actRes, bidRes] = await Promise.all([
-      supabase.from("deposits").select("amount")
-        .eq("user_id", uid).eq("status", "approved").gte("created_at", todayStart.toISOString()),
-      supabase.from("deposits").select("amount")
-        .eq("user_id", uid).eq("status", "approved"),
-      supabase.from("deposits").select("*", { count: "exact", head: true })
-        .eq("user_id", uid),
+    /* ── Income & team views ── */
+    const [{ data: dailyStats }, { data: teamStats }, actRes, bidRes] = await Promise.all([
+      supabase.from("daily_income_stats")
+        .select("today_income, total_income").eq("user_id", uid).single(),
+      supabase.from("team_stats")
+        .select("total_members, valid_members, level_a_members, level_b_members, level_c_members")
+        .eq("user_id", uid).single(),
+      supabase.from("deposits").select("*", { count: "exact", head: true }).eq("user_id", uid),
       supabase.from("deposits").select("amount")
         .eq("user_id", uid).order("created_at", { ascending: false }).limit(1),
     ]);
 
-    const dailyIncome = (dailyRes.data ?? []).reduce((s: number, r: { amount: number }) => s + (r.amount ?? 0), 0);
-    const totalIncome = (totalRes.data ?? []).reduce((s: number, r: { amount: number }) => s + (r.amount ?? 0), 0);
-    const bidAmount   = (bidRes.data ?? [])[0]?.amount ?? 0;
-
-    /* ── Community count — uses `users` table (referred_by column) ── */
-    const { count: communityCount } = await supabase
-      .from("users").select("*", { count: "exact", head: true }).eq("referred_by", uid);
-
     setStats({
-      dailyIncome, totalIncome,
-      team:     communityCount ?? 0,
-      activity: actRes.count ?? 0,
-      bid:      bidAmount,
+      dailyIncome: dailyStats?.today_income ?? 0,
+      totalIncome: dailyStats?.total_income ?? 0,
+      team:        teamStats?.total_members ?? 0,
+      activity:    actRes.count ?? 0,
+      bid:         (bidRes.data ?? [])[0]?.amount ?? 0,
     });
 
-    /* ── My Team — distinct user_id via Set (deposits.referred_by = uid) ── */
-    const [validData, aData, bData] = await Promise.all([
-      supabase.from("deposits").select("user_id")
-        .eq("referred_by", uid).eq("status", "approved").gt("amount", 0),
-      supabase.from("deposits").select("user_id")
-        .eq("referred_by", uid).eq("status", "approved").gte("amount", 100),
-      supabase.from("deposits").select("user_id")
-        .eq("referred_by", uid).eq("status", "approved").gte("amount", 20).lt("amount", 100),
-    ]);
-
     setTeam({
-      community:   communityCount ?? 0,
-      valid:       new Set((validData.data ?? []).map((d: { user_id: string }) => d.user_id)).size,
-      aEnthusiast: new Set((aData.data    ?? []).map((d: { user_id: string }) => d.user_id)).size,
-      bcEnthusiast: new Set((bData.data   ?? []).map((d: { user_id: string }) => d.user_id)).size,
+      community:    teamStats?.total_members ?? 0,
+      valid:        teamStats?.valid_members ?? 0,
+      aEnthusiast:  teamStats?.level_a_members ?? 0,
+      bcEnthusiast: (teamStats?.level_b_members ?? 0) + (teamStats?.level_c_members ?? 0),
     });
 
     /* ── My Orders ── */
@@ -164,7 +147,20 @@ export default function HomeTab() {
     setLoading(false);
   }, [navigate]);
 
-  useEffect(() => { load(); const t = setInterval(load, 30_000); return () => clearInterval(t); }, [load]);
+  useEffect(() => {
+    load();
+    const t = setInterval(load, 30_000);
+
+    const channel = supabase.channel("home-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "transactions" }, () => load())
+      .subscribe();
+
+    return () => {
+      clearInterval(t);
+      supabase.removeChannel(channel);
+    };
+  }, [load]);
 
   useEffect(() => {
     const h = (e: MouseEvent) => {

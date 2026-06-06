@@ -69,18 +69,15 @@ export default function Login() {
 
     setLoading(true);
 
-    let referredById: string | null = null;
     let referredByEmail: string | null = null;
-    if (form.referralCode.trim()) {
+    const refCode = form.referralCode.trim().toUpperCase();
+    if (refCode) {
       const { data: refProf } = await supabase
         .from('profiles')
-        .select('user_id, email')
-        .eq('referral_code', form.referralCode.trim().toUpperCase())
+        .select('email')
+        .eq('referral_code', refCode)
         .single();
-      if (refProf) {
-        referredById    = refProf.user_id;
-        referredByEmail = refProf.email;
-      }
+      if (refProf) referredByEmail = refProf.email;
     }
 
     const { error } = await supabase.auth.signUp({
@@ -88,10 +85,10 @@ export default function Login() {
       password: form.password,
       options: {
         data: {
-          full_name:   form.fullName,
-          phone:       form.country + form.phone,
-          country:     form.country,
-          referred_by: referredById,
+          full_name:        form.fullName,
+          phone:            form.country + form.phone,
+          country:          form.country,
+          referred_by_code: refCode || null,
         }
       }
     });

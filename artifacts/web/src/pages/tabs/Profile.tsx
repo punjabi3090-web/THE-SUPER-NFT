@@ -32,10 +32,15 @@ export default function ProfileTab() {
       if (!user) { navigate("/login", { replace: true }); return; }
       setEmail(user.email ?? null);
       setUserId(user.id);
-      const { data } = await supabase.from("profiles")
-        .select("full_name, email, phone, country, referral_code, role, level, created_at")
-        .eq("user_id", user.id).single();
-      setProfile(data ?? null);
+      const [{ data: profData }, { data: levelData }] = await Promise.all([
+        supabase.from("profiles")
+          .select("full_name, email, phone, country, referral_code, role, created_at")
+          .eq("user_id", user.id).single(),
+        supabase.from("user_levels")
+          .select("level")
+          .eq("user_id", user.id).single(),
+      ]);
+      setProfile(profData ? { ...profData, level: levelData?.level ?? 0 } : null);
       setLoading(false);
     })();
   }, [navigate]);
@@ -90,7 +95,7 @@ export default function ProfileTab() {
           <div className="flex items-center gap-1.5 mt-1">
             <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold border"
               style={{ color: "#1E3A8A", background: "#EFF6FF", borderColor: "#BFDBFE" }}>
-              Level {profile?.level ?? 1}
+              Level {profile?.level ?? 0}
             </span>
             {isAdmin && (
               <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold border"

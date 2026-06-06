@@ -1,0 +1,76 @@
+IMPORTANT: DESIGN, COLORS, UI, PAGES, LAYOUT KO BILKUL TOUCH NAHI KARNA. 
+Sirf Supabase database integration fix karni hai. Purana design 100% same rahe.
+
+PROJECT: THE SUPER NFT
+STACK: Next.js 14 + Supabase + TypeScript + Tailwind
+
+CRITICAL REQUIREMENT: 
+User signup karte hi uska data 2 jagah foran dikhna chahiye:
+1. SUPABASE TABLES ME: profiles, user_levels, transactions me auto entry ban jaye
+2. APP DASHBOARD ME: Referral Code, Balance $1.50, Member Since, Level 0 foran show ho
+Koi bhi field "—" nahi aani chahiye. Data dono jagah sync hona chahiye.
+
+NEW DATABASE SCHEMA ALREADY CREATED IN SUPABASE:
+
+TABLES:
+1. profiles: user_id UUID PK, email, username, role, referral_code TEXT UNIQUE, referred_by UUID, balance DECIMAL, total_earning, total_withdraw, created_at
+2. user_levels: user_id UUID PK, level INTEGER 0-6, level_amount DECIMAL, upgraded_at
+3. transactions: id BIGSERIAL PK, user_id, type TEXT, amount, description, from_user_id, created_at
+4. deposits: id BIGSERIAL PK, user_id, amount, status, tx_hash, screenshot_url, created_at, approved_at
+
+VIEWS:
+1. daily_income_stats: user_id, today_income, total_income
+2. team_stats: user_id, total_members, valid_members, level_a_members, level_b_members, level_c_members, level_d_members, level_e_members, level_f_members  
+3. user_activity: id, user_id, type, amount, description, created_at, activity_name
+4. admin_stats: total_users, pending_deposits, total_user_balance, level_1_users to level_6_users
+
+AUTO TRIGGERS WORKING:
+1. Signup pe: profile + user_levels + $1.50 signup_bonus transaction auto create hota hai
+2. Ref code se signup: upline ko $0.50 team_commission milta hai
+3. Level upgrade: upline ko 10%,5%,3%,2%,1%,1% commission
+4. Deposit approve: upline ko 5% reward
+
+TUMHARA KAAM:
+
+1. HOOKS UPDATE KARO - DESIGN SAME:
+   hooks/useAuth.ts - Supabase auth session handle karo
+   hooks/useDashboard.ts - Bas data fetching logic badlo
+   
+   useDashboard me ye queries use karo:
+   - supabase.from('profiles').select('*').eq('user_id', user.id).single()
+   - supabase.from('daily_income_stats').select('*').eq('user_id', user.id).single()
+   - supabase.from('team_stats').select('*').eq('user_id', user.id).single()
+   - supabase.from('user_activity').select('*').eq('user_id', user.id).limit(10)
+   - supabase.from('user_levels').select('*').eq('user_id', user.id).single()
+
+2. EXISTING DASHBOARD PAGE ME BAS VALUES MAP KARO:
+   - Referral Code = profile.referral_code
+   - Balance = profile.balance
+   - Member Since = profile.created_at
+   - Level = user_levels.level
+   - Today's Income = daily_income_stats.today_income
+   - Team Members = team_stats.total_members
+   - Activity List = user_activity array
+
+3. SIGNUP PAGE ME REF CODE SUPPORT:
+   URL me ?ref=SNXXXXXX ho to supabase.auth.signUp me options.data.referred_by_code bhej
+
+4. REALTIME SUBSCRIPTION:
+   profiles, transactions table pe realtime lagao
+
+5. RLS ENABLED HAI:
+   Har query me .eq('user_id', user.id) lagana zaroori hai
+
+STRICT RULES:
+1. Koi naya page mat banao
+2. Koi color, font, padding, margin change mat karo
+3. Sirf data fetching hooks aur existing components me variable mapping update karo
+4. Level 0-6 support add karo
+
+RESULT:
+New account create karte hi:
+1. Supabase me profiles + transactions me data ban jaye
+2. Dashboard me Referral Code, Balance $1.50, Member Since, Level 0 foran show ho
+3. Design 1px bhi change nahi hona chahiye
+
+Bas database connection fix karo, UI ko bilkul touch mat karna.
