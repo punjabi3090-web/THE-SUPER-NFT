@@ -11,6 +11,11 @@ const basePath = process.env.BASE_PATH ?? "/";
 
 export default defineConfig({
   base: basePath,
+  define: {
+    "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(
+      process.env.VITE_SUPABASE_URL ?? process.env.SUPABASE_URL ?? ""
+    ),
+  },
   plugins: [
     react(),
     tailwindcss(),
