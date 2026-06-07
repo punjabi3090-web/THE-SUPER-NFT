@@ -4,7 +4,7 @@ import { supabase } from "../../lib/supabase";
 import { getCurrentUser } from "../../lib/api";
 import {
   LogOut, Shield, Users, ShoppingBag, Copy, Check,
-  Phone, Globe, Hash, Calendar, ChevronRight,
+  Phone, Globe, Hash, Calendar, ChevronRight, Mail,
 } from "lucide-react";
 
 type Profile = {
@@ -110,6 +110,7 @@ export default function ProfileTab() {
         <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Account Details</p>
         <div className="divide-y divide-gray-100">
           {[
+            { Icon: Mail,     label: "Email",         value: profile?.email },
             { Icon: Hash,     label: "Referral Code", value: profile?.referral_code },
             { Icon: Phone,    label: "Phone",         value: profile?.phone },
             { Icon: Globe,    label: "Country",       value: profile?.country },

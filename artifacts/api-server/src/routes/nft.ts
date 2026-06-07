@@ -760,7 +760,34 @@ router.get("/users/:id", async (req: Request, res: Response): Promise<void> => {
   const id = parseInt(req.params["id"] as string);
   const [user] = await db.select().from(nftUsers).where(eq(nftUsers.id, id));
   if (!user) { res.status(404).json({ error: "User not found" }); return; }
-  res.json({ user: mapUser(user) });
+
+  const result = await db.execute(sql`
+    SELECT
+      (SELECT COUNT(*) FROM nft_users
+         WHERE joined_with_code = ${user.myReferralCode})::int                                                AS team_count,
+      (SELECT COUNT(DISTINCT u.id) FROM nft_users u
+         INNER JOIN nft_deposits d ON d.user_id = u.id AND d.status = 'approved'
+         WHERE u.joined_with_code = ${user.myReferralCode})::int                                             AS valid_members,
+      (SELECT COUNT(*) FROM nft_deposits   WHERE user_id = ${id})::int                                       AS total_orders,
+      (SELECT COUNT(*) FROM nft_deposits   WHERE user_id = ${id} AND status = 'pending')::int                AS proc_orders,
+      (SELECT COUNT(*) FROM nft_deposits   WHERE user_id = ${id} AND status = 'approved')::int               AS bought_count,
+      (SELECT COUNT(*) FROM nft_withdrawals WHERE user_id = ${id} AND status = 'approved')::int              AS sold_count
+  `);
+
+  const c = (result.rows?.[0] ?? (result as unknown as unknown[])[0] ?? {}) as Record<string, unknown>;
+  res.json({
+    user: {
+      ...mapUser(user),
+      teamCount:        Number(c["team_count"]    ?? 0),
+      validMembers:     Number(c["valid_members"]  ?? 0),
+      aEnthusiasts:     Number(c["team_count"]    ?? 0),
+      bcEnthusiasts:    0,
+      totalOrders:      Number(c["total_orders"]  ?? 0),
+      processingOrders: Number(c["proc_orders"]   ?? 0),
+      boughtCount:      Number(c["bought_count"]  ?? 0),
+      soldCount:        Number(c["sold_count"]    ?? 0),
+    },
+  });
 });
 
 router.get("/users/:id/team", async (req: Request, res: Response): Promise<void> => {

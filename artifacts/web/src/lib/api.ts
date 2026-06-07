@@ -54,6 +54,15 @@ export interface User {
   lastLogin: string;
   password?: string;
   myActivityHistory: HistoryItem[];
+  // Team & order counters — populated by GET /users/:id
+  teamCount?: number;
+  validMembers?: number;
+  aEnthusiasts?: number;
+  bcEnthusiasts?: number;
+  totalOrders?: number;
+  processingOrders?: number;
+  boughtCount?: number;
+  soldCount?: number;
 }
 
 export interface WithdrawalRequest {

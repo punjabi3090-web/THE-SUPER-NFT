@@ -1,0 +1,88 @@
+FINAL WARNING - COMPLETE HOME PAGE FIX
+
+3 DIN SE PATCHES MAAR RAHE HO. AB POORA SYSTEM BASIC SE THEEK KARO.
+
+CURRENT STATUS:
+✅ Migration to Express API ho gaya
+✅ faisalnft55@gmail.com admin ban gaya role='admin' SQL se
+❌ Home page ke tools dead hain
+❌ Referral system 0% kaam kar raha hai
+
+AB YE 5 KAAM 100% KARNE HAIN - TEST KE BAAD HI "DONE" BOLNA:
+
+TASK 1: SIGNUP ME referred_by_code SAVE KARO
+File: /api/auth/signup
+Bug: Naya user ban raha hai lekin referred_by_code NULL save ho raha hai
+Fix:
+const { email, name, phone, referralCode } = req.body
+await db.query(`
+  INSERT INTO profiles (user_id, email, name, phone, referral_code, referred_by_code, role)
+  VALUES ($1, $2, $3, $4, $5, $6, 'user')
+`, [userId, email, name, phone, generateReferralCode(), referralCode || null])
+
+TASK 2: /api/getCurrentUser ME SAB COUNTERS ADD KARO
+Ye sab return hona chahiye:
+{
+  email: user.email,
+  name: profile.name,
+  phone: profile.phone,
+  referral_code: profile.referral_code,
+  role: profile.role,
+  walletBalance: 0,
+  dailyIncome: 0,
+  totalIncome: 0,
+  teamCount: (SELECT COUNT(*) FROM profiles WHERE referred_by_code = $1),
+  validMembers: (SELECT COUNT(*) FROM profiles p JOIN orders o ON o.user_id = p.user_id WHERE p.referred_by_code = $1 AND o.status = 'completed'),
+  aEnthusiasts: (SELECT COUNT(*) FROM profiles WHERE referred_by_code = $1),
+  bcEnthusiasts: 0,
+  totalOrders: (SELECT COUNT(*) FROM orders WHERE user_id = $1),
+  boughtCount: (SELECT COUNT(*) FROM orders WHERE user_id = $1 AND status = 'completed'),
+  soldCount: (SELECT COUNT(*) FROM orders WHERE user_id = $1 AND status = 'sold')
+}
+
+TASK 3: HOME PAGE PE RED ZERO LOGIC LAGAO
+Helper: const getColor = (val) => val === 0? 'text-red-500' : 'text-black'
+Lagana hai: Total Register Members, Valid Members, A enthusiast, B+C enthusiasts, Orders, Bought, Sold
+Example: <p className={getColor(user.teamCount)}>{user.teamCount || 0}</p>
+
+TASK 4: ACCOUNT DETAILS ME EMAIL ADD KARO - ⚠️ ZAROORI WARNING
+
+ACCOUNT DETAILS ME JO DATA ABHI DIKH RAHA HAI WO 100% SAHI HAI.
+Referral Code, Phone, Country, Member Since - INKO BILKUL NA CHERNA, NA DELETE KARNA, NA CHANGE KARNA.
+
+SIRF EK KAAM: Email ki line sabse upar add karni hai.
+
+PEHLE SE YE HAI - ISE NA HATAO:
+<p>Referral Code: {profile.referral_code}</p>
+<p>Phone: {profile.phone}</p>
+<p>Country: {profile.country || '-'}</p>
+<p>Member Since: {formatDate(profile.created_at)}</p>
+
+AB BAS YE EK LINE UPAR ADD KARO:
+<p>Email: {user.email}</p>
+
+FINAL RESULT YE HONA CHAHIYE:
+<div>ACCOUNT DETAILS</div>
+<p>Email: {user.email}</p>
+<p>Referral Code: {profile.referral_code}</p>
+<p>Phone: {profile.phone}</p>
+<p>Country: {profile.country || '-'}</p>
+<p>Member Since: {formatDate(profile.created_at)}</p>
+
+user object supabase.auth.getUser() se milega.
+
+TASK 5: 3 DOTS MENU ME ADMIN PANEL BUTTON
+Sirf jab user.role === 'admin' ho tab dikhe
+<Menu.Item onClick={() => navigate('/admin')}>Admin Panel</Menu.Item>
+Route: <Route path="/admin" element={user?.role === 'admin'? <AdminPanel /> : <Navigate to="/" />} />
+
+TESTING CHECKLIST - SAB PASS HONA CHAHIYE:
+1. Naya account banao Referral=FAIS7575 se > Supabase me referred_by_code=FAIS7575 hona chahiye
+2. Faisal se login karo > Total Register Members=1 ho jana chahiye aur RED se BLACK ho jana chahiye
+3. Profile > Account Details me Email sabse upar dikhni chahiye, baaki 4 fields same rehni chahiye
+4. 3 dots me Admin Panel button dikhna chahiye sirf admin ko
+5. Team=0, Orders=0, Bought=0, Sold=0 sab RED color me dikhne chahiye jab tak 0 hain
+
+AGAR 1 BHI TEST FAIL HUA TO "FIXED" MAT BOLNA.
+SCREENSHOT BHEJO: 1) Faisal dashboard Team=1 ke saath 2) Naye user ki profiles row 3) Admin menu 4) Profile Account Details
+AB KAAM KARO. NO MORE EXCUSES.

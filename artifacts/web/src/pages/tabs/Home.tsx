@@ -85,78 +85,45 @@ export default function HomeTab() {
   const load = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { navigate("/login", { replace: true }); return; }
-
     const uid = user.id;
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
 
-    /* ── Profile from Express API ── */
+    /* ── Profile + team/order counters from Express API ── */
     const apiUser = await getCurrentUser();
     setProfile(apiUser ? { balance: apiUser.walletBalance, name: apiUser.name, referral_code: apiUser.myReferralCode } : null);
     setIsAdmin(apiUser?.isAdmin ?? false);
 
-    const myRefCode = apiUser?.myReferralCode ?? null;
-
-    /* ── Income views + deposits + team count from profiles ── */
-    const [dailyRes, actRes, bidRes, { data: approvedDeps }, teamCountRes, teamStatsRes] = await Promise.all([
-      supabase.from("daily_income_stats")
-        .select("today_income, total_income").eq("user_id", uid).maybeSingle(),
-      supabase.from("deposits").select("*", { count: "exact", head: true }).eq("user_id", uid),
-      supabase.from("deposits").select("amount")
-        .eq("user_id", uid).order("created_at", { ascending: false }).limit(1),
-      supabase.from("deposits").select("amount")
-        .eq("user_id", uid).eq("status", "approved"),
-      myRefCode
-        ? supabase.from("profiles").select("*", { count: "exact", head: true }).eq("referred_by_code", myRefCode)
-        : Promise.resolve({ count: 0, error: null }),
-      supabase.from("team_stats")
-        .select("valid_members, level_a_members, level_b_members, level_c_members")
-        .eq("user_id", uid).maybeSingle(),
+    /* ── Daily income + approved deposits from Supabase ── */
+    const [dailyRes, { data: approvedDeps }] = await Promise.all([
+      supabase.from("daily_income_stats").select("today_income, total_income").eq("user_id", uid).maybeSingle(),
+      supabase.from("deposits").select("amount").eq("user_id", uid).eq("status", "approved"),
     ]);
 
     const comprehensive = (approvedDeps ?? []).reduce((sum, d) => sum + Number(d.amount), 0);
-    const latestApproved = (approvedDeps ?? []).sort((a, b) => Number(b.amount) - Number(a.amount))[0];
-    const nftRate = latestApproved ? getNftRate(Number(latestApproved.amount)) : 0;
-    const totalMembers = teamCountRes.count ?? 0;
+    const maxAmt = (approvedDeps ?? []).reduce((m, d) => Math.max(m, Number(d.amount)), 0);
+    const nftRate = getNftRate(maxAmt);
 
     setStats({
       dailyIncome:   dailyRes.data?.today_income ?? 0,
       totalIncome:   dailyRes.data?.total_income ?? 0,
-      team:          totalMembers,
-      activity:      actRes.count ?? 0,
-      bid:           (bidRes.data ?? [])[0]?.amount ?? 0,
+      team:          apiUser?.teamCount    ?? 0,
+      activity:      apiUser?.totalOrders  ?? 0,
+      bid:           maxAmt,
       comprehensive,
       nftRate,
     });
 
     setTeam({
-      community:    totalMembers,
-      valid:        teamStatsRes.data?.valid_members ?? 0,
-      aEnthusiast:  teamStatsRes.data?.level_a_members ?? 0,
-      bcEnthusiast: (teamStatsRes.data?.level_b_members ?? 0) + (teamStatsRes.data?.level_c_members ?? 0),
+      community:    apiUser?.teamCount    ?? 0,
+      valid:        apiUser?.validMembers ?? 0,
+      aEnthusiast:  apiUser?.aEnthusiasts ?? 0,
+      bcEnthusiast: apiUser?.bcEnthusiasts ?? 0,
     });
 
-    /* ── My Orders ── */
-    const [ordTotal, ordPend, ordAppr] = await Promise.all([
-      supabase.from("deposits").select("*", { count: "exact", head: true }).eq("user_id", uid),
-      supabase.from("deposits").select("*", { count: "exact", head: true }).eq("user_id", uid).eq("status", "pending"),
-      supabase.from("deposits").select("*", { count: "exact", head: true }).eq("user_id", uid).eq("status", "approved"),
-    ]);
-
-    /* sold — try withdrawals, silently 0 if table missing */
-    let soldCount = 0;
-    try {
-      const { count } = await supabase
-        .from("withdrawals").select("*", { count: "exact", head: true })
-        .eq("user_id", uid).eq("status", "approved");
-      soldCount = count ?? 0;
-    } catch { soldCount = 0; }
-
     setOrders({
-      total:      ordTotal.count ?? 0,
-      processing: ordPend.count  ?? 0,
-      bought:     ordAppr.count  ?? 0,
-      sold:       soldCount,
+      total:      apiUser?.totalOrders      ?? 0,
+      processing: apiUser?.processingOrders ?? 0,
+      bought:     apiUser?.boughtCount      ?? 0,
+      sold:       apiUser?.soldCount        ?? 0,
     });
 
     setLoading(false);
@@ -398,7 +365,7 @@ export default function HomeTab() {
               <div className="absolute right-0 top-full mt-1 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 w-48 z-50">
                 {isAdmin && (
                   <>
-                    <button onClick={() => { setMenuOpen(false); navigate("/admin/dashboard"); }}
+                    <button onClick={() => { setMenuOpen(false); navigate("/admin"); }}
                       className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-medium hover:bg-red-50" style={{ color: R }}>
                       <Shield size={14} style={{ color: R }} /> Admin Panel
                     </button>
@@ -459,7 +426,7 @@ export default function HomeTab() {
           {teamBoxes.map(box => (
             <div key={box.label[0]} className="flex flex-col items-center text-center">
               {box.icon}
-              <p className="text-base font-bold text-gray-900 leading-tight mt-0.5">{box.value}</p>
+              <p className="text-base font-bold leading-tight mt-0.5" style={{ color: box.value === 0 ? R : "#111827" }}>{box.value}</p>
               <p className="text-[9px] text-gray-500 leading-tight">{box.label[0]}<br />{box.label[1]}</p>
             </div>
           ))}
@@ -478,7 +445,7 @@ export default function HomeTab() {
           {orderBoxes.map(box => (
             <div key={box.label} className="flex flex-col items-center text-center">
               {box.icon}
-              <p className="text-base font-bold text-gray-900 leading-tight mt-0.5">{box.value}</p>
+              <p className="text-base font-bold leading-tight mt-0.5" style={{ color: box.value === 0 ? R : "#111827" }}>{box.value}</p>
               <p className="text-[9px] text-gray-500 leading-tight">{box.label}</p>
             </div>
           ))}
