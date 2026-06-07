@@ -134,8 +134,9 @@ export default function HomeTab() {
     const t = setInterval(load, 30_000);
 
     const channel = supabase.channel("home-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => load())
-      .on("postgres_changes", { event: "*", schema: "public", table: "transactions" }, () => load())
+      .on("postgres_changes", { event: "*",    schema: "public", table: "profiles" },     () => load())
+      .on("postgres_changes", { event: "*",    schema: "public", table: "transactions" }, () => load())
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "deposits" },  () => load())
       .subscribe();
 
     return () => {

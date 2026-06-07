@@ -57,8 +57,10 @@ export interface User {
   // Team & order counters — populated by GET /users/:id
   teamCount?: number;
   validMembers?: number;
-  aEnthusiasts?: number;
-  bcEnthusiasts?: number;
+  aEnthusiasts?: number;   // level-1 direct referrals
+  bEnthusiasts?: number;   // level-2 with approved deposit
+  cEnthusiasts?: number;   // level-3 with approved deposit
+  bcEnthusiasts?: number;  // bEnthusiasts + cEnthusiasts combined
   totalOrders?: number;
   processingOrders?: number;
   boughtCount?: number;

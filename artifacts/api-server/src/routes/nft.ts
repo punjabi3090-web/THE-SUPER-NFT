@@ -763,11 +763,29 @@ router.get("/users/:id", async (req: Request, res: Response): Promise<void> => {
 
   const result = await db.execute(sql`
     SELECT
+      -- Level 1: direct referrals (A enthusiasts)
       (SELECT COUNT(*) FROM nft_users
-         WHERE joined_with_code = ${user.myReferralCode})::int                                                AS team_count,
+         WHERE joined_with_code = ${user.myReferralCode})::int                                               AS team_count,
+
+      -- Valid members: level-1 referrals with at least one approved deposit
       (SELECT COUNT(DISTINCT u.id) FROM nft_users u
          INNER JOIN nft_deposits d ON d.user_id = u.id AND d.status = 'approved'
          WHERE u.joined_with_code = ${user.myReferralCode})::int                                             AS valid_members,
+
+      -- B enthusiasts: level-2 referrals with approved deposits
+      (SELECT COUNT(DISTINCT p2.id) FROM nft_users p2
+         INNER JOIN nft_users p1 ON p1.my_referral_code = p2.joined_with_code
+         INNER JOIN nft_deposits d ON d.user_id = p2.id AND d.status = 'approved'
+         WHERE p1.joined_with_code = ${user.myReferralCode})::int                                            AS b_enthusiasts,
+
+      -- C enthusiasts: level-3 referrals with approved deposits
+      (SELECT COUNT(DISTINCT p3.id) FROM nft_users p3
+         INNER JOIN nft_users p2 ON p2.my_referral_code = p3.joined_with_code
+         INNER JOIN nft_users p1 ON p1.my_referral_code = p2.joined_with_code
+         INNER JOIN nft_deposits d ON d.user_id = p3.id AND d.status = 'approved'
+         WHERE p1.joined_with_code = ${user.myReferralCode})::int                                            AS c_enthusiasts,
+
+      -- Order counters for this user
       (SELECT COUNT(*) FROM nft_deposits   WHERE user_id = ${id})::int                                       AS total_orders,
       (SELECT COUNT(*) FROM nft_deposits   WHERE user_id = ${id} AND status = 'pending')::int                AS proc_orders,
       (SELECT COUNT(*) FROM nft_deposits   WHERE user_id = ${id} AND status = 'approved')::int               AS bought_count,
@@ -775,13 +793,17 @@ router.get("/users/:id", async (req: Request, res: Response): Promise<void> => {
   `);
 
   const c = (result.rows?.[0] ?? (result as unknown as unknown[])[0] ?? {}) as Record<string, unknown>;
+  const bEnt = Number(c["b_enthusiasts"] ?? 0);
+  const cEnt = Number(c["c_enthusiasts"] ?? 0);
   res.json({
     user: {
       ...mapUser(user),
       teamCount:        Number(c["team_count"]    ?? 0),
       validMembers:     Number(c["valid_members"]  ?? 0),
       aEnthusiasts:     Number(c["team_count"]    ?? 0),
-      bcEnthusiasts:    0,
+      bEnthusiasts:     bEnt,
+      cEnthusiasts:     cEnt,
+      bcEnthusiasts:    bEnt + cEnt,
       totalOrders:      Number(c["total_orders"]  ?? 0),
       processingOrders: Number(c["proc_orders"]   ?? 0),
       boughtCount:      Number(c["bought_count"]  ?? 0),
