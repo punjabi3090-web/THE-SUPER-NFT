@@ -117,6 +117,32 @@ export default function Login() {
       setLoading(false);
       return;
     }
+
+    // User is now authenticated — insert profile row into Supabase
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (authUser) {
+        const refCode = form.referralCode.trim().toUpperCase();
+        const newRefCode = 'FAIS' + Math.floor(1000 + Math.random() * 9000);
+        const { error: profileError } = await supabase.from('profiles').insert({
+          user_id:          authUser.id,
+          email:            form.email.trim().toLowerCase(),
+          name:             form.fullName.trim(),
+          phone:            (form.country + form.phone).trim(),
+          referral_code:    newRefCode,
+          referred_by_code: refCode || null,
+          created_at:       new Date().toISOString(),
+        });
+        if (profileError) {
+          console.error('CRITICAL: Profile Insert Failed:', profileError);
+        } else {
+          console.log('Profile created successfully for:', authUser.id);
+        }
+      }
+    } catch (profileEx) {
+      console.error('Profile insert exception:', profileEx);
+    }
+
     showMsg("Account created successfully!", "success");
     setTimeout(() => window.location.replace('/showcase'), 1000);
     setLoading(false);
