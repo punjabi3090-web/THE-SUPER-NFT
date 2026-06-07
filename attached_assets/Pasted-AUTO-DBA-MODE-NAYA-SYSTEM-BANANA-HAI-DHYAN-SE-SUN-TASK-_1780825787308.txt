@@ -1,0 +1,69 @@
+AUTO-DBA MODE - NAYA SYSTEM BANANA HAI. DHYAN SE SUN.
+
+=== TASK-1: SHOWCASE PAGE + FLOW ===
+
+1. SignUp/Login ke baad naya page add kar: "ShowCase" 
+   - Uploaded image ko full page me fit kar
+   - IMPORTANT: Image ke 4 sides clear dikhni chahiye. Crop na ho. Object-fit: contain use kar.
+   - Background me #000 ya gradient rakh sakta hai taake empty space acha lage
+   - Center me "Continue to Dashboard" button add kar
+   - Button pe click = redirect to Dashboard
+
+2. User Flow set kar:
+   SignUp → Login Page → ShowCase Page → "Continue to Dashboard" button → Dashboard
+   
+   Matlab: User signup kare to login page pe jaye. Login kare to ShowCase dikhe. ShowCase me button dabaye to Dashboard khule.
+
+=== TASK-2: DATABASE + DASHBOARD TABLES ===
+
+RULE: Saari tables tu khud /api/setup-db me banayega. Supabase auth ke sath link karega. User ki tables se match karega.
+
+1. PROFILE DATA:
+   Jab user new account banaye to Dashboard > Profile page me ye dikhao:
+   - User name, Email, Phone number, Referral Code + Link, Account create date/time
+   - Ye data auto Supabase Auth se aaye. Table: "profiles" bana
+   - Columns: id, user_id[FK to auth.users], name, email, phone, referral_code, created_at
+
+2. DASHBOARD HOME - INCOME TABLE:
+   "Daily Income" wala table ye 5 sections me bana:
+   1. Comprehensive: Total income dikhe
+   2. Daily Income: Daily claim wali income dikhe  
+   3. Team Income: Level upgrade pe team income dikhe
+   4. Activity: Referral ne deposit kiya to income yahan dikhe
+   5. Bid: Band rakha, bas dikhe
+   
+   Tables bana: "user_income", "income_transactions"
+   Columns: id, user_id, type[comprehensive/daily/team/activity], amount, date, source_user_id, created_at
+   Real Supabase auth ke sath working kar.
+
+3. DASHBOARD HOME - MY TEAM TABLE:
+   Logic ye hai:
+   - Total Register Members: Jab koi new account bane
+   - Valid Members: Jab user deposit kare
+   - A Enthusiast: Direct referral deposit kare to count
+   - B/C Enthusiast: Mere member ka member deposit kare to count
+   
+   Tables bana: "referrals", "deposits" 
+   Columns referrals: id, referrer_id, referred_id, level[A/B/C], created_at
+   Columns deposits: id, user_id, amount, status, created_at
+   Auto Supabase auth se link kar.
+
+4. DASHBOARD HOME - MY ORDERS TABLE:
+   Jab user daily claim kare to count badhe:
+   - Orders, Bought, Sold me daily profit claim count ho
+   
+   Table bana: "daily_claims"
+   Columns: id, user_id, claim_date, amount, type, created_at
+
+5. BUTTON NAME CHANGE:
+   Dashboard home page me neeche red patti me "Claim Profit" button ka naam change karke "Daily Reserve" kar de. Function same rahega.
+
+=== IMPORTANT RULES ===
+1. Pehle /api/setup-db me saari tables ka code likh
+2. Tables banane ke baad hi UI/API code likh
+3. Saari tables Supabase Auth users table se user_id ke through link honi chahiye
+4. Project ki existing files safe rahen. Sirf naya code add kar
+5. ShowCase image ka CSS: width:100%, height:100vh, object-fit:contain rakh taake 4 sides clear dikhe
+6. Test karke confirm kar "✅ SAB SETUP COMPLETE"
+
+SHURU KAR. PEHLE DATABASE BANAY, PHIR UI.

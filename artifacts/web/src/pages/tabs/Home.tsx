@@ -422,7 +422,7 @@ export default function HomeTab() {
         onMouseEnter={e => !claiming && ((e.currentTarget as HTMLElement).style.background = "#b91c1c")}
         onMouseLeave={e => !claiming && ((e.currentTarget as HTMLElement).style.background = R)}
       >
-        {claiming ? <><RefreshCw size={14} className="animate-spin" /> Claiming...</> : <><Sparkles size={14} /> Claim Profit</>}
+        {claiming ? <><RefreshCw size={14} className="animate-spin" /> Claiming...</> : <><Sparkles size={14} /> Daily Reserve</>}
       </button>
 
       {/* ── Airdrop Modal ── */}

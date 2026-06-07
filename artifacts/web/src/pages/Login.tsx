@@ -115,7 +115,7 @@ export default function Login() {
     if (error) showMsg("Invalid or expired OTP");
     else {
       showMsg("Account created successfully!", "success");
-      setTimeout(() => navigate('/'), 1000);
+      setTimeout(() => navigate('/showcase'), 1000);
     }
     setLoading(false);
   };
@@ -130,7 +130,7 @@ export default function Login() {
     if (error) {
       showMsg(error.message.includes("confirm") ? "Please verify your email first" : "Wrong email or password");
     } else {
-      navigate('/');
+      navigate('/showcase');
     }
     setLoading(false);
   };

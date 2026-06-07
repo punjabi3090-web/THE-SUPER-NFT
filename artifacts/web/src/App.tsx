@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "./lib/supabase";
 import Login          from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
+import ShowCase       from "./pages/ShowCase";
 import MainLayout     from "./layouts/MainLayout";
 import Deposit        from "./pages/Deposit";
 import Withdraw       from "./pages/Withdraw";
@@ -38,6 +39,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login"           element={session ? <Navigate to="/" replace /> : <Login />} />
+      <Route path="/showcase"        element={session ? <ShowCase />    : <Navigate to="/login" replace />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/"                element={session ? <MainLayout />  : <Navigate to="/login" replace />} />
       <Route path="/deposit"         element={session ? <Deposit />     : <Navigate to="/login" replace />} />
