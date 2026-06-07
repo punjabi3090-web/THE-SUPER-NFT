@@ -98,11 +98,13 @@ export default function Deposit() {
       }
     } catch { /* storage bucket might not exist, continue without screenshot URL */ }
 
+    const nft = getNftLevel(Number(amount));
     const { error } = await supabase.from("deposits").insert({
-      user_id: user.id,
-      amount:  Number(amount),
-      tx_hash: screenshotUrl || `SCREENSHOT_PENDING_${netTab.toUpperCase()}`,
-      status:  "pending",
+      user_id:   user.id,
+      amount:    Number(amount),
+      nft_level: nft.level,
+      tx_hash:   screenshotUrl || `SCREENSHOT_PENDING_${netTab.toUpperCase()}`,
+      status:    "pending",
     });
 
     setSubmitting(false);
@@ -111,6 +113,16 @@ export default function Deposit() {
     setSubmitted(true);
     toast.success("Deposit submitted! Admin will verify in 5–30 mins.");
   };
+
+  const getNftLevel = (amt: number): { level: number; rate: number; label: string } => {
+    if (amt >= 2000) return { level: 4, rate: 2.0,  label: "Level 4 — 2.0% daily" };
+    if (amt >= 500)  return { level: 3, rate: 1.5,  label: "Level 3 — 1.5% daily" };
+    if (amt >= 100)  return { level: 2, rate: 1.2,  label: "Level 2 — 1.2% daily" };
+    return              { level: 1, rate: 1.0,  label: "Level 1 — 1.0% daily" };
+  };
+
+  const parsedAmt = Number(amount);
+  const nftInfo   = !isNaN(parsedAmt) && parsedAmt >= 10 ? getNftLevel(parsedAmt) : null;
 
   const inp = `w-full bg-white text-gray-800 px-4 py-3 rounded-xl border border-gray-200 focus:border-[#1E3A8A] outline-none text-sm`;
 
@@ -243,6 +255,15 @@ export default function Deposit() {
               min="10"
               step="any"
             />
+            {nftInfo && (
+              <div className="mt-1.5 flex items-center gap-2 px-3 py-2 rounded-xl"
+                style={{ background: "#F0FDF4", border: "1px solid #BBF7D0" }}>
+                <span className="text-green-600 font-bold text-xs">NFT {nftInfo.label}</span>
+                <span className="text-green-500 text-xs">
+                  · Daily: ${(parsedAmt * nftInfo.rate / 100).toFixed(2)}
+                </span>
+              </div>
+            )}
           </div>
 
           <div>

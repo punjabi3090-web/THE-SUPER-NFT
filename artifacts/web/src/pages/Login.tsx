@@ -85,7 +85,7 @@ export default function Login() {
       password: form.password,
       options: {
         data: {
-          full_name:        form.fullName,
+          name:             form.fullName,
           phone:            form.country + form.phone,
           country:          form.country,
           referred_by_code: refCode || null,

@@ -1,0 +1,84 @@
+CRITICAL BUG FIX - STOP IGNORING USER DATA ISSUE
+
+PROBLEM 1: USER DATA SHOW NAHI HO RAHI
+Dashboard pe Referral Code, Phone, Name sab "-" dikh raha hai. Tu bas static UI bana raha hai, Supabase se data fetch nahi kar raha.
+
+FIX IMMEDIATELY:
+
+1. SAB FILES RECHECK KAR - Pura project scan kar:
+   /artifacts/web/src/pages/ShowCase.tsx
+   /artifacts/web/src/pages/Signup.tsx  
+   /artifacts/web/src/lib/supabase.ts
+   /artifacts/web/src/context/AuthContext.tsx
+
+2. FAULT NIKALO: Dekho kyun profiles table se data nahi aa raha. Console.log lagao, error check karo.
+
+3. SUPABASE AUTH SE PROPER CONNECT KAR:
+   ShowCase.tsx me ye code add kar sabse upar:
+
+   const [profile, setProfile] = useState(null)
+   const [loading, setLoading] = useState(true)
+
+   useEffect(() => {
+     const getProfile = async () => {
+       const { data: { user } } = await supabase.auth.getUser()
+       if (!user) return
+
+       const { data, error } = await supabase
+         .from('profiles')
+         .select('*')
+         .eq('user_id', user.id)
+         .single()
+       
+       if (error) console.error('Profile fetch error:', error)
+       setProfile(data)
+       setLoading(false)
+     }
+     getProfile()
+   }, [])
+
+4. UI ME REAL DATA DIKHAO - Hardcoded "-" hatao:
+   Referral Code: {profile?.referral_code || '-'}
+   Phone: {profile?.phone || '-'}
+   Name: {profile?.name || '-'}
+   Email: {profile?.email || '-'}
+
+PROBLEM 2: INCOME SYSTEM BANANA HAI
+DATABASE READY HAI. deposits aur daily_income tables RLS ke saath ban gayi hain.
+
+TASK A: DEPOSIT PAGE /artifacts/web/src/pages/Deposit.tsx
+- Amount input + NFT Level auto calculate
+  $10-99=Level1 1%, $100-499=Level2 1.2%, $500-1999=Level3 1.5%, $2000+=Level4 2%
+- Submit pe deposits table me insert: user_id, amount, nft_level
+
+TASK B: DAILY RESERVE LOGIC
+1. Check active deposits
+2. Calculate: amount * nft_level_percentage / 100
+3. Check if today's entry exists in daily_income
+4. If not, INSERT with status='pending'
+5. If yes, toast "Already Claimed Today"
+
+TASK C: CLAIM LOGIC  
+Claim button pe UPDATE daily_income SET status='claimed' WHERE income_date=CURRENT_DATE
+
+TASK D: DASHBOARD REAL VALUES
+Wallet = SUM(deposits) + SUM(claimed income)
+Daily Income = SUM(pending income today)
+Total Income = SUM(claimed income)
+Comprehensive = SUM(deposits)
+
+RULES:
+1. KOI BHI STATIC VALUE MAT RAKHNA - Sab Supabase se aana chahiye
+2. RLS ERRORS AAYE TO CONSOLE ME PRINT KAR
+3. SIGNUP ME options.data me name, phone, referred_by_code bhej
+4. TEST KAR NEW ACCOUNT BANA KE - Profile data dikhna chahiye
+
+VERIFY KAR:
+1. Naya account bana
+2. Supabase profiles table me row check kar - data hona chahiye
+3. Dashboard pe real name, phone, referral dikhna chahiye
+4. $100 deposit kar ke Daily Reserve test kar
+
+AGAR AB BHI DATA SHOW NAHI HUA TO FILE BY FILE DEBUG KAR KE BATA KAHAN ERROR AA RAHA.
+
+"✅ ALL BUGS FIXED + INCOME SYSTEM DONE" BOL KE HI RUKNA

@@ -13,14 +13,21 @@ const R = "#DC2626";
 const B = "#1E3A8A";
 const BG = "#F8F9FA";
 
-type Profile    = { balance: number | null; full_name: string | null };
-type UserStats  = { dailyIncome: number; totalIncome: number; team: number; activity: number; bid: number };
+type Profile    = { balance: number | null; name: string | null };
+type UserStats  = { dailyIncome: number; totalIncome: number; team: number; activity: number; bid: number; comprehensive: number; nftRate: number };
 type TeamData   = { community: number; valid: number; aEnthusiast: number; bcEnthusiast: number };
 type OrderData  = { total: number; processing: number; bought: number; sold: number };
 type Ann        = { id: string; message: string; created_at: string };
 type Airdrop    = { id: string; title: string; description: string; amount: number };
 
-const Z_STATS: UserStats = { dailyIncome: 0, totalIncome: 0, team: 0, activity: 0, bid: 0 };
+const Z_STATS: UserStats = { dailyIncome: 0, totalIncome: 0, team: 0, activity: 0, bid: 0, comprehensive: 0, nftRate: 0 };
+
+const getNftRate = (amount: number) => {
+  if (amount >= 2000) return 2.0;
+  if (amount >= 500)  return 1.5;
+  if (amount >= 100)  return 1.2;
+  return 1.0;
+};
 const Z_TEAM: TeamData   = { community: 0, valid: 0, aEnthusiast: 0, bcEnthusiast: 0 };
 const Z_ORD: OrderData   = { total: 0, processing: 0, bought: 0, sold: 0 };
 
@@ -91,11 +98,11 @@ export default function HomeTab() {
 
     /* ── Profile ── */
     const { data: prof } = await supabase
-      .from("profiles").select("balance, full_name").eq("user_id", uid).single();
+      .from("profiles").select("balance, name").eq("user_id", uid).single();
     setProfile(prof ?? null);
 
-    /* ── Income & team views ── */
-    const [{ data: dailyStats }, { data: teamStats }, actRes, bidRes] = await Promise.all([
+    /* ── Income & team views + approved deposits ── */
+    const [{ data: dailyStats }, { data: teamStats }, actRes, bidRes, { data: approvedDeps }] = await Promise.all([
       supabase.from("daily_income_stats")
         .select("today_income, total_income").eq("user_id", uid).single(),
       supabase.from("team_stats")
@@ -104,14 +111,22 @@ export default function HomeTab() {
       supabase.from("deposits").select("*", { count: "exact", head: true }).eq("user_id", uid),
       supabase.from("deposits").select("amount")
         .eq("user_id", uid).order("created_at", { ascending: false }).limit(1),
+      supabase.from("deposits").select("amount")
+        .eq("user_id", uid).eq("status", "approved"),
     ]);
 
+    const comprehensive = (approvedDeps ?? []).reduce((sum, d) => sum + Number(d.amount), 0);
+    const latestApproved = (approvedDeps ?? []).sort((a, b) => Number(b.amount) - Number(a.amount))[0];
+    const nftRate = latestApproved ? getNftRate(Number(latestApproved.amount)) : 0;
+
     setStats({
-      dailyIncome: dailyStats?.today_income ?? 0,
-      totalIncome: dailyStats?.total_income ?? 0,
-      team:        teamStats?.total_members ?? 0,
-      activity:    actRes.count ?? 0,
-      bid:         (bidRes.data ?? [])[0]?.amount ?? 0,
+      dailyIncome:   dailyStats?.today_income ?? 0,
+      totalIncome:   dailyStats?.total_income ?? 0,
+      team:          teamStats?.total_members ?? 0,
+      activity:      actRes.count ?? 0,
+      bid:           (bidRes.data ?? [])[0]?.amount ?? 0,
+      comprehensive,
+      nftRate,
     });
 
     setTeam({
@@ -187,13 +202,70 @@ export default function HomeTab() {
     setClaiming(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { toast.error("Please login first"); setClaiming(false); return; }
-    const { data, error } = await supabase.rpc("claim_user_profit", { p_user_id: user.id });
-    if (error) { toast.error("Failed: " + error.message); }
-    else {
-      const amount = Number(data ?? 0);
-      if (amount > 0) { toast.success(`Claimed $${amount.toFixed(2)} ✓`); load(); }
-      else { toast("No pending profit to claim.", { icon: "ℹ️" }); }
+
+    const today = new Date().toISOString().split("T")[0];
+
+    /* Check existing daily_income entry for today */
+    const { data: existing } = await supabase
+      .from("daily_income")
+      .select("id, status, amount")
+      .eq("user_id", user.id)
+      .eq("income_date", today)
+      .maybeSingle();
+
+    if (existing?.status === "claimed") {
+      toast("Already claimed today! Come back tomorrow. ⏳", { icon: "ℹ️" });
+      setClaiming(false);
+      return;
     }
+
+    if (existing?.status === "pending") {
+      /* Update pending → claimed */
+      const { error } = await supabase
+        .from("daily_income")
+        .update({ status: "claimed" })
+        .eq("id", existing.id);
+      if (error) { toast.error("Failed: " + error.message); }
+      else { toast.success(`Claimed $${Number(existing.amount).toFixed(2)} ✓`); load(); }
+      setClaiming(false);
+      return;
+    }
+
+    /* No entry today — calculate from active approved deposits */
+    const { data: deps, error: depsErr } = await supabase
+      .from("deposits")
+      .select("amount")
+      .eq("user_id", user.id)
+      .eq("status", "approved");
+
+    if (depsErr) { toast.error("Failed to fetch deposits: " + depsErr.message); setClaiming(false); return; }
+    if (!deps || deps.length === 0) {
+      toast("No active deposit. Make a deposit first.", { icon: "ℹ️" });
+      setClaiming(false);
+      return;
+    }
+
+    const totalIncome = deps.reduce((sum, d) => {
+      const amt = Number(d.amount);
+      return sum + amt * (getNftRate(amt) / 100);
+    }, 0);
+
+    if (totalIncome <= 0) {
+      toast("No income to claim.", { icon: "ℹ️" });
+      setClaiming(false);
+      return;
+    }
+
+    /* INSERT directly as claimed */
+    const { error: insErr } = await supabase.from("daily_income").insert({
+      user_id:     user.id,
+      amount:      totalIncome,
+      status:      "claimed",
+      income_date: today,
+    });
+
+    if (insErr) { toast.error("Failed: " + insErr.message); }
+    else { toast.success(`Claimed $${totalIncome.toFixed(2)} ✓`); load(); }
     setClaiming(false);
   };
 
@@ -227,13 +299,13 @@ export default function HomeTab() {
   const balance = profile?.balance ?? 0;
 
   const statsRows = [
-    { label: "Daily Income",  value: `$${stats.dailyIncome.toFixed(2)}`,             hl: true },
-    { label: "Total Income",  value: `$${stats.totalIncome.toFixed(2)}`,             hl: true },
-    { label: "Comprehensive", value: "20",                                            hl: false },
-    { label: "Claim",         value: "1.5",                                           hl: false },
-    { label: "Team",          value: String(stats.team),                              hl: false },
-    { label: "Activity",      value: String(stats.activity),                          hl: false },
-    { label: "Bid",           value: stats.bid > 0 ? `$${stats.bid.toFixed(2)}` : "—", hl: false },
+    { label: "Daily Income",  value: `$${stats.dailyIncome.toFixed(2)}`,                       hl: true },
+    { label: "Total Income",  value: `$${stats.totalIncome.toFixed(2)}`,                       hl: true },
+    { label: "Comprehensive", value: stats.comprehensive > 0 ? `$${stats.comprehensive.toFixed(2)}` : "—", hl: false },
+    { label: "Claim",         value: stats.nftRate > 0 ? `${stats.nftRate}%` : "—",           hl: false },
+    { label: "Team",          value: String(stats.team),                                       hl: false },
+    { label: "Activity",      value: String(stats.activity),                                   hl: false },
+    { label: "Bid",           value: stats.bid > 0 ? `$${stats.bid.toFixed(2)}` : "—",        hl: false },
   ];
 
   const teamBoxes = [

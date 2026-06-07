@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 
 type Profile = {
-  full_name: string | null; email: string | null; phone: string | null;
+  name: string | null; email: string | null; phone: string | null;
   country: string | null; referral_code: string | null; role: string | null;
   level: number | null; created_at: string | null;
 };
@@ -34,7 +34,7 @@ export default function ProfileTab() {
       setUserId(user.id);
       const [{ data: profData }, { data: levelData }] = await Promise.all([
         supabase.from("profiles")
-          .select("full_name, email, phone, country, referral_code, role, created_at")
+          .select("name, email, phone, country, referral_code, role, created_at")
           .eq("user_id", user.id).single(),
         supabase.from("user_levels")
           .select("level")
@@ -68,7 +68,7 @@ export default function ProfileTab() {
     );
   }
 
-  const displayName = profile?.full_name || email?.split("@")[0] || "User";
+  const displayName = profile?.name || email?.split("@")[0] || "User";
   const initial     = displayName[0].toUpperCase();
   const isAdmin     = profile?.role === "admin";
 
