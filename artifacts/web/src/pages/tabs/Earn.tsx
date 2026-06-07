@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "../../lib/supabase";
+import { getCurrentUser } from "../../lib/api";
 import { Copy, Check, Users, Zap } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 
@@ -9,10 +9,8 @@ export default function EarnTab() {
 
   useEffect(() => {
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data } = await supabase.from("profiles").select("referral_code").eq("user_id", user.id).single();
-      setReferralCode(data?.referral_code ?? null);
+      const apiUser = await getCurrentUser();
+      setReferralCode(apiUser?.myReferralCode ?? null);
     })();
   }, []);
 

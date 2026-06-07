@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../lib/supabase";
-import showcaseImg from "@assets/IMG-20260606-WA0110_1780825769189.jpg";
+import { getCurrentUser } from "../lib/api";
+const showcaseImg = "/images/super-poster.png";
 
 type Profile = { name: string | null; email: string | null; referral_code: string | null; phone: string | null };
 
@@ -12,15 +12,15 @@ export default function ShowCase() {
 
   useEffect(() => {
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setLoading(false); return; }
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("name, email, referral_code, phone")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      console.log("[ShowCase] profile:", data, "error:", error?.message ?? null);
-      setProfile(data ?? null);
+      const apiUser = await getCurrentUser();
+      if (apiUser) {
+        setProfile({
+          name:          apiUser.name,
+          email:         apiUser.email,
+          referral_code: apiUser.myReferralCode,
+          phone:         apiUser.phone,
+        });
+      }
       setLoading(false);
     })();
   }, []);

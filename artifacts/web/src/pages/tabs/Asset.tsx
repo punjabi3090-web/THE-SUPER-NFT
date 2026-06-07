@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
+import { getCurrentUser } from "../../lib/api";
 import { useNavigate } from "react-router-dom";
 import { Wallet, ArrowDownLeft, ArrowUpRight, TrendingUp, Clock, RefreshCw } from "lucide-react";
 
-type Profile = { balance: number | null; total_earned: number | null; total_withdrawn: number | null };
+type Profile = { balance: number; total_earned: number; total_withdrawn: number };
 type Tx      = { id: string; type: string; amount: number; description: string | null; created_at: string };
 
 export default function AssetTab() {
@@ -16,17 +17,24 @@ export default function AssetTab() {
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true); else setRefreshing(true);
+
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { navigate("/login", { replace: true }); return; }
 
-    const [{ data: prof }, { data: txData }, { data: claimed }] = await Promise.all([
-      supabase.from("profiles").select("balance, total_earned, total_withdrawn").eq("user_id", user.id).single(),
+    const [apiUser, { data: txData }, { data: claimed }] = await Promise.all([
+      getCurrentUser(),
       supabase.from("transactions").select("id, type, amount, description, created_at")
         .eq("user_id", user.id).order("created_at", { ascending: false }).limit(50),
       supabase.from("transactions").select("amount").eq("user_id", user.id).eq("type", "nft_profit").eq("claimed", true),
     ]);
 
-    setProfile(prof ?? null);
+    if (apiUser) {
+      setProfile({
+        balance:       apiUser.walletBalance,
+        total_earned:  apiUser.reserveIncome + apiUser.teamIncome + apiUser.activityIncome,
+        total_withdrawn: apiUser.totalWithdraw,
+      });
+    }
     setTxs((txData ?? []) as Tx[]);
     const sum = (claimed ?? []).reduce((s: number, r: { amount: number }) => s + (r.amount ?? 0), 0);
     setClaimedSum(sum);

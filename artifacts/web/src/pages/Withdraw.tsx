@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/useAuth";
 import { supabase } from "../lib/supabase";
-import { ArrowLeft, ArrowDownToLine, Check, Clock } from "lucide-react";
+import { getCurrentUser, getCurrentUserId, submitWithdrawalRequest } from "../lib/api";
+import { ArrowLeft, Check, Clock } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 import AnnouncementBanner from "../components/AnnouncementBanner";
 
@@ -37,20 +38,20 @@ export default function Withdraw() {
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const [{ data: prof }, { data: settingsRows }] = await Promise.all([
-        supabase.from("profiles").select("balance").eq("user_id", user.id).single(),
+      const [apiUser, { data: settingsRows }] = await Promise.all([
+        getCurrentUser(),
         supabase.from("admin_settings").select("key, value"),
       ]);
-      setBalance(prof?.balance ?? 0);
+      setBalance(apiUser?.walletBalance ?? 0);
 
       if (settingsRows) {
         const m: Record<string, string> = {};
         settingsRows.forEach((r: { key: string; value: string }) => { m[r.key] = r.value ?? ""; });
         setWdSettings({
-          min_withdraw:         parseFloat(m.min_withdraw ?? "10"),
-          max_withdraw:         parseFloat(m.max_withdraw ?? "10000"),
-          withdrawal_min_hours: parseFloat(m.withdrawal_min_hours ?? "24"),
-          withdrawal_max_hours: parseFloat(m.withdrawal_max_hours ?? "72"),
+          min_withdraw:         parseFloat(m["min_withdraw"]         ?? "10"),
+          max_withdraw:         parseFloat(m["max_withdraw"]         ?? "10000"),
+          withdrawal_min_hours: parseFloat(m["withdrawal_min_hours"] ?? "24"),
+          withdrawal_max_hours: parseFloat(m["withdrawal_max_hours"] ?? "72"),
         });
       }
       setBalLoading(false);
@@ -78,27 +79,24 @@ export default function Withdraw() {
     if (amt > balance) { toast.error("Insufficient balance"); return; }
     if (!wallet.trim()) { toast.error("Enter your wallet address"); return; }
 
+    const numericId = getCurrentUserId();
+    if (!numericId) { toast.error("Session expired — please re-login"); return; }
+
     setSubmitting(true);
-
-    /* 1. Insert withdrawal request */
-    const { error: wdErr } = await supabase.from("withdrawals").insert({
-      user_id:        user.id,
-      amount:         amt,
-      wallet_address: wallet.trim(),
-      network:        network,
-      status:         "pending",
-    });
-    if (wdErr) { toast.error(wdErr.message); setSubmitting(false); return; }
-
-    /* 2. Immediately deduct balance */
-    const { error: balErr } = await supabase.rpc("increment_balance", { uid: user.id, inc: -amt });
-    if (balErr) {
-      /* withdrawal recorded but balance deduction failed — non-blocking */
-      console.warn("Balance deduction failed:", balErr.message);
-    }
-
+    const result = await submitWithdrawalRequest(numericId, amt, network, wallet.trim());
     setSubmitting(false);
-    setSubmitted(true);
+
+    if (result === "ok") {
+      setSubmitted(true);
+    } else if (result === "insufficient") {
+      toast.error("Insufficient balance");
+    } else if (result === "min") {
+      toast.error(`Minimum withdrawal is $${wdSettings.min_withdraw}`);
+    } else if (result === "blocked") {
+      toast.error("Your account is blocked");
+    } else {
+      toast.error("Withdrawal failed — please try again");
+    }
   };
 
   if (submitted) {
@@ -158,85 +156,52 @@ export default function Withdraw() {
             <p className="text-3xl font-extrabold text-white">${balance.toFixed(2)}</p>
             <p className="text-xs text-white opacity-40 mt-0.5">USDT</p>
           </div>
-          <ArrowDownToLine size={32} className="text-white opacity-30" />
+          <div className="text-right text-white opacity-60 text-xs space-y-0.5">
+            <p>Min: ${wdSettings.min_withdraw}</p>
+            <p>Max: ${wdSettings.max_withdraw.toLocaleString()}</p>
+          </div>
+        </div>
+
+        {/* ── Network Tabs ── */}
+        <div className="flex rounded-xl overflow-hidden border border-gray-200 mb-4">
+          {(["TRC20", "BEP20"] as Network[]).map(n => (
+            <button key={n} onClick={() => setNetwork(n)}
+              className="flex-1 py-2.5 text-sm font-semibold transition-colors"
+              style={{ background: network === n ? B : "#fff", color: network === n ? "#fff" : "#6b7280" }}>
+              {n}
+            </button>
+          ))}
         </div>
 
         {/* ── Form ── */}
-        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-4">
-          <p className="text-sm font-bold" style={{ color: B }}>Withdrawal Details</p>
-
-          {/* Network Selector */}
+        <form onSubmit={handleSubmit} className="space-y-3">
           <div>
-            <label className="block text-xs text-gray-500 mb-1.5 font-medium">Network</label>
-            <div className="grid grid-cols-2 gap-2">
-              {(["TRC20", "BEP20"] as Network[]).map(n => (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => setNetwork(n)}
-                  className="py-2.5 text-sm font-bold rounded-xl border-2 transition-colors"
-                  style={network === n
-                    ? { background: B, color: "white", borderColor: B }
-                    : { background: "white", color: "#9CA3AF", borderColor: "#E5E7EB" }
-                  }
-                >
-                  {n === "TRC20" ? "TRC20 (TRON)" : "BEP20 (BSC)"}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Amount */}
-          <div>
-            <label className="block text-xs text-gray-500 mb-1.5 font-medium">Amount (USDT)</label>
+            <label className="text-xs font-semibold text-gray-500 mb-1 block">Amount (USDT)</label>
             <input
-              type="number"
-              placeholder={`Min $${wdSettings.min_withdraw} · Max $${balance.toFixed(2)}`}
-              value={amount}
-              onChange={e => setAmount(e.target.value)}
-              className={inp}
-              min={wdSettings.min_withdraw}
-              step="any"
+              type="number" placeholder={`Min $${wdSettings.min_withdraw}`}
+              value={amount} onChange={e => setAmount(e.target.value)}
+              className={inp} min={wdSettings.min_withdraw} max={balance} step="0.01"
             />
-            {amt > balance && amount && (
-              <p className="text-xs text-red-500 mt-1">Insufficient balance</p>
-            )}
-            {amt < wdSettings.min_withdraw && amt > 0 && (
-              <p className="text-xs text-red-500 mt-1">Minimum withdrawal: ${wdSettings.min_withdraw}</p>
-            )}
           </div>
-
-          {/* Wallet */}
           <div>
-            <label className="block text-xs text-gray-500 mb-1.5 font-medium">
-              Wallet Address ({network})
-            </label>
+            <label className="text-xs font-semibold text-gray-500 mb-1 block">{network} Wallet Address</label>
             <input
-              type="text"
-              placeholder={network === "TRC20" ? "T... (TRON address)" : "0x... (BSC address)"}
-              value={wallet}
-              onChange={e => setWallet(e.target.value)}
+              type="text" placeholder="Enter wallet address"
+              value={wallet} onChange={e => setWallet(e.target.value)}
               className={inp}
             />
           </div>
 
-          <button
-            type="submit"
-            disabled={submitting || !isValid}
-            className="w-full py-3.5 rounded-xl font-bold text-white text-sm disabled:opacity-40 transition-all active:scale-95 flex items-center justify-center gap-2"
-            style={{ background: R }}
-          >
-            <ArrowDownToLine size={16} />
-            {submitting ? "Submitting..." : "Submit Withdrawal Request"}
+          <button type="submit" disabled={!isValid || submitting}
+            className="w-full py-3.5 rounded-xl font-bold text-white text-sm transition-all active:scale-95 disabled:opacity-50"
+            style={{ background: R }}>
+            {submitting ? "Processing..." : `Withdraw $${amt > 0 ? amt.toFixed(2) : "0.00"} USDT`}
           </button>
-
-          {/* Processing time */}
-          <div className="flex items-center justify-center gap-1.5 text-xs text-gray-400">
-            <Clock size={12} />
-            Processing time: {wdSettings.withdrawal_min_hours}–{wdSettings.withdrawal_max_hours} hours
-          </div>
         </form>
 
+        <p className="text-[10px] text-gray-400 text-center mt-3">
+          Processing time: {wdSettings.withdrawal_min_hours}–{wdSettings.withdrawal_max_hours} hours
+        </p>
       </div>
     </div>
   );

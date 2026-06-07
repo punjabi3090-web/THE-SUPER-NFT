@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
+import { getCurrentUser } from "../../lib/api";
 import {
   LogOut, Shield, Users, ShoppingBag, Copy, Check,
   Phone, Globe, Hash, Calendar, ChevronRight,
@@ -12,36 +13,31 @@ type Profile = {
   level: number | null; created_at: string | null;
 };
 
-const getShortUID = (uuid: string | null | undefined) => {
-  if (!uuid) return "------";
-  const numbersOnly = uuid.replace(/\D/g, "");
-  return numbersOnly.slice(-6).padStart(6, "0");
-};
-
 export default function ProfileTab() {
   const navigate = useNavigate();
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [email,   setEmail]   = useState<string | null>(null);
   const [userId,  setUserId]  = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied,  setCopied]  = useState(false);
 
   useEffect(() => {
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { navigate("/login", { replace: true }); return; }
-      setEmail(user.email ?? null);
-      setUserId(user.id);
-      const [profRes, levelRes] = await Promise.all([
-        supabase.from("profiles")
-          .select("name, email, phone, country, referral_code, role, created_at")
-          .eq("user_id", user.id).maybeSingle(),
-        supabase.from("user_levels")
-          .select("level")
-          .eq("user_id", user.id).maybeSingle(),
-      ]);
-      console.log("[Profile] data:", profRes.data, "error:", profRes.error?.message ?? null);
-      setProfile(profRes.data ? { ...profRes.data, level: levelRes.data?.level ?? 0 } : null);
+      const apiUser = await getCurrentUser();
+      if (apiUser) {
+        setUserId(String(apiUser.id));
+        setProfile({
+          name:          apiUser.name,
+          email:         apiUser.email,
+          phone:         apiUser.phone || null,
+          country:       apiUser.country || null,
+          referral_code: apiUser.myReferralCode,
+          role:          apiUser.isAdmin ? "admin" : null,
+          level:         apiUser.level,
+          created_at:    apiUser.registeredAt,
+        });
+      } else {
+        navigate("/login", { replace: true });
+      }
       setLoading(false);
     })();
   }, [navigate]);
@@ -69,9 +65,10 @@ export default function ProfileTab() {
     );
   }
 
-  const displayName = profile?.name || email?.split("@")[0] || "User";
+  const displayName = profile?.name || profile?.email?.split("@")[0] || "User";
   const initial     = displayName[0].toUpperCase();
   const isAdmin     = profile?.role === "admin";
+  const shortUid    = (userId ?? "").padStart(6, "0").slice(-6);
 
   return (
     <div className="max-w-md mx-auto px-3 pt-3 pb-2" style={{ background: "#F8F9FA", minHeight: "100vh" }}>
@@ -92,7 +89,7 @@ export default function ProfileTab() {
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-bold truncate leading-tight" style={{ color: "#1E3A8A" }}>{displayName}</p>
-          <p className="text-[10px] text-gray-500 truncate">UID: {getShortUID(userId)}</p>
+          <p className="text-[10px] text-gray-500 truncate">UID: {shortUid}</p>
           <div className="flex items-center gap-1.5 mt-1">
             <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold border"
               style={{ color: "#1E3A8A", background: "#EFF6FF", borderColor: "#BFDBFE" }}>

@@ -8,7 +8,8 @@ type Member = {
   id: string;
   user_id: string | null;
   email: string | null;
-  full_name: string | null;
+  name: string | null;
+  referral_code: string | null;
   created_at: string | null;
 };
 
@@ -41,40 +42,48 @@ export default function MyTeam() {
   useEffect(() => {
     if (!user) return;
     const load = async () => {
-      // 1. Get own profile
+      // 1. Get own profile (my referral_code)
       const { data: prof } = await supabase
         .from('profiles')
         .select('referral_code')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
-      // 2. Level 1 — direct referrals
-      const { data: l1 } = await supabase
-        .from('profiles')
-        .select('id, user_id, email, full_name, created_at')
-        .eq('referred_by', user.id);
+      const myCode = prof?.referral_code ?? '';
+
+      // 2. Level 1 — profiles where referred_by_code = my referral code
+      const { data: l1 } = myCode
+        ? await supabase
+            .from('profiles')
+            .select('id, user_id, email, name, referral_code, created_at')
+            .eq('referred_by_code', myCode)
+        : { data: [] };
       const level1: Member[] = l1 ?? [];
 
-      // 3. Level 2 — referrals of level-1
+      // 3. Level 2 — profiles where referred_by_code IN level1 referral codes
       let level2: Member[] = [];
       if (level1.length > 0) {
-        const l1ids = level1.map(m => m.user_id ?? m.id);
-        const { data: l2 } = await supabase
-          .from('profiles')
-          .select('id, user_id, email, full_name, created_at')
-          .in('referred_by', l1ids);
-        level2 = l2 ?? [];
+        const l1codes = level1.map(m => m.referral_code).filter(Boolean) as string[];
+        if (l1codes.length > 0) {
+          const { data: l2 } = await supabase
+            .from('profiles')
+            .select('id, user_id, email, name, referral_code, created_at')
+            .in('referred_by_code', l1codes);
+          level2 = l2 ?? [];
+        }
       }
 
-      // 4. Level 3 — referrals of level-2
+      // 4. Level 3 — profiles where referred_by_code IN level2 referral codes
       let level3: Member[] = [];
       if (level2.length > 0) {
-        const l2ids = level2.map(m => m.user_id ?? m.id);
-        const { data: l3 } = await supabase
-          .from('profiles')
-          .select('id, user_id, email, full_name, created_at')
-          .in('referred_by', l2ids);
-        level3 = l3 ?? [];
+        const l2codes = level2.map(m => m.referral_code).filter(Boolean) as string[];
+        if (l2codes.length > 0) {
+          const { data: l3 } = await supabase
+            .from('profiles')
+            .select('id, user_id, email, name, referral_code, created_at')
+            .in('referred_by_code', l2codes);
+          level3 = l3 ?? [];
+        }
       }
 
       // 5. Referral earnings
@@ -214,7 +223,7 @@ export default function MyTeam() {
               {data.level1.map(m => (
                 <div key={m.id} className="flex items-center justify-between py-2 border-b border-slate-700 last:border-0">
                   <div>
-                    <p className="text-sm font-medium">{m.full_name || m.email || '—'}</p>
+                    <p className="text-sm font-medium">{m.name || m.email || '—'}</p>
                     <p className="text-xs text-slate-400">{m.email}</p>
                   </div>
                   <p className="text-xs text-slate-500">{fmtDate(m.created_at)}</p>
@@ -232,7 +241,7 @@ export default function MyTeam() {
               {data.level2.map(m => (
                 <div key={m.id} className="flex items-center justify-between py-2 border-b border-slate-700 last:border-0">
                   <div>
-                    <p className="text-sm font-medium">{m.full_name || m.email || '—'}</p>
+                    <p className="text-sm font-medium">{m.name || m.email || '—'}</p>
                     <p className="text-xs text-slate-400">{m.email}</p>
                   </div>
                   <p className="text-xs text-slate-500">{fmtDate(m.created_at)}</p>
@@ -250,7 +259,7 @@ export default function MyTeam() {
               {data.level3.map(m => (
                 <div key={m.id} className="flex items-center justify-between py-2 border-b border-slate-700 last:border-0">
                   <div>
-                    <p className="text-sm font-medium">{m.full_name || m.email || '—'}</p>
+                    <p className="text-sm font-medium">{m.name || m.email || '—'}</p>
                     <p className="text-xs text-slate-400">{m.email}</p>
                   </div>
                   <p className="text-xs text-slate-500">{fmtDate(m.created_at)}</p>

@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "./lib/supabase";
+import { setCachedUserId } from "./lib/api";
 import Login          from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
 import ShowCase       from "./pages/ShowCase";
@@ -15,18 +16,43 @@ import AdminDashboard from "./pages/AdminDashboard";
 import CronTest       from "./pages/CronTest";
 import './index.css';
 
+async function syncUser(
+  supaUser: { email?: string; user_metadata?: Record<string, unknown> } | null,
+): Promise<void> {
+  if (!supaUser?.email) { setCachedUserId(null); return; }
+  try {
+    const meta = (supaUser.user_metadata ?? {}) as Record<string, string>;
+    const r = await fetch("/api/nft/auth/supabase-sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: supaUser.email,
+        name:          meta["name"]             ?? "",
+        phone:         meta["phone"]            ?? "",
+        referralCode:  meta["referred_by_code"] ?? null,
+      }),
+    });
+    const d = await r.json() as { numericId?: number };
+    if (d.numericId) setCachedUserId(String(d.numericId));
+  } catch { /* silent — pages degrade gracefully */ }
+}
+
 function AppRoutes() {
   const [loading, setLoading] = useState(true);
-  const [session, setSession] = useState<any>(null);
+  const [session, setSession] = useState<ReturnType<typeof Object> | null>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
+      await syncUser(session?.user ?? null);
       setLoading(false);
     });
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      void syncUser(session?.user ?? null);
     });
+
     return () => subscription.unsubscribe();
   }, []);
 

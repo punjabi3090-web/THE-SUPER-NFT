@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
+import { getCurrentUser } from "../../lib/api";
 import toast, { Toaster } from "react-hot-toast";
 import {
   DollarSign, Sparkles, RefreshCw, MoreVertical, Bell, Send, Headphones,
@@ -62,13 +63,6 @@ export default function HomeTab() {
         if (!user) return;
         setUserId(user.id);
 
-        /* Admin check */
-        if (user.email) {
-          const { data } = await supabase
-            .from("admins").select("email").eq("email", user.email).single();
-          if (data) setIsAdmin(true);
-        }
-
         /* Announcements + reads */
         const [{ data: annData }, { data: readData }] = await Promise.all([
           supabase.from("announcements")
@@ -96,13 +90,12 @@ export default function HomeTab() {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
-    /* ── Profile ── */
-    const profRes = await supabase
-      .from("profiles").select("balance, name, referral_code").eq("user_id", uid).maybeSingle();
-    console.log("[Home] profile:", profRes.data, "error:", profRes.error?.message ?? null);
-    setProfile(profRes.data ?? null);
+    /* ── Profile from Express API ── */
+    const apiUser = await getCurrentUser();
+    setProfile(apiUser ? { balance: apiUser.walletBalance, name: apiUser.name, referral_code: apiUser.myReferralCode } : null);
+    setIsAdmin(apiUser?.isAdmin ?? false);
 
-    const myRefCode = profRes.data?.referral_code ?? null;
+    const myRefCode = apiUser?.myReferralCode ?? null;
 
     /* ── Income views + deposits + team count from profiles ── */
     const [dailyRes, actRes, bidRes, { data: approvedDeps }, teamCountRes, teamStatsRes] = await Promise.all([

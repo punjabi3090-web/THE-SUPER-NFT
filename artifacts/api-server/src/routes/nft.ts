@@ -806,7 +806,7 @@ router.patch("/users/:id/google-auth", async (req: Request, res: Response): Prom
 // POST /users/:id/withdraw
 router.post("/users/:id/withdraw", async (req: Request, res: Response): Promise<void> => {
   const id = parseInt(req.params["id"] as string);
-  const { amount, network } = req.body;
+  const { amount, network, address } = req.body;
   const amt = parseFloat(amount) || 0;
   const net = (network || "TRC20").toUpperCase() as "BEP20" | "TRC20";
 
@@ -814,7 +814,8 @@ router.post("/users/:id/withdraw", async (req: Request, res: Response): Promise<
   if (!user) { res.status(404).json({ error: "User not found" }); return; }
   if (user.isBlocked) { res.status(403).json({ error: "blocked" }); return; }
 
-  const withdrawAddr = net === "BEP20" ? user.bep20Address : user.trc20Address;
+  const withdrawAddr = (address as string | undefined)?.trim()
+    || (net === "BEP20" ? user.bep20Address : user.trc20Address);
   if (!withdrawAddr) { res.status(400).json({ error: "no_address" }); return; }
   if (amt < 10) { res.status(400).json({ error: "min" }); return; }
   if (amt > num(user.walletBalance)) { res.status(400).json({ error: "insufficient" }); return; }

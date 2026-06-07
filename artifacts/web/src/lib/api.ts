@@ -388,11 +388,12 @@ export async function submitWithdrawalRequest(
   userId: string,
   amount: number,
   network: "BEP20" | "TRC20" = "TRC20",
+  address?: string,
 ): Promise<WithdrawResult> {
   try {
     await apiFetch(`/users/${userId}/withdraw`, {
       method: "POST",
-      body: JSON.stringify({ amount, network }),
+      body: JSON.stringify({ amount, network, address }),
     });
     return "ok";
   } catch (e: unknown) {

@@ -1,0 +1,131 @@
+AGENT RUK JA. 3 DIN SE TUJHSE GALTI HO RAHI HAI.
+
+PROBLEM: Supabase profiles table me data hai - phone, referral_code sab bhara hai. Lekin App me sab "-" dikh raha hai.
+
+ROOT CAUSE: TUNE PURANA CODE CHHOD DIYA HAI. FILES ME CONFLICT HAI.
+
+AB BASIC SE FULL AUDIT KAR:
+
+STEP 1: SUPABASE SCHEMA CHECK KAR
+SQL Editor me ye chala aur output bhej:
+SELECT table_name, column_name, data_type 
+FROM information_schema.columns 
+WHERE table_name = 'profiles' 
+ORDER BY ordinal_position;
+
+Confirm kar ye columns hain: user_id, email, name, phone, referral_code, referred_by_code
+
+STEP 2: SAARI FILES SCAN KAR - PURANA CODE DHOOND
+Ye commands chala aur result bhej:
+grep -r "user_metadata" --include="*.tsx" --include="*.ts" .
+grep -r "user.user_metadata" --include="*.tsx" --include="*.ts" .
+grep -r "auth.users" --include="*.tsx" --include="*.ts" .
+
+Agar kahin bhi user_metadata milta hai = WAHI BUG HAI. Delete kar.
+
+STEP 3: SIGNUP.TSX CHECK KAR
+Confirm kar signup me ye hai:
+await supabase.auth.signUp({
+  email: email,
+  password: password,
+  options: {
+    data: {
+      name: nameInput,
+      phone: phoneInput,
+      referred_by_code: referralInput || null
+    }
+  }
+})
+
+Agar options.data nahi hai = ADD KAR.
+
+STEP 4: PROFILE.TSX COMPLETE REWRITE KAR
+Purana code delete kar. Ye naya code daal:
+
+import { useEffect, useState } from 'react'
+import { supabase } from './supabaseClient' // apna path daal
+
+export default function Profile() {
+  const [profile, setProfile] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    const getProfile = async () => {
+      setLoading(true)
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        setError('Not logged in')
+        setLoading(false)
+        return
+      }
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('name, phone, referral_code, referred_by_code')
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      if (error) {
+        setError(error.message)
+      } else {
+        setProfile(data)
+      }
+      setLoading(false)
+    }
+    getProfile()
+  }, [])
+
+  if (loading) return <div>Loading...</div>
+  if (error) return <div>Error: {error}</div>
+
+  return (
+    <div>
+      <h1>Profile</h1>
+      <p>Name: {profile?.name || 'Not set'}</p>
+      <p>Phone: {profile?.phone || 'Not set'}</p>
+      <p>Your Referral Code: {profile?.referral_code || 'Not set'}</p>
+      <p>Referred By: {profile?.referred_by_code || 'None'}</p>
+    </div>
+  )
+}
+
+STEP 5: TRIGGER CHECK KAR
+SQL me ye chala:
+SELECT * FROM information_schema.triggers WHERE event_object_table = 'users';
+
+Agar trigger nahi hai to ye chala:
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.profiles (user_id, email, name, phone, referral_code, referred_by_code)
+  VALUES (
+    NEW.id,
+    NEW.email,
+    NEW.raw_user_meta_data->>'name',
+    NEW.raw_user_meta_data->>'phone',
+    UPPER(SUBSTRING(MD5(RANDOM()::TEXT), 1, 8)),
+    NEW.raw_user_meta_data->>'referred_by_code'
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+STEP 6: TEST KAR
+1. Naya account bana: Name=Final Test, Phone=+923001111111, Referral=51C1C317
+2. Supabase profiles table check kar - 3 fields bhari honi chahiye
+3. App me login kar - Profile page pe data dikhna chahiye
+
+PROOF CHAHIYE:
+1. Step 1 ka SQL output screenshot
+2. Step 2 ka grep output screenshot  
+3. Step 6 me naya account banane ke baad App ka screenshot jisme data dikh raha ho
+
+JAB TAK APP ME DATA NAHI DIKHEGA, "FIXED" MAT BOLNA.
+PURANA CODE DELETE KAR. BASIC SE SHURU KAR.
