@@ -13,7 +13,7 @@ const R = "#DC2626";
 const B = "#1E3A8A";
 const BG = "#F8F9FA";
 
-type Profile    = { balance: number | null; name: string | null };
+type Profile    = { balance: number | null; name: string | null; referral_code: string | null };
 type UserStats  = { dailyIncome: number; totalIncome: number; team: number; activity: number; bid: number; comprehensive: number; nftRate: number };
 type TeamData   = { community: number; valid: number; aEnthusiast: number; bcEnthusiast: number };
 type OrderData  = { total: number; processing: number; bought: number; sold: number };
@@ -97,32 +97,39 @@ export default function HomeTab() {
     todayStart.setHours(0, 0, 0, 0);
 
     /* ── Profile ── */
-    const { data: prof } = await supabase
-      .from("profiles").select("balance, name").eq("user_id", uid).single();
-    setProfile(prof ?? null);
+    const profRes = await supabase
+      .from("profiles").select("balance, name, referral_code").eq("user_id", uid).maybeSingle();
+    console.log("[Home] profile:", profRes.data, "error:", profRes.error?.message ?? null);
+    setProfile(profRes.data ?? null);
 
-    /* ── Income & team views + approved deposits ── */
-    const [{ data: dailyStats }, { data: teamStats }, actRes, bidRes, { data: approvedDeps }] = await Promise.all([
+    const myRefCode = profRes.data?.referral_code ?? null;
+
+    /* ── Income views + deposits + team count from profiles ── */
+    const [dailyRes, actRes, bidRes, { data: approvedDeps }, teamCountRes, teamStatsRes] = await Promise.all([
       supabase.from("daily_income_stats")
-        .select("today_income, total_income").eq("user_id", uid).single(),
-      supabase.from("team_stats")
-        .select("total_members, valid_members, level_a_members, level_b_members, level_c_members")
-        .eq("user_id", uid).single(),
+        .select("today_income, total_income").eq("user_id", uid).maybeSingle(),
       supabase.from("deposits").select("*", { count: "exact", head: true }).eq("user_id", uid),
       supabase.from("deposits").select("amount")
         .eq("user_id", uid).order("created_at", { ascending: false }).limit(1),
       supabase.from("deposits").select("amount")
         .eq("user_id", uid).eq("status", "approved"),
+      myRefCode
+        ? supabase.from("profiles").select("*", { count: "exact", head: true }).eq("referred_by_code", myRefCode)
+        : Promise.resolve({ count: 0, error: null }),
+      supabase.from("team_stats")
+        .select("valid_members, level_a_members, level_b_members, level_c_members")
+        .eq("user_id", uid).maybeSingle(),
     ]);
 
     const comprehensive = (approvedDeps ?? []).reduce((sum, d) => sum + Number(d.amount), 0);
     const latestApproved = (approvedDeps ?? []).sort((a, b) => Number(b.amount) - Number(a.amount))[0];
     const nftRate = latestApproved ? getNftRate(Number(latestApproved.amount)) : 0;
+    const totalMembers = teamCountRes.count ?? 0;
 
     setStats({
-      dailyIncome:   dailyStats?.today_income ?? 0,
-      totalIncome:   dailyStats?.total_income ?? 0,
-      team:          teamStats?.total_members ?? 0,
+      dailyIncome:   dailyRes.data?.today_income ?? 0,
+      totalIncome:   dailyRes.data?.total_income ?? 0,
+      team:          totalMembers,
       activity:      actRes.count ?? 0,
       bid:           (bidRes.data ?? [])[0]?.amount ?? 0,
       comprehensive,
@@ -130,10 +137,10 @@ export default function HomeTab() {
     });
 
     setTeam({
-      community:    teamStats?.total_members ?? 0,
-      valid:        teamStats?.valid_members ?? 0,
-      aEnthusiast:  teamStats?.level_a_members ?? 0,
-      bcEnthusiast: (teamStats?.level_b_members ?? 0) + (teamStats?.level_c_members ?? 0),
+      community:    totalMembers,
+      valid:        teamStatsRes.data?.valid_members ?? 0,
+      aEnthusiast:  teamStatsRes.data?.level_a_members ?? 0,
+      bcEnthusiast: (teamStatsRes.data?.level_b_members ?? 0) + (teamStatsRes.data?.level_c_members ?? 0),
     });
 
     /* ── My Orders ── */

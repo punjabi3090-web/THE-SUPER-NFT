@@ -18,8 +18,8 @@ export default function ShowCase() {
         .from("profiles")
         .select("name, email, referral_code, phone")
         .eq("user_id", user.id)
-        .single();
-      if (error) console.error("Profile fetch error:", error.message);
+        .maybeSingle();
+      console.log("[ShowCase] profile:", data, "error:", error?.message ?? null);
       setProfile(data ?? null);
       setLoading(false);
     })();

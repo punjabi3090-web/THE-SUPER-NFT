@@ -32,15 +32,16 @@ export default function ProfileTab() {
       if (!user) { navigate("/login", { replace: true }); return; }
       setEmail(user.email ?? null);
       setUserId(user.id);
-      const [{ data: profData }, { data: levelData }] = await Promise.all([
+      const [profRes, levelRes] = await Promise.all([
         supabase.from("profiles")
           .select("name, email, phone, country, referral_code, role, created_at")
-          .eq("user_id", user.id).single(),
+          .eq("user_id", user.id).maybeSingle(),
         supabase.from("user_levels")
           .select("level")
-          .eq("user_id", user.id).single(),
+          .eq("user_id", user.id).maybeSingle(),
       ]);
-      setProfile(profData ? { ...profData, level: levelData?.level ?? 0 } : null);
+      console.log("[Profile] data:", profRes.data, "error:", profRes.error?.message ?? null);
+      setProfile(profRes.data ? { ...profRes.data, level: levelRes.data?.level ?? 0 } : null);
       setLoading(false);
     })();
   }, [navigate]);
