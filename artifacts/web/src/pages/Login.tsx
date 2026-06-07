@@ -103,20 +103,42 @@ export default function Login() {
     setLoading(false);
   };
 
+  const generateReferralCode = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = '';
+    for (let i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)];
+    return code;
+  };
+
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (otpCode.length !== 6) return showMsg("Enter 6-digit OTP");
     setLoading(true);
-    const { error } = await supabase.auth.verifyOtp({
+    const { data, error } = await supabase.auth.verifyOtp({
       email: form.email,
       token: otpCode,
       type: 'signup'
     });
-    if (error) showMsg("Invalid or expired OTP");
-    else {
-      showMsg("Account created successfully!", "success");
-      setTimeout(() => navigate('/showcase'), 1000);
+    if (error) {
+      showMsg("Invalid or expired OTP");
+      setLoading(false);
+      return;
     }
+    if (data.user) {
+      const { error: profileError } = await supabase.from('profiles').upsert({
+        user_id: data.user.id,
+        name: form.fullName,
+        email: form.email,
+        phone: form.country + form.phone,
+        referral_code: generateReferralCode(),
+        referred_by_code: form.referralCode.trim().toUpperCase() || null,
+      }, { onConflict: 'user_id' });
+      if (profileError) {
+        console.error('Profile insert error:', profileError.message);
+      }
+    }
+    showMsg("Account created successfully!", "success");
+    setTimeout(() => window.location.replace('/showcase'), 1000);
     setLoading(false);
   };
 
