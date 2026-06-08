@@ -110,15 +110,16 @@ export default function HomeTab() {
     if (!user) { navigate("/login", { replace: true }); return; }
     const uid = user.id;
 
-    /* Express API: balances + team data — run in parallel */
-    const [apiUser, teamData] = await Promise.all([
+    /* Express API: balances + team data + Supabase role — run in parallel */
+    const [apiUser, teamData, { data: profileRow }] = await Promise.all([
       getCurrentUser(),
       fetchTeamData(),
+      supabase.from("profiles").select("role").eq("user_id", uid).maybeSingle(),
     ]);
 
     const refCode = teamData?.referral_code ?? apiUser?.myReferralCode ?? null;
     setProfile(apiUser ? { balance: apiUser.walletBalance, name: apiUser.name, referral_code: refCode } : null);
-    setIsAdmin(apiUser?.isAdmin ?? false);
+    setIsAdmin(profileRow?.role === "admin" || apiUser?.isAdmin === true);
 
     /* Team count from service-role API (correct source — no RLS, no cache) */
     setLiveTeamCount(teamData?.count ?? 0);
