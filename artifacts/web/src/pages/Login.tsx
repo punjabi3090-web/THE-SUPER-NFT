@@ -52,7 +52,10 @@ export default function Login() {
 
   useEffect(() => {
     const ref = new URLSearchParams(window.location.search).get('ref');
-    if (ref) setForm(f => ({ ...f, referralCode: ref }));
+    if (ref) {
+      setForm(f => ({ ...f, referralCode: ref }));
+      localStorage.setItem('pending_referral_code', ref);
+    }
   }, []);
 
   const showMsg = (text: string, type = "error") => {
@@ -107,42 +110,50 @@ export default function Login() {
     e.preventDefault();
     if (otpCode.length !== 6) return showMsg("Enter 6-digit OTP");
     setLoading(true);
-    const { error } = await supabase.auth.verifyOtp({
+
+    const { data: authData, error: verifyError } = await supabase.auth.verifyOtp({
       email: form.email,
       token: otpCode,
-      type: 'signup'
+      type: 'signup',
     });
-    if (error) {
+
+    if (verifyError) {
+      alert('OTP FAIL: ' + verifyError.message);
       showMsg("Invalid or expired OTP");
       setLoading(false);
       return;
     }
-
-    // User is now authenticated — insert profile row into Supabase
-    try {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (authUser) {
-        const refCode = form.referralCode.trim().toUpperCase();
-        const newRefCode = 'FAIS' + Math.floor(1000 + Math.random() * 9000);
-        const { error: profileError } = await supabase.from('profiles').insert({
-          user_id:          authUser.id,
-          email:            form.email.trim().toLowerCase(),
-          name:             form.fullName.trim(),
-          phone:            (form.country + form.phone).trim(),
-          referral_code:    newRefCode,
-          referred_by_code: refCode || null,
-          created_at:       new Date().toISOString(),
-        });
-        if (profileError) {
-          console.error('CRITICAL: Profile Insert Failed:', profileError);
-        } else {
-          console.log('Profile created successfully for:', authUser.id);
-        }
-      }
-    } catch (profileEx) {
-      console.error('Profile insert exception:', profileEx);
+    if (!authData.user) {
+      alert('OTP FAIL: No user returned from Supabase');
+      setLoading(false);
+      return;
     }
 
+    alert('OTP Verified. Creating profile...');
+
+    // Use referral from form state, fall back to localStorage
+    const refCode = (form.referralCode.trim() || localStorage.getItem('pending_referral_code') || '').toUpperCase();
+    const newRefCode = 'FAIS' + Math.floor(1000 + Math.random() * 9000);
+
+    const { error: profileError } = await supabase.from('profiles').insert({
+      user_id:          authData.user.id,
+      email:            form.email.trim().toLowerCase(),
+      name:             form.fullName.trim(),
+      phone:            (form.country + form.phone).trim(),
+      referral_code:    newRefCode,
+      referred_by_code: refCode || null,
+      created_at:       new Date().toISOString(),
+    });
+
+    if (profileError) {
+      alert('DB ERROR: ' + profileError.message + ' | code: ' + profileError.code);
+      console.error('CRITICAL: Profile Insert Failed:', profileError);
+      setLoading(false);
+      return;
+    }
+
+    localStorage.removeItem('pending_referral_code');
+    alert('SUCCESS: Account + Profile created!');
     showMsg("Account created successfully!", "success");
     setTimeout(() => window.location.replace('/showcase'), 1000);
     setLoading(false);

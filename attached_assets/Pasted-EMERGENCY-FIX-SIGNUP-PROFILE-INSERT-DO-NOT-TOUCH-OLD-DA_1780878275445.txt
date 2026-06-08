@@ -1,0 +1,74 @@
+EMERGENCY FIX - SIGNUP + PROFILE INSERT. DO NOT TOUCH OLD DATA.
+
+STATUS:
+1. Confirm Email = OFF in Supabase
+2. RLS Policy "Safe_Insert_Only_New_Users" = ACTIVE
+3. User not creating in auth.users = Fixed by step 1
+
+CRITICAL RULES:
+1. DO NOT UPDATE/DELETE ANY ROW in profiles, deposits, transactions
+2. DO NOT TOUCH Faisal's Email, Wallet Balance, Daily Income
+3. ONLY FIX: Make signup + profile insert work with visible errors
+
+CODE FOR Signup.tsx:
+
+1. ADD THIS useEffect at TOP:
+useEffect(() => {
+  const ref = new URLSearchParams(window.location.search).get('ref')
+  if (ref) {
+    localStorage.setItem('pending_referral_code', ref)
+  }
+}, [])
+
+2. REPLACE handleSignUp:
+const handleSignUp = async () => {
+  try {
+    const { data, error } = await supabase.auth.signUp({
+      email: email,
+      password: password,
+      options: { data: { name: name, phone: phone } }
+    })
+    if (error) { alert('SIGNUP FAIL: ' + error.message); return }
+    alert('OTP Sent. Check email')
+  } catch (err) {
+    alert('UNEXPECTED ERROR: ' + err.message)
+  }
+}
+
+3. REPLACE handleVerifyOtp:
+const handleVerifyOtp = async () => {
+  try {
+    const { data: authData, error: verifyError } = await supabase.auth.verifyOtp({
+      email: email, token: otp, type: 'signup'
+    })
+    if (verifyError) { alert('OTP FAIL: ' + verifyError.message); return }
+    if (!authData.user) { alert('OTP FAIL: No user returned'); return }
+    
+    alert('OTP Verified. Creating profile...')
+    
+    const savedReferral = localStorage.getItem('pending_referral_code')
+    
+    const { error: profileError } = await supabase.from('profiles').insert({
+      user_id: authData.user.id,
+      email: email,
+      name: name,
+      phone: phone,
+      referral_code: 'FAIS' + Math.floor(1000 + Math.random() * 9000),
+      referred_by_code: savedReferral || null,
+      created_at: new Date().toISOString()
+    })
+    
+    if (profileError) { 
+      alert('DB ERROR: ' + profileError.message)
+      return 
+    }
+    
+    localStorage.removeItem('pending_referral_code')
+    alert('SUCCESS: Account created!')
+    
+  } catch (err) {
+    alert('VERIFY ERROR: ' + err.message)
+  }
+}
+
+TEST: Signup with new email + ?ref=FAIS7575. Send screenshot of alert.
