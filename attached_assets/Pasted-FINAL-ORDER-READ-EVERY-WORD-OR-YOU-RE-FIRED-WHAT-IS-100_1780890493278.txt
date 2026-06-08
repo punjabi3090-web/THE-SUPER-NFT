@@ -1,0 +1,78 @@
+FINAL ORDER - READ EVERY WORD OR YOU'RE FIRED
+
+WHAT IS 100% WORKING - DO NOT TOUCH EVER:
+1. SUPABASE AUTH = PERFECT
+2. SIGNUP FLOW = PERFECT 
+3. REFERRAL SAVE IN profiles TABLE = PERFECT - 5 USERS SAVED UNDER FAIS7575
+4. ACCOUNT DETAILS = PERFECT
+5. ENTIRE SYSTEM EXCEPT DASHBOARD = PERFECT
+
+WHAT IS 100% BROKEN - ONLY THIS TO FIX:
+DASHBOARD IS DEAD. SHOWING 0 INSTEAD OF 5. NO REAL DATA.
+
+YOUR JOB TODAY - DO ALL THIS IN ONE DEPLOYMENT:
+
+TASK 1: RECHECK ALL DASHBOARD FILES
+1. DELETE EVERY FILE THAT USES: referrals TABLE, team_members TABLE, user_stats VIEW
+2. DELETE EVERY HARDCODED NUMBER IN DASHBOARD
+3. DELETE EVERY 'yourReferralCode' STRING FROM CODE
+
+TASK 2: FIX 'TOTAL REGISTER MEMBERS' TOOL - EXACT CODE
+const { data: { user } } = await supabase.auth.getUser()
+const userCode = user?.user_metadata?.referral_code
+
+if(!userCode) return { count: 0, data: [] }
+
+const { count } = await supabase
+  .from('profiles')
+  .select('*', { count: 'exact', head: true })
+  .eq('referred_by_code', userCode)
+
+const { data: members } = await supabase
+  .from('profiles')
+  .select('id, name')
+  .eq('referred_by_code', userCode)
+  .order('created_at', { ascending: false })
+
+RETURN: { count: count, members: members }
+
+UI BEHAVIOR:
+DEFAULT: Show "Total Register Members: 5"
+ON CLICK: Show table with User ID + User Name only. Hidden by default.
+
+TASK 3: FIX 'LEVELS' TOOL - CONNECT TO profiles TABLE
+USE SAME LOGIC. COUNT HOW MANY USERS AT EACH LEVEL FROM profiles TABLE.
+NO HARDCODE. LIVE QUERY.
+
+TASK 4: FIX 'ORDERS' TOOL - CONNECT TO REAL TABLE
+IF YOU HAVE orders TABLE, USE LIVE QUERY. IF NOT, SHOW "No Orders" FROM DB, NOT HARDCODE.
+
+TASK 5: FIX RLS POLICY - DO THIS NOW
+RUN THIS IN SUPABASE SQL:
+DROP POLICY IF EXISTS "dashboard_read" ON profiles;
+CREATE POLICY "dashboard_read"
+ON profiles FOR SELECT TO authenticated
+USING (true);
+
+TASK 6: REMOVE ALL CACHING
+ADD TO EVERY DASHBOARD API ROUTE:
+export const revalidate = 0
+export const dynamic = 'force-dynamic'
+export const fetchCache = 'force-no-store'
+
+FINAL TEST BEFORE YOU REPLY:
+1. Login as FAIS7575
+2. Dashboard MUST show: Team = 5
+3. Click MUST show: 5 users = hmmm, Gogo, Indonesia, Hira Hira, Akbar
+4. Create new account with FAIS7575 code
+5. Dashboard MUST auto-update to Team = 6 in 10 seconds
+
+IF ANY OF THIS FAILS, YOU FAILED.
+
+REPLY FORMAT:
+"DASHBOARD FULLY LIVE - ALL TOOLS WORKING"
++ SCREENSHOT: Team = 5
++ SCREENSHOT: Expanded list with 5 users
++ SCREENSHOT: Browser console with no errors
+
+ONE DEPLOYMENT. ALL FIXES. NO PARTIAL WORK. DEADLINE: TODAY.

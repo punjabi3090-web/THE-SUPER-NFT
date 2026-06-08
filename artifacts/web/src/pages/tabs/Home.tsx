@@ -89,13 +89,20 @@ export default function HomeTab() {
     })();
   }, []);
 
-  /* ── Fetch live team count from profiles table (no cache) ── */
-  const fetchLiveTeamCount = useCallback(async (refCode: string) => {
-    const { count } = await supabase
-      .from("profiles")
-      .select("*", { count: "exact", head: true })
-      .eq("referred_by_code", refCode);
-    setLiveTeamCount(count ?? 0);
+  type TeamApiResponse = { count: number; members: Member[]; referral_code: string | null };
+
+  /* ── Fetch team data via Express API (service role → bypasses RLS) ── */
+  const fetchTeamData = useCallback(async (): Promise<TeamApiResponse | null> => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) return null;
+    try {
+      const res = await fetch("/api/nft/auth/team", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        cache: "no-store",
+      });
+      if (!res.ok) return null;
+      return await res.json() as TeamApiResponse;
+    } catch { return null; }
   }, []);
 
   const load = useCallback(async () => {
@@ -103,16 +110,18 @@ export default function HomeTab() {
     if (!user) { navigate("/login", { replace: true }); return; }
     const uid = user.id;
 
-    /* Express API: balances, counters — Cache-Control: no-store via fetch */
-    const apiUser = await getCurrentUser();
-    const refCode = apiUser?.myReferralCode ?? null;
+    /* Express API: balances + team data — run in parallel */
+    const [apiUser, teamData] = await Promise.all([
+      getCurrentUser(),
+      fetchTeamData(),
+    ]);
+
+    const refCode = teamData?.referral_code ?? apiUser?.myReferralCode ?? null;
     setProfile(apiUser ? { balance: apiUser.walletBalance, name: apiUser.name, referral_code: refCode } : null);
     setIsAdmin(apiUser?.isAdmin ?? false);
 
-    /* Live team count from Supabase profiles — { count: 'exact' }, no cache */
-    if (refCode) {
-      await fetchLiveTeamCount(refCode);
-    }
+    /* Team count from service-role API (correct source — no RLS, no cache) */
+    setLiveTeamCount(teamData?.count ?? 0);
 
     /* Daily income + approved deposits from Supabase */
     const [dailyRes, { data: approvedDeps }] = await Promise.all([
@@ -147,7 +156,7 @@ export default function HomeTab() {
     });
 
     setLoading(false);
-  }, [navigate, fetchLiveTeamCount]);
+  }, [navigate, fetchTeamData]);
 
   useEffect(() => {
     load();
@@ -186,26 +195,19 @@ export default function HomeTab() {
     setAirdropOpen(true);
   };
 
-  /* ── Toggle team member list (fetch on open) ── */
+  /* ── Toggle team member list — uses Express API (service role, no RLS) ── */
   const handleTeamClick = async () => {
-    if (teamListOpen) {
-      setTeamListOpen(false);
-      return;
-    }
-    if (!profile?.referral_code) return;
+    if (teamListOpen) { setTeamListOpen(false); return; }
 
     setTeamListOpen(true);
     setTeamMembersLoading(true);
     setTeamMembers([]);
 
-    /* Live query — no cache, direct Supabase */
-    const { data } = await supabase
-      .from("profiles")
-      .select("user_id, name")
-      .eq("referred_by_code", profile.referral_code)
-      .order("created_at", { ascending: false });
-
-    setTeamMembers((data ?? []) as Member[]);
+    const data = await fetchTeamData();
+    if (data) {
+      setTeamMembers(data.members ?? []);
+      setLiveTeamCount(data.count);
+    }
     setTeamMembersLoading(false);
   };
 

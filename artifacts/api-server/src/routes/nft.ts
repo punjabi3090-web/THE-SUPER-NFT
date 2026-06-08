@@ -342,6 +342,72 @@ router.post("/auth/create-profile", async (req: Request, res: Response): Promise
   res.json({ ok: true, referral_code: newRefCode });
 });
 
+// GET /api/nft/auth/team ──────────────────────────────────────────────────
+// Returns the logged-in user's team count + member list from Supabase profiles.
+// Uses SERVICE ROLE KEY — bypasses ALL RLS policies (SELECT included).
+// Auth: Authorization: Bearer {supabase_access_token}
+router.get("/auth/team", async (req: Request, res: Response): Promise<void> => {
+  const authHeader = req.headers.authorization ?? "";
+  const accessToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+
+  if (!accessToken) {
+    res.status(401).json({ error: "Missing access token" }); return;
+  }
+
+  const supabaseUrl = process.env["SUPABASE_URL"] ?? process.env["VITE_SUPABASE_URL"] ?? "";
+  const serviceKey  = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
+
+  if (!supabaseUrl || !serviceKey) {
+    res.status(500).json({ error: "Supabase service credentials not configured" }); return;
+  }
+
+  const adminClient = createClient(supabaseUrl, serviceKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+
+  // Verify token — get the real user id
+  const { data: { user }, error: authErr } = await adminClient.auth.getUser(accessToken);
+  if (authErr || !user) {
+    res.status(401).json({ error: "Invalid access token" }); return;
+  }
+
+  // Get this user's own profile to find their referral_code
+  const { data: myProfile } = await adminClient
+    .from("profiles")
+    .select("referral_code")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!myProfile?.referral_code) {
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ count: 0, members: [], referral_code: null }); return;
+  }
+
+  const myRefCode = myProfile.referral_code as string;
+
+  // Count + list — both bypass RLS via service role
+  const [countResult, membersResult] = await Promise.all([
+    adminClient
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .eq("referred_by_code", myRefCode),
+    adminClient
+      .from("profiles")
+      .select("user_id, name")
+      .eq("referred_by_code", myRefCode)
+      .order("created_at", { ascending: false }),
+  ]);
+
+  req.log.info({ userId: user.id, myRefCode, count: countResult.count }, "team data fetched");
+
+  res.setHeader("Cache-Control", "no-store");
+  res.json({
+    count:         countResult.count ?? 0,
+    members:       membersResult.data ?? [],
+    referral_code: myRefCode,
+  });
+});
+
 // POST /api/nft/auth/supabase-sync ─────────────────────────────────────────
 // Called by the React app after every Supabase SIGNED_IN event.
 // Finds or creates the nftUsers row for this Supabase user and returns the
