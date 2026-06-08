@@ -13,7 +13,8 @@ export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
-
+const [teamCount, setTeamCount] = useState(0);
+const [teamMembers, setTeamMembers] = useState([]);
   useEffect(() => {
     const loadUserData = async () => {
       // 1. Supabase session check
@@ -39,9 +40,40 @@ export default function Dashboard() {
       setProfile(data);
       setLoading(false);
     };
+const loadTeamData = async () => {
+  alert('1. Function Start Hua'); // DEBUG
+  
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  if (!session) {
+    alert('No session found'); // DEBUG
+    return;
+  }
 
+  try {
+    const res = await fetch('/api/nft/auth/team', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json'
+      },
+      cache: 'no-store'
+    });
+    
+    const data = await res.json();
+    alert('2. API Response: ' + JSON.stringify(data)); // DEBUG
+    
+    setTeamCount(data.count || 0);
+    setTeamMembers(data.members || []);
+    
+  } catch (err) {
+    alert('3. API Error: ' + err); // DEBUG
+    setTeamCount(0);
+  }
+};
     loadUserData();
-  }, [setLocation]);
+ loadTeamData();
+  },[setLocation]);
 
   const tabs = [
     { id: "home", icon: Home, label: "Home" },

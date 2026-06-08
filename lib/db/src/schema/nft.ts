@@ -100,6 +100,18 @@ export const nftNotifications = pgTable("nft_notifications", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const nftNowpaymentsDeposits = pgTable("nft_nowpayments_deposits", {
+  id:          serial("id").primaryKey(),
+  supabaseUid: varchar("supabase_uid", { length: 255 }).notNull(),
+  paymentId:   varchar("payment_id",  { length: 255 }).notNull().unique(),
+  payAddress:  varchar("pay_address", { length: 500 }).notNull(),
+  priceAmount: numeric("price_amount", { precision: 14, scale: 2 }).notNull(),
+  payCurrency: varchar("pay_currency", { length: 20 }).notNull(),
+  status:      varchar("status", { length: 50 }).default("waiting").notNull(),
+  createdAt:   timestamp("created_at").defaultNow().notNull(),
+  updatedAt:   timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const nftAdminLogs = pgTable("nft_admin_logs", {
   id:        serial("id").primaryKey(),
   admin:     varchar("admin", { length: 255 }).notNull(),
