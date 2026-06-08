@@ -30,7 +30,7 @@ type UserRow = {
 };
 type NftPackage = {
   id: string; name: string; price: number;
-  daily_profit_percent: number; duration_days: number; image_url: string | null;
+  daily_roi: number; duration_days: number; image_url: string | null;
 };
 type Stats = {
   totalUsers: number; totalDeposits: number;
@@ -46,12 +46,9 @@ type AdminSettings = {
   min_withdraw: string;
   max_withdraw: string;
   withdraw_fee_percent: string;
-  withdraw_start_time: string;
-  withdraw_end_time: string;
+  withdraw_process_hours: string;
   min_deposit: string;
   max_deposit: string;
-  withdrawal_min_hours: string;
-  withdrawal_max_hours: string;
 };
 
 type NpDeposit = {
@@ -70,12 +67,9 @@ const DEFAULT_SETTINGS: AdminSettings = {
   min_withdraw:           "10",
   max_withdraw:           "10000",
   withdraw_fee_percent:   "2",
-  withdraw_start_time:    "09:00",
-  withdraw_end_time:      "18:00",
+  withdraw_process_hours: "24",
   min_deposit:            "10",
   max_deposit:            "50000",
-  withdrawal_min_hours:   "24",
-  withdrawal_max_hours:   "72",
 };
 
 const inp = `w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#1E3A8A] text-gray-800 placeholder-gray-300`;
@@ -120,7 +114,7 @@ export default function Admin() {
   const [userSearch, setUserSearch] = useState("");
   const [balEdit, setBalEdit]       = useState<Record<string, string>>({});
   const [editNft, setEditNft]       = useState<NftPackage | null>(null);
-  const [nftForm, setNftForm]       = useState({ name: "", price: "", daily_profit_percent: "", duration_days: "", image_url: "" });
+  const [nftForm, setNftForm]       = useState({ name: "", price: "", daily_roi: "", duration_days: "", image_url: "" });
   const [showAddNft, setShowAddNft] = useState(false);
 
   /* ── Announcements ── */
@@ -216,14 +210,22 @@ export default function Admin() {
   const postAnnouncement = async () => {
     if (!annMessage.trim()) { toast.error("Write a message"); return; }
     setPostingAnn(true);
-    const { error } = await supabase.from("announcements").insert({
-      title:      annTitle.trim() || "Announcement",
-      message:    annMessage.trim(),
-      created_by: user!.id,
-      is_active:  true,
-    });
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/nft/announcements", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session?.access_token ?? ""}`,
+        },
+        body: JSON.stringify({ title: annTitle.trim() || "Announcement", message: annMessage.trim() }),
+      });
+      const data = await res.json() as { ok?: boolean; error?: string };
+      if (!res.ok) { toast.error("Failed: " + (data.error ?? "Unknown error")); setPostingAnn(false); return; }
+    } catch {
+      toast.error("Network error"); setPostingAnn(false); return;
+    }
     setPostingAnn(false);
-    if (error) { toast.error("Failed: " + error.message); return; }
     toast.success("Announcement posted ✓");
     setAnnTitle(""); setAnnMessage("");
     loadAnnouncements();
@@ -317,17 +319,17 @@ export default function Admin() {
   }
 
   async function addNft() {
-    const { name, price, daily_profit_percent, duration_days, image_url } = nftForm;
-    if (!name || !price || !daily_profit_percent || !duration_days) { toast.error("Fill all required fields"); return; }
+    const { name, price, daily_roi, duration_days, image_url } = nftForm;
+    if (!name || !price || !daily_roi || !duration_days) { toast.error("Fill all required fields"); return; }
     const { error } = await supabase.from("nft_packages").insert({
       name, price: parseFloat(price),
-      daily_profit_percent: parseFloat(daily_profit_percent),
+      daily_roi: parseFloat(daily_roi),
       duration_days: parseInt(duration_days),
       image_url: image_url || null,
     });
     if (error) { toast.error(error.message); return; }
     toast.success("NFT Package Added ✓");
-    setNftForm({ name: "", price: "", daily_profit_percent: "", duration_days: "", image_url: "" });
+    setNftForm({ name: "", price: "", daily_roi: "", duration_days: "", image_url: "" });
     setShowAddNft(false);
     loadNfts();
   }
@@ -337,7 +339,7 @@ export default function Admin() {
     setBusyKey("nft_" + editNft.id, true);
     const { error } = await supabase.from("nft_packages").update({
       name: editNft.name, price: editNft.price,
-      daily_profit_percent: editNft.daily_profit_percent,
+      daily_roi: editNft.daily_roi,
       duration_days: editNft.duration_days,
       image_url: editNft.image_url,
     }).eq("id", editNft.id);
@@ -362,6 +364,10 @@ export default function Admin() {
     setSavingSettings(true);
     const rows = Object.entries(settings).map(([key, value]) => ({ key, value: value ?? "" }));
     const { error } = await supabase.from("admin_settings").upsert(rows, { onConflict: "key" });
+    if (!error) {
+      await supabase.from("admin_settings")
+        .delete().in("key", ["withdraw_start_time", "withdraw_end_time", "withdrawal_min_hours", "withdrawal_max_hours"]);
+    }
     setSavingSettings(false);
     if (error) { toast.error("Failed: " + error.message); return; }
     toast.success("Settings Saved ✓");
@@ -430,17 +436,22 @@ export default function Admin() {
         {/* ── Stats Cards ── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           {[
-            { icon: <Users size={15} />,      label: "Total Users",        value: stats.totalUsers,                    color: BRAND.blue },
-            { icon: <DollarSign size={15} />, label: "Approved Deposits",  value: `$${stats.totalDeposits.toFixed(0)}`, color: "#16a34a" },
-            { icon: <Clock size={15} />,      label: "Pending Withdrawals", value: stats.pendingWithdrawals,            color: BRAND.red },
-            { icon: <ShoppingBag size={15} />,label: "NFTs Sold",          value: stats.totalNftsSold,                 color: "#D97706" },
+            { icon: <Users size={15} />,      label: "Total Users",        value: stats.totalUsers,                    color: BRAND.blue,   link: false },
+            { icon: <DollarSign size={15} />, label: "Approved Deposits",  value: `$${stats.totalDeposits.toFixed(0)}`, color: "#16a34a",   link: false },
+            { icon: <Clock size={15} />,      label: "Total Withdrawals",  value: stats.pendingWithdrawals,            color: BRAND.red,    link: true  },
+            { icon: <ShoppingBag size={15} />,label: "NFTs Sold",          value: stats.totalNftsSold,                 color: "#D97706",   link: false },
           ].map(s => (
-            <div key={s.label} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
+            <div
+              key={s.label}
+              onClick={s.link ? () => navigate("/admin/withdrawals") : undefined}
+              className={`bg-white rounded-2xl p-4 border border-gray-100 shadow-sm${s.link ? " cursor-pointer hover:shadow-md transition-shadow" : ""}`}
+            >
               <div className="flex items-center gap-1.5 mb-2" style={{ color: s.color }}>
                 {s.icon}
                 <p className="text-xs text-gray-400">{s.label}</p>
               </div>
               <p className="text-2xl font-bold" style={{ color: s.color }}>{s.value}</p>
+              {s.link && <p className="text-[10px] text-gray-400 mt-0.5">Tap to view history →</p>}
             </div>
           ))}
         </div>
@@ -518,7 +529,15 @@ export default function Admin() {
             {withdrawals.length === 0 && (
               <div className="bg-white rounded-2xl p-8 text-center text-gray-400 text-sm border border-gray-100">No pending withdrawals 🎉</div>
             )}
-            {withdrawals.map(w => (
+            {withdrawals.map(w => {
+              const wElapsed = Date.now() - new Date(w.created_at).getTime();
+              const wProcessH = parseFloat(settings.withdraw_process_hours || "24");
+              const wRemaining = wProcessH * 3600000 - wElapsed;
+              const wH = Math.floor(wElapsed / 3600000); const wM = Math.floor((wElapsed % 3600000) / 60000);
+              const wSince = wH >= 24 ? `${Math.floor(wH/24)}d ${wH%24}h ago` : wH > 0 ? `${wH}h ${wM}m ago` : `${wM}m ago`;
+              const wEtaH = Math.floor(wRemaining / 3600000); const wEtaM = Math.floor((wRemaining % 3600000) / 60000);
+              const wEta = wRemaining <= 0 ? "Overdue" : `${wEtaH}h ${wEtaM}m left`;
+              return (
               <div key={w.id} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="space-y-1 min-w-0">
@@ -528,6 +547,10 @@ export default function Admin() {
                       <p className="text-xs text-gray-400 font-mono truncate max-w-[200px]">To: {w.wallet_address}</p>
                     )}
                     <p className="text-xs text-gray-400">{new Date(w.created_at).toLocaleString()}</p>
+                    <div className="flex items-center gap-3 text-[10px]">
+                      <span className="text-gray-500">⏱ {wSince}</span>
+                      <span className="font-semibold" style={{ color: wEta === "Overdue" ? BRAND.red : "#16a34a" }}>🎯 {wEta}</span>
+                    </div>
                   </div>
                   <div className="flex gap-2 flex-shrink-0">
                     <ActionBtn color="green" disabled={busy[w.id]} onClick={() => approveWithdrawal(w.id)}>
@@ -539,7 +562,8 @@ export default function Admin() {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -616,7 +640,7 @@ export default function Admin() {
                 {[
                   { key: "name",                 placeholder: "Package Name *",       type: "text" },
                   { key: "price",                placeholder: "Price (USDT) *",       type: "number" },
-                  { key: "daily_profit_percent", placeholder: "Daily Profit % *",     type: "number" },
+                  { key: "daily_roi",             placeholder: "Daily ROI % *",        type: "number" },
                   { key: "duration_days",        placeholder: "Duration (days) *",    type: "number" },
                   { key: "image_url",            placeholder: "Image URL (optional)", type: "text" },
                 ].map(f => (
@@ -643,7 +667,7 @@ export default function Admin() {
                       {[
                         { key: "name",                 label: "Name",    type: "text" },
                         { key: "price",                label: "Price",   type: "number" },
-                        { key: "daily_profit_percent", label: "Daily %", type: "number" },
+                        { key: "daily_roi",             label: "Daily ROI %", type: "number" },
                         { key: "duration_days",        label: "Days",    type: "number" },
                         { key: "image_url",            label: "Image URL", type: "text" },
                       ].map(f => (
@@ -676,7 +700,7 @@ export default function Admin() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold" style={{ color: BRAND.blue }}>{nft.name}</p>
                         <p className="text-xs text-gray-400">
-                          ${nft.price} · {nft.daily_profit_percent}%/day · {nft.duration_days}d
+                          ${nft.price} · {nft.daily_roi}%/day · {nft.duration_days}d
                         </p>
                       </div>
                       <div className="flex gap-1.5 flex-shrink-0">
@@ -823,7 +847,7 @@ export default function Admin() {
                     <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "#F0FDF4" }}>
                       <AlertCircle size={14} className="text-green-600" />
                     </div>
-                    <p className="text-sm font-bold" style={{ color: BRAND.blue }}>Section C — Withdraw Limits & Window</p>
+                    <p className="text-sm font-bold" style={{ color: BRAND.blue }}>Section C — Withdraw Limits</p>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
@@ -842,19 +866,9 @@ export default function Admin() {
                         onChange={e => setSettings(p => ({ ...p, withdraw_fee_percent: e.target.value }))} className={inp} min="0" />
                     </div>
                     <div>
-                      <label className="text-xs text-gray-500 font-medium mb-1.5 block">Min Hours</label>
-                      <input type="number" placeholder="24" value={settings.withdrawal_min_hours}
-                        onChange={e => setSettings(p => ({ ...p, withdrawal_min_hours: e.target.value }))} className={inp} min="0" />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500 font-medium mb-1.5 block">Window Start (HH:MM)</label>
-                      <input type="time" value={settings.withdraw_start_time}
-                        onChange={e => setSettings(p => ({ ...p, withdraw_start_time: e.target.value }))} className={inp} />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500 font-medium mb-1.5 block">Window End (HH:MM)</label>
-                      <input type="time" value={settings.withdraw_end_time}
-                        onChange={e => setSettings(p => ({ ...p, withdraw_end_time: e.target.value }))} className={inp} />
+                      <label className="text-xs text-gray-500 font-medium mb-1.5 block">Process Hours (24–72)</label>
+                      <input type="number" placeholder="24" value={settings.withdraw_process_hours}
+                        onChange={e => setSettings(p => ({ ...p, withdraw_process_hours: e.target.value }))} className={inp} min="24" max="72" />
                     </div>
                   </div>
                 </div>
@@ -980,7 +994,7 @@ export default function Admin() {
                       <p className="text-[10px] text-gray-400 uppercase">{d.pay_currency}</p>
                     </div>
                     <p className="text-[10px] text-gray-400 font-mono truncate max-w-[220px]">ID: {d.payment_id}</p>
-                    <p className="text-[10px] text-gray-400 font-mono truncate max-w-[220px]">User: {d.supabase_uid.slice(0, 16)}…</p>
+                    <p className="text-[10px] text-gray-400 font-mono truncate max-w-[220px]">User: {d.supabase_uid?.slice(0, 16) ?? "—"}…</p>
                     <p className="text-[10px] text-gray-400">{new Date(d.created_at).toLocaleString()}</p>
                   </div>
                 </div>

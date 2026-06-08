@@ -1,0 +1,64 @@
+⚠️ FINAL WARNING - READ CAREFULLY BEFORE WRITING ANY CODE ⚠️
+
+CRITICAL SYSTEM PROTECTION RULES - VIOLATION = IMMEDIATE ROLLBACK:
+
+1. DO NOT MODIFY ANY EXISTING TABLES: nft_users, deposits, profiles, auth.users
+2. DO NOT TOUCH NowPayments webhook, /api/create-payment, deposit confirmation logic
+3. DO NOT BREAK existing user login, balance, or NFT purchase flow
+4. USE ONLY Supabase Auth. Admin check = profiles.role = 'admin'. NO CUSTOM AUTH
+5. DO NOT CHANGE RLS policies of existing tables. Only new tables we create
+6. IF YOU BREAK EXISTING DEPOSIT/WITHDRAWAL FLOW, I WILL REVERT ALL CHANGES
+
+YOUR TASK: Fix ONLY these 7 specific bugs. Nothing else.
+
+=== BUG 1: DEPOSIT LIMIT NOT READING FROM ADMIN_SETTINGS ===
+File: Deposit.tsx
+Fix: Fetch min_deposit/max_deposit from admin_settings table on page load. Validate amount before /api/create-payment. Show limits to user. DO NOT change payment API.
+
+=== BUG 2: NP DEPOSITS TAB CRASHING ===
+File: Admin.tsx line 983
+Fix: Add optional chaining. {deposit.tx_hash?.slice(0,10) || 'Pending'}. Fix for address, payment_id too. Add empty state. DO NOT modify nft_nowpayments_deposits table.
+
+=== BUG 3: NFT_PACKAGES TABLE DOES NOT EXIST ===
+Fix: Run this SQL ONLY:
+CREATE TABLE IF NOT EXISTS nft_packages (id serial primary key, name text NOT NULL, price numeric NOT NULL, daily_roi numeric NOT NULL, duration_days int NOT NULL, image_url text, is_active boolean default true, created_at timestamptz default now());
+ALTER TABLE nft_packages ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Admins manage nft_packages" ON nft_packages FOR ALL USING (auth.uid() IN (SELECT id FROM profiles WHERE role = 'admin'));
+CREATE POLICY "Users view active packages" ON nft_packages FOR SELECT USING (is_active = true);
+
+=== BUG 4: DEPOSIT ADDRESS FALLBACK ===
+File: Deposit.tsx
+Fix: If /api/create-payment fails, show manual BEP20/TRC20 addresses from admin_settings. Show message "Auto deposit unavailable". DO NOT change NowPayments integration.
+
+=== BUG 5: ANNOUNCEMENT RLS VIOLATION ===
+Fix: 
+1. Insert with created_by = user.id from supabase.auth.getUser()
+2. RLS: DROP old policy. CREATE POLICY "Admins insert announcements" ON announcements FOR INSERT WITH CHECK (auth.uid() IN (SELECT id FROM profiles WHERE role = 'admin'));
+DO NOT touch other announcement policies.
+
+=== BUG 6: REMOVE WITHDRAWAL TIME WINDOW - ADD 24-72 HOUR SYSTEM ===
+File: Admin.tsx + Withdrawal.tsx
+Fix:
+1. DELETE from admin_settings: withdraw_start_time, withdraw_end_time
+2. ADD: withdraw_process_hours default 24, min 24, max 72
+3. REMOVE time window check from Withdrawal.tsx
+4. SHOW user: "Processed within X hours"
+5. Admin view: Show "Time Since Request" + "ETA remaining"
+DO NOT change withdrawal approve/reject logic. DO NOT auto-process.
+
+=== FEATURE 7: TOTAL WITHDRAWALS CLICKABLE HISTORY ===
+File: Admin.tsx Dashboard
+Fix:
+1. Make "Total Withdrawals" card clickable → /admin/withdrawals
+2. Add tabs: [Pending] [Approved] [Rejected] [All]
+3. Show processed_at, user email, amount, fee, address for Approved/Rejected
+DO NOT change withdrawals table structure.
+
+FINAL CHECK BEFORE YOU COMMIT:
+- Did you touch nft_users table? If YES, STOP
+- Did you modify NowPayments webhook? If YES, STOP 
+- Did you change user deposit flow? If YES, STOP
+- Did you test that existing users can still deposit? If NO, STOP
+
+I am watching the git diff. One wrong change and I will reject this entire task.
+Fix ONLY the 7 items above. Keep everything else 100% working.

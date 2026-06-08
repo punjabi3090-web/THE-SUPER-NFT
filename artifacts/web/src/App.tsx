@@ -11,8 +11,9 @@ import Withdraw       from "./pages/Withdraw";
 import NFT            from "./pages/NFT";
 import MyTeam         from "./pages/MyTeam";
 import Orders         from "./pages/Orders";
-import Admin          from "./pages/Admin";
-import AdminDashboard from "./pages/AdminDashboard";
+import Admin             from "./pages/Admin";
+import AdminDashboard    from "./pages/AdminDashboard";
+import AdminWithdrawals  from "./pages/AdminWithdrawals";
 import CronTest       from "./pages/CronTest";
 import './index.css';
 
@@ -73,8 +74,9 @@ function AppRoutes() {
       <Route path="/nft"             element={session ? <NFT />         : <Navigate to="/login" replace />} />
       <Route path="/team"            element={session ? <MyTeam />      : <Navigate to="/login" replace />} />
       <Route path="/orders"          element={session ? <Orders />      : <Navigate to="/login" replace />} />
-      <Route path="/admin"           element={session ? <Admin />       : <Navigate to="/login" replace />} />
-      <Route path="/admin/dashboard" element={session ? <AdminDashboard /> : <Navigate to="/login" replace />} />
+      <Route path="/admin"               element={session ? <Admin />             : <Navigate to="/login" replace />} />
+      <Route path="/admin/withdrawals"   element={session ? <AdminWithdrawals />  : <Navigate to="/login" replace />} />
+      <Route path="/admin/dashboard"     element={session ? <AdminDashboard />    : <Navigate to="/login" replace />} />
       <Route path="/cron-test"       element={session ? <CronTest />    : <Navigate to="/login" replace />} />
     </Routes>
   );

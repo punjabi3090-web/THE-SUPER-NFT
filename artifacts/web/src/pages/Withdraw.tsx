@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/useAuth";
 import { supabase } from "../lib/supabase";
-import { ArrowLeft, Check, Clock, AlertCircle } from "lucide-react";
+import { ArrowLeft, Check, Clock } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 import AnnouncementBanner from "../components/AnnouncementBanner";
 
@@ -13,32 +13,18 @@ const BG = "#F8F9FA";
 type Network = "BEP20" | "TRC20";
 
 type WdSettings = {
-  min_withdraw:         number;
-  max_withdraw:         number;
-  withdraw_fee_percent: number;
-  withdraw_start_time:  string;
-  withdraw_end_time:    string;
-  withdrawal_min_hours: number;
-  withdrawal_max_hours: number;
+  min_withdraw:          number;
+  max_withdraw:          number;
+  withdraw_fee_percent:  number;
+  withdraw_process_hours: number;
 };
 
 const DEFAULT_WD: WdSettings = {
-  min_withdraw:         10,
-  max_withdraw:         10000,
-  withdraw_fee_percent: 2,
-  withdraw_start_time:  "00:00",
-  withdraw_end_time:    "23:59",
-  withdrawal_min_hours: 24,
-  withdrawal_max_hours: 72,
+  min_withdraw:           10,
+  max_withdraw:           10000,
+  withdraw_fee_percent:   2,
+  withdraw_process_hours: 24,
 };
-
-function isWithinWindow(start: string, end: string): boolean {
-  if (!start || !end || start === "00:00" && end === "23:59") return true;
-  const now  = new Date();
-  const pad  = (n: number) => String(n).padStart(2, "0");
-  const cur  = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-  return cur >= start && cur <= end;
-}
 
 export default function Withdraw() {
   const { user, loading: authLoading } = useAuth();
@@ -67,13 +53,10 @@ export default function Withdraw() {
         const m: Record<string, string> = {};
         settingsRows.forEach((r: { key: string; value: string }) => { m[r.key] = r.value ?? ""; });
         setWdSettings({
-          min_withdraw:         parseFloat(m["min_withdraw"]         ?? "10"),
-          max_withdraw:         parseFloat(m["max_withdraw"]         ?? "10000"),
-          withdraw_fee_percent: parseFloat(m["withdraw_fee_percent"] ?? "2"),
-          withdraw_start_time:  m["withdraw_start_time"]             ?? "00:00",
-          withdraw_end_time:    m["withdraw_end_time"]               ?? "23:59",
-          withdrawal_min_hours: parseFloat(m["withdrawal_min_hours"] ?? "24"),
-          withdrawal_max_hours: parseFloat(m["withdrawal_max_hours"] ?? "72"),
+          min_withdraw:           parseFloat(m["min_withdraw"]           ?? "10"),
+          max_withdraw:           parseFloat(m["max_withdraw"]           ?? "10000"),
+          withdraw_fee_percent:   parseFloat(m["withdraw_fee_percent"]   ?? "2"),
+          withdraw_process_hours: parseFloat(m["withdraw_process_hours"] ?? "24"),
         });
       }
       setBalLoading(false);
@@ -90,11 +73,10 @@ export default function Withdraw() {
   }
   if (!user) return null;
 
-  const amt         = Number(amount);
-  const fee         = parseFloat(((amt * wdSettings.withdraw_fee_percent) / 100).toFixed(2));
-  const netAmt      = parseFloat((amt - fee).toFixed(2));
-  const withinHours = isWithinWindow(wdSettings.withdraw_start_time, wdSettings.withdraw_end_time);
-  const isValid     = amount.trim() && !isNaN(amt) && amt >= wdSettings.min_withdraw && amt <= balance && wallet.trim() && withinHours;
+  const amt    = Number(amount);
+  const fee    = parseFloat(((amt * wdSettings.withdraw_fee_percent) / 100).toFixed(2));
+  const netAmt = parseFloat((amt - fee).toFixed(2));
+  const isValid = amount.trim() && !isNaN(amt) && amt >= wdSettings.min_withdraw && amt <= balance && wallet.trim();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,10 +85,6 @@ export default function Withdraw() {
     if (amt > wdSettings.max_withdraw) { toast.error(`Maximum withdrawal is $${wdSettings.max_withdraw.toLocaleString()}`); return; }
     if (amt > balance)                 { toast.error("Insufficient balance"); return; }
     if (!wallet.trim())                { toast.error("Enter your wallet address"); return; }
-    if (!withinHours) {
-      toast.error(`Withdrawals only available ${wdSettings.withdraw_start_time}–${wdSettings.withdraw_end_time}`);
-      return;
-    }
 
     setSubmitting(true);
     try {
@@ -160,7 +138,7 @@ export default function Withdraw() {
           )}
           <div className="flex items-center justify-center gap-1.5 mb-6 text-xs text-gray-400">
             <Clock size={12} />
-            Processing: {wdSettings.withdrawal_min_hours}–{wdSettings.withdrawal_max_hours} hours
+            Processed within {wdSettings.withdraw_process_hours} hours
           </div>
           <button onClick={() => navigate("/")}
             className="w-full py-3 rounded-xl font-bold text-white text-sm"
@@ -179,7 +157,6 @@ export default function Withdraw() {
       <Toaster position="top-right" toastOptions={{ style: { background: "#fff", color: B, border: "1px solid #e5e7eb" } }} />
       <div className="max-w-md mx-auto px-4 pt-10">
 
-        {/* Header */}
         <div className="flex items-center gap-3 mb-4">
           <button onClick={() => navigate("/")}
             className="w-9 h-9 rounded-xl bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-50"
@@ -193,17 +170,6 @@ export default function Withdraw() {
         </div>
 
         <AnnouncementBanner />
-
-        {/* Time window warning */}
-        {!withinHours && (
-          <div className="flex items-start gap-2 rounded-xl p-3 mb-4" style={{ background: "#FFF7ED" }}>
-            <AlertCircle size={14} className="text-orange-500 flex-shrink-0 mt-0.5" />
-            <p className="text-xs text-orange-700">
-              Withdrawals are only available between{" "}
-              <strong>{wdSettings.withdraw_start_time}</strong> and <strong>{wdSettings.withdraw_end_time}</strong> (UTC).
-            </p>
-          </div>
-        )}
 
         {/* Balance Card */}
         <div className="rounded-2xl p-5 mb-4 flex items-center justify-between" style={{ background: B }}>
@@ -262,7 +228,7 @@ export default function Withdraw() {
         </form>
 
         <p className="text-[10px] text-gray-400 text-center mt-3">
-          Processing: {wdSettings.withdrawal_min_hours}–{wdSettings.withdrawal_max_hours} hours
+          Processed within {wdSettings.withdraw_process_hours} hours
         </p>
       </div>
     </div>

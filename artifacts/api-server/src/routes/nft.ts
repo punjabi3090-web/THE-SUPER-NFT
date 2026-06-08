@@ -1109,6 +1109,39 @@ router.post("/me/orders", async (req: Request, res: Response): Promise<void> => 
   res.json({ ok: true, order: { ...order, nftPrice: num(order.nftPrice), createdAt: order.createdAt.toISOString(), soldAt: null } });
 });
 
+/* ── POST /announcements — Admin posts via service role (bypasses RLS) ── */
+router.post("/announcements", async (req: Request, res: Response): Promise<void> => {
+  const authHeader = (req.headers["authorization"] ?? "") as string;
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+  if (!token) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const supabaseUrl = process.env["SUPABASE_URL"] ?? process.env["VITE_SUPABASE_URL"] ?? "";
+  const serviceKey  = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
+  if (!supabaseUrl || !serviceKey) { res.status(500).json({ error: "Supabase not configured" }); return; }
+
+  const adminClient = createClient(supabaseUrl, serviceKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+
+  const { data: { user }, error: authErr } = await adminClient.auth.getUser(token);
+  if (authErr || !user) { res.status(401).json({ error: "Invalid token" }); return; }
+
+  const { data: profile } = await adminClient.from("profiles").select("role").eq("user_id", user.id).single();
+  if (profile?.role !== "admin") { res.status(403).json({ error: "Admin only" }); return; }
+
+  const { title, message } = req.body as { title?: string; message?: string };
+  if (!message?.trim()) { res.status(400).json({ error: "Message required" }); return; }
+
+  const { error } = await adminClient.from("announcements").insert({
+    title:      (title?.trim() || "Announcement"),
+    message:    message.trim(),
+    created_by: user.id,
+    is_active:  true,
+  });
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json({ ok: true });
+});
+
 router.put("/me/orders/:id/sell", async (req: Request, res: Response): Promise<void> => {
   const orderId = parseInt(req.params["id"] as string);
   const userId = parseInt(req.body.userId);
