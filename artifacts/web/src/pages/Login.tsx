@@ -115,7 +115,6 @@ export default function Login() {
         phone:            (form.country + form.phone).trim(),
         referral_code:    'FAIS' + Math.floor(1000 + Math.random() * 9000),
         referred_by_code: savedReferral || null,
-        updated_at:       new Date().toISOString(),
       }, { onConflict: 'user_id' });
 
       if (profileError) {
