@@ -1,0 +1,63 @@
+DASHBOARD FIX - STEP BY STEP IMPLEMENTATION - ALL IN ONE GO
+
+IMPORTANT: EK HI BAAR ME PURA KAAM KARNA HAI. STEP BY STEP NAHI. HALF WORK REJECT HOGA.
+
+RULE 1: DON'T TOUCH SUPABASE AUTH. IT'S 100% WORKING.
+RULE 2: DON'T TOUCH ACCOUNT DETAILS. IT'S WORKING.
+RULE 3: ONLY FIX DASHBOARD TOOLS. ALL AT ONCE.
+
+STEP 1: SET REAL TOTAL REGISTER MEMBERS COUNT FIRST
+REPLACE THE COUNT LOGIC WITH THIS LIVE QUERY:
+
+const { count } = await supabase
+  .from('profiles')
+  .select('*', { count: 'exact', head: true })
+  .eq('referred_by_code', 'FAIS7575')
+
+DISPLAY THIS COUNT ON DASHBOARD: Team = 4
+THIS MUST BE REAL-TIME FROM profiles TABLE. NO CACHE.
+
+STEP 2: HIDE USER LIST BY DEFAULT
+UNDER 'Total Register Members' SHOW ONLY THE NUMBER 4.
+DO NOT SHOW ANY USER NAMES OR USER IDs INITIALLY.
+
+STEP 3: SHOW USER ID + USER NAME ONLY ON CLICK
+WHEN USER CLICKS 'Total Register Members' OR 'View Details' BUTTON:
+
+1. RUN THIS QUERY:
+const { data } = await supabase
+  .from('profiles')
+  .select('id, name')
+  .eq('referred_by_code', 'FAIS7575')
+  .order('created_at', { ascending: false })
+
+2. SHOW DROPDOWN/TABLE WITH ONLY 2 COLUMNS:
+| User ID | User Name |
+| --- | --- |
+| a1b2c3d4... | Gogo |
+| e5f6g7h8... | Indonesia |
+| i9j0k1l2... | Hira Hira |
+| m3n4o5p6... | Akbar |
+
+3. ADD 'Hide' BUTTON TO COLLAPSE THE LIST AGAIN.
+
+STEP 4: MAKE ALL OTHER DASHBOARD TOOLS LIVE - SAME TIME
+FOR EVERY METRIC/TOOL ON DASHBOARD:
+1. REMOVE HARDCODED NUMBERS
+2. REMOVE OLD tables LIKE referrals, team_members, user_stats
+3. CONNECT DIRECTLY TO profiles TABLE
+4. ADD 'Cache-Control: no-store' TO API
+5. USE { count: 'exact' } FOR ALL COUNTS
+
+FINAL CHECKLIST - SAB EK SAATH HONA CHAHIYE:
+✅ Dashboard shows Team = 4 from live DB
+✅ User list is hidden by default
+✅ Click shows table with only ID + Name
+✅ All other tools use real-time profiles data
+✅ Auth is untouched
+✅ NO PARTIAL DEPLOYMENT - EVERYTHING GOES LIVE TOGETHER
+
+REPLY WITH: "DASHBOARD FULLY LIVE" + SCREENSHOT OF COUNT=4 + SCREENSHOT OF EXPANDED USER LIST
+
+IF YOU SAY "I FIXED COUNT BUT LIST IS PENDING" = REJECTED
+FIX EVERYTHING IN ONE DEPLOYMENT.

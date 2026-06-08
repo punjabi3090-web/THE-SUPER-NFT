@@ -6,7 +6,7 @@ import toast, { Toaster } from "react-hot-toast";
 import {
   DollarSign, Sparkles, RefreshCw, MoreVertical, Bell, Send, Headphones,
   Users, Trophy, FileText, Share2, ShoppingCart, Clock,
-  ArrowDownCircle, ArrowUpCircle, X, Shield,
+  ArrowDownCircle, ArrowUpCircle, X, Shield, ChevronDown, ChevronUp,
 } from "lucide-react";
 import AnnouncementBanner from "../../components/AnnouncementBanner";
 
@@ -14,14 +14,17 @@ const R = "#DC2626";
 const B = "#1E3A8A";
 const BG = "#F8F9FA";
 
-type Profile    = { balance: number | null; name: string | null; referral_code: string | null };
-type UserStats  = { dailyIncome: number; totalIncome: number; team: number; activity: number; bid: number; comprehensive: number; nftRate: number };
-type TeamData   = { community: number; valid: number; aEnthusiast: number; bcEnthusiast: number };
-type OrderData  = { total: number; processing: number; bought: number; sold: number };
-type Ann        = { id: string; message: string; created_at: string };
-type Airdrop    = { id: string; title: string; description: string; amount: number };
+type Profile   = { balance: number | null; name: string | null; referral_code: string | null };
+type UserStats = { dailyIncome: number; totalIncome: number; activity: number; bid: number; comprehensive: number; nftRate: number };
+type TeamData  = { valid: number; aEnthusiast: number; bcEnthusiast: number };
+type OrderData = { total: number; processing: number; bought: number; sold: number };
+type Ann       = { id: string; message: string; created_at: string };
+type Airdrop   = { id: string; title: string; description: string; amount: number };
+type Member    = { user_id: string; name: string | null };
 
-const Z_STATS: UserStats = { dailyIncome: 0, totalIncome: 0, team: 0, activity: 0, bid: 0, comprehensive: 0, nftRate: 0 };
+const Z_STATS: UserStats = { dailyIncome: 0, totalIncome: 0, activity: 0, bid: 0, comprehensive: 0, nftRate: 0 };
+const Z_TEAM: TeamData   = { valid: 0, aEnthusiast: 0, bcEnthusiast: 0 };
+const Z_ORD: OrderData   = { total: 0, processing: 0, bought: 0, sold: 0 };
 
 const getNftRate = (amount: number) => {
   if (amount >= 2000) return 2.0;
@@ -29,8 +32,6 @@ const getNftRate = (amount: number) => {
   if (amount >= 100)  return 1.2;
   return 1.0;
 };
-const Z_TEAM: TeamData   = { community: 0, valid: 0, aEnthusiast: 0, bcEnthusiast: 0 };
-const Z_ORD: OrderData   = { total: 0, processing: 0, bought: 0, sold: 0 };
 
 const Skel = ({ h = "h-4", w = "w-full" }: { h?: string; w?: string }) => (
   <div className={`${h} ${w} rounded bg-gray-200 animate-pulse`} />
@@ -45,17 +46,24 @@ export default function HomeTab() {
   const [isAdmin,  setIsAdmin]  = useState(false);
   const [loading,  setLoading]  = useState(true);
   const [claiming, setClaiming] = useState(false);
-  const [menuOpen,     setMenuOpen]     = useState(false);
-  const [userId,       setUserId]       = useState<string | null>(null);
-  const [anns,         setAnns]         = useState<Ann[]>([]);
-  const [reads,        setReads]        = useState<Set<string>>(new Set());
-  const [bellOpen,     setBellOpen]     = useState(false);
-  const [airdrops,     setAirdrops]     = useState<Airdrop[]>([]);
-  const [airdropOpen,  setAirdropOpen]  = useState(false);
+  const [menuOpen,    setMenuOpen]    = useState(false);
+  const [anns,        setAnns]        = useState<Ann[]>([]);
+  const [reads,       setReads]       = useState<Set<string>>(new Set());
+  const [bellOpen,    setBellOpen]    = useState(false);
+  const [airdrops,    setAirdrops]    = useState<Airdrop[]>([]);
+  const [airdropOpen, setAirdropOpen] = useState(false);
+  const [userId,      setUserId]      = useState<string | null>(null);
+
+  /* ── LIVE team count (direct Supabase query, no cache) ── */
+  const [liveTeamCount,      setLiveTeamCount]      = useState<number>(0);
+  const [teamListOpen,       setTeamListOpen]       = useState(false);
+  const [teamMembers,        setTeamMembers]        = useState<Member[]>([]);
+  const [teamMembersLoading, setTeamMembersLoading] = useState(false);
+
   const menuRef = useRef<HTMLDivElement>(null);
   const bellRef = useRef<HTMLDivElement>(null);
 
-  /* ── Admin check + notification fetch — runs once on mount ── */
+  /* ── Announcements — runs once on mount ── */
   useEffect(() => {
     (async () => {
       try {
@@ -63,7 +71,6 @@ export default function HomeTab() {
         if (!user) return;
         setUserId(user.id);
 
-        /* Announcements + reads */
         const [{ data: annData }, { data: readData }] = await Promise.all([
           supabase.from("announcements")
             .select("id, message, created_at")
@@ -82,17 +89,32 @@ export default function HomeTab() {
     })();
   }, []);
 
+  /* ── Fetch live team count from profiles table (no cache) ── */
+  const fetchLiveTeamCount = useCallback(async (refCode: string) => {
+    const { count } = await supabase
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .eq("referred_by_code", refCode);
+    setLiveTeamCount(count ?? 0);
+  }, []);
+
   const load = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { navigate("/login", { replace: true }); return; }
     const uid = user.id;
 
-    /* ── Profile + team/order counters from Express API ── */
+    /* Express API: balances, counters — Cache-Control: no-store via fetch */
     const apiUser = await getCurrentUser();
-    setProfile(apiUser ? { balance: apiUser.walletBalance, name: apiUser.name, referral_code: apiUser.myReferralCode } : null);
+    const refCode = apiUser?.myReferralCode ?? null;
+    setProfile(apiUser ? { balance: apiUser.walletBalance, name: apiUser.name, referral_code: refCode } : null);
     setIsAdmin(apiUser?.isAdmin ?? false);
 
-    /* ── Daily income + approved deposits from Supabase ── */
+    /* Live team count from Supabase profiles — { count: 'exact' }, no cache */
+    if (refCode) {
+      await fetchLiveTeamCount(refCode);
+    }
+
+    /* Daily income + approved deposits from Supabase */
     const [dailyRes, { data: approvedDeps }] = await Promise.all([
       supabase.from("daily_income_stats").select("today_income, total_income").eq("user_id", uid).maybeSingle(),
       supabase.from("deposits").select("amount").eq("user_id", uid).eq("status", "approved"),
@@ -103,19 +125,17 @@ export default function HomeTab() {
     const nftRate = getNftRate(maxAmt);
 
     setStats({
-      dailyIncome:   dailyRes.data?.today_income ?? 0,
-      totalIncome:   dailyRes.data?.total_income ?? 0,
-      team:          apiUser?.teamCount    ?? 0,
-      activity:      apiUser?.totalOrders  ?? 0,
-      bid:           maxAmt,
+      dailyIncome:  dailyRes.data?.today_income ?? 0,
+      totalIncome:  dailyRes.data?.total_income ?? 0,
+      activity:     apiUser?.totalOrders  ?? 0,
+      bid:          maxAmt,
       comprehensive,
       nftRate,
     });
 
     setTeam({
-      community:    apiUser?.teamCount    ?? 0,
-      valid:        apiUser?.validMembers ?? 0,
-      aEnthusiast:  apiUser?.aEnthusiasts ?? 0,
+      valid:        apiUser?.validMembers  ?? 0,
+      aEnthusiast:  apiUser?.aEnthusiasts  ?? 0,
       bcEnthusiast: apiUser?.bcEnthusiasts ?? 0,
     });
 
@@ -127,7 +147,7 @@ export default function HomeTab() {
     });
 
     setLoading(false);
-  }, [navigate]);
+  }, [navigate, fetchLiveTeamCount]);
 
   useEffect(() => {
     load();
@@ -166,6 +186,29 @@ export default function HomeTab() {
     setAirdropOpen(true);
   };
 
+  /* ── Toggle team member list (fetch on open) ── */
+  const handleTeamClick = async () => {
+    if (teamListOpen) {
+      setTeamListOpen(false);
+      return;
+    }
+    if (!profile?.referral_code) return;
+
+    setTeamListOpen(true);
+    setTeamMembersLoading(true);
+    setTeamMembers([]);
+
+    /* Live query — no cache, direct Supabase */
+    const { data } = await supabase
+      .from("profiles")
+      .select("user_id, name")
+      .eq("referred_by_code", profile.referral_code)
+      .order("created_at", { ascending: false });
+
+    setTeamMembers((data ?? []) as Member[]);
+    setTeamMembersLoading(false);
+  };
+
   const handleClaim = async () => {
     setClaiming(true);
     const { data: { user } } = await supabase.auth.getUser();
@@ -173,7 +216,6 @@ export default function HomeTab() {
 
     const today = new Date().toISOString().split("T")[0];
 
-    /* Check existing daily_income entry for today */
     const { data: existing } = await supabase
       .from("daily_income")
       .select("id, status, amount")
@@ -188,7 +230,6 @@ export default function HomeTab() {
     }
 
     if (existing?.status === "pending") {
-      /* Update pending → claimed */
       const { error } = await supabase
         .from("daily_income")
         .update({ status: "claimed" })
@@ -199,7 +240,6 @@ export default function HomeTab() {
       return;
     }
 
-    /* No entry today — calculate from active approved deposits */
     const { data: deps, error: depsErr } = await supabase
       .from("deposits")
       .select("amount")
@@ -224,7 +264,6 @@ export default function HomeTab() {
       return;
     }
 
-    /* INSERT directly as claimed */
     const { error: insErr } = await supabase.from("daily_income").insert({
       user_id:     user.id,
       amount:      totalIncome,
@@ -249,7 +288,7 @@ export default function HomeTab() {
           <Skel h="h-3" w="w-20" /><Skel h="h-8" w="w-32" /><Skel h="h-3" w="w-10" />
         </div>
         <div className="rounded-xl p-3 mb-2 bg-green-50 border border-green-200 space-y-1.5">
-          {Array.from({ length: 7 }).map((_, i) => (
+          {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="flex justify-between"><Skel h="h-3" w="w-24" /><Skel h="h-3" w="w-16" /></div>
           ))}
         </div>
@@ -267,20 +306,19 @@ export default function HomeTab() {
   const balance = profile?.balance ?? 0;
 
   const statsRows = [
-    { label: "Daily Income",  value: `$${stats.dailyIncome.toFixed(2)}`,                       hl: true },
-    { label: "Total Income",  value: `$${stats.totalIncome.toFixed(2)}`,                       hl: true },
-    { label: "Comprehensive", value: stats.comprehensive > 0 ? `$${stats.comprehensive.toFixed(2)}` : "—", hl: false },
-    { label: "Claim",         value: stats.nftRate > 0 ? `${stats.nftRate}%` : "—",           hl: false },
-    { label: "Team",          value: String(stats.team),                                       hl: false },
-    { label: "Activity",      value: String(stats.activity),                                   hl: false },
-    { label: "Bid",           value: stats.bid > 0 ? `$${stats.bid.toFixed(2)}` : "—",        hl: false },
+    { label: "Daily Income",  value: `$${stats.dailyIncome.toFixed(2)}`,                                       hl: true  },
+    { label: "Total Income",  value: `$${stats.totalIncome.toFixed(2)}`,                                       hl: true  },
+    { label: "Comprehensive", value: stats.comprehensive > 0 ? `$${stats.comprehensive.toFixed(2)}` : "—",     hl: false },
+    { label: "Claim",         value: stats.nftRate > 0 ? `${stats.nftRate}%` : "—",                           hl: false },
+    { label: "Team",          value: String(liveTeamCount),                                                    hl: false },
+    { label: "Activity",      value: String(stats.activity),                                                   hl: false },
+    { label: "Bid",           value: stats.bid > 0 ? `$${stats.bid.toFixed(2)}` : "—",                        hl: false },
   ];
 
-  const teamBoxes = [
-    { label: ["Total Register", "Members"],  value: team.community,    icon: <Users    className="w-5 h-5 mx-auto mt-1" style={{ color: "#3b82f6" }} /> },
-    { label: ["Valid",     "Members"],  value: team.valid,        icon: <Trophy   className="w-5 h-5 mx-auto mt-1" style={{ color: "#eab308" }} /> },
-    { label: ["A",         "enthusiast"], value: team.aEnthusiast, icon: <FileText className="w-5 h-5 mx-auto mt-1" style={{ color: "#3b82f6" }} /> },
-    { label: ["B+C",       "enthusiasts"], value: team.bcEnthusiast, icon: <Share2 className="w-5 h-5 mx-auto mt-1" style={{ color: "#22c55e" }} /> },
+  const otherTeamBoxes = [
+    { label: ["Valid",   "Members"],    value: team.valid,        icon: <Trophy   className="w-5 h-5 mx-auto mt-1" style={{ color: "#eab308" }} /> },
+    { label: ["A",       "Enthusiast"], value: team.aEnthusiast,  icon: <FileText className="w-5 h-5 mx-auto mt-1" style={{ color: "#3b82f6" }} /> },
+    { label: ["B+C",     "Enthusiast"], value: team.bcEnthusiast, icon: <Share2   className="w-5 h-5 mx-auto mt-1" style={{ color: "#22c55e" }} /> },
   ];
 
   const orderBoxes = [
@@ -304,7 +342,7 @@ export default function HomeTab() {
         </div>
         <div className="flex items-center gap-1.5">
 
-          {/* ── Bell Notification ── */}
+          {/* Bell */}
           <div className="relative" ref={bellRef}>
             <button
               onClick={() => setBellOpen(v => !v)}
@@ -348,7 +386,7 @@ export default function HomeTab() {
             )}
           </div>
 
-          {/* ── Airdrop ── */}
+          {/* Airdrop */}
           <button
             onClick={openAirdrops}
             className="text-xs font-bold px-2.5 py-1 rounded-lg"
@@ -357,7 +395,7 @@ export default function HomeTab() {
             Airdrop
           </button>
 
-          {/* ── 3-dots Menu ── */}
+          {/* 3-dots Menu */}
           <div className="relative" ref={menuRef}>
             <button onClick={() => setMenuOpen(v => !v)} className="p-1.5 rounded-xl hover:bg-white transition-colors" style={{ color: B }}>
               <MoreVertical size={20} />
@@ -388,10 +426,10 @@ export default function HomeTab() {
         </div>
       </div>
 
-      {/* ── Announcement Banner ── */}
+      {/* Announcement Banner */}
       <AnnouncementBanner />
 
-      {/* ── Balance Card ── */}
+      {/* Balance Card */}
       <div className="rounded-2xl p-3 mb-2 relative overflow-hidden" style={{ background: B }}>
         <div className="absolute top-0 right-0 w-28 h-28 rounded-full opacity-10 bg-white -translate-y-8 translate-x-8" />
         <div className="relative z-10">
@@ -404,7 +442,7 @@ export default function HomeTab() {
         </div>
       </div>
 
-      {/* ══ SECTION 1 — STATS TABLE (light green) ══ */}
+      {/* ══ SECTION 1 — STATS TABLE ══ */}
       <div className="rounded-xl mb-2 overflow-hidden border border-green-200 bg-green-50">
         {statsRows.map((row, i) => (
           <div
@@ -423,8 +461,32 @@ export default function HomeTab() {
       {/* ══ SECTION 2 — MY TEAM ══ */}
       <div className="bg-white rounded-xl p-3 mb-2 shadow-sm">
         <p className="text-xs font-bold mb-2" style={{ color: B }}>My Team</p>
+
         <div className="grid grid-cols-4 gap-1.5">
-          {teamBoxes.map(box => (
+
+          {/* ── Total Register Members — CLICKABLE, live from profiles ── */}
+          <button
+            onClick={handleTeamClick}
+            className="flex flex-col items-center text-center focus:outline-none active:opacity-70 transition-opacity"
+          >
+            <Users className="w-5 h-5 mx-auto mt-1" style={{ color: "#3b82f6" }} />
+            <p
+              className="text-base font-bold leading-tight mt-0.5"
+              style={{ color: liveTeamCount === 0 ? R : "#111827" }}
+            >
+              {liveTeamCount}
+            </p>
+            <p className="text-[9px] text-gray-500 leading-tight">Total Register<br />Members</p>
+            <span className="flex items-center gap-0.5 mt-0.5 text-[8px] font-semibold" style={{ color: B }}>
+              {teamListOpen
+                ? <><ChevronUp size={9} />Hide</>
+                : <><ChevronDown size={9} />Details</>
+              }
+            </span>
+          </button>
+
+          {/* Other team boxes */}
+          {otherTeamBoxes.map(box => (
             <div key={box.label[0]} className="flex flex-col items-center text-center">
               {box.icon}
               <p className="text-base font-bold leading-tight mt-0.5" style={{ color: box.value === 0 ? R : "#111827" }}>{box.value}</p>
@@ -432,6 +494,55 @@ export default function HomeTab() {
             </div>
           ))}
         </div>
+
+        {/* ── Expandable member list ── */}
+        {teamListOpen && (
+          <div className="mt-3 border-t border-gray-100 pt-2">
+            {teamMembersLoading ? (
+              <div className="flex items-center justify-center py-5">
+                <RefreshCw size={14} className="animate-spin" style={{ color: B }} />
+                <span className="ml-2 text-xs text-gray-400">Loading members...</span>
+              </div>
+            ) : teamMembers.length === 0 ? (
+              <p className="text-xs text-gray-400 text-center py-4">No members yet</p>
+            ) : (
+              <div className="overflow-x-auto rounded-lg border border-gray-100">
+                <table className="w-full text-[10px]">
+                  <thead>
+                    <tr style={{ background: "#EFF6FF" }}>
+                      <th className="text-left py-1.5 px-2 font-semibold" style={{ color: B }}>User ID</th>
+                      <th className="text-left py-1.5 px-2 font-semibold" style={{ color: B }}>User Name</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {teamMembers.map((m, idx) => (
+                      <tr
+                        key={m.user_id}
+                        className="border-t border-gray-50"
+                        style={{ background: idx % 2 === 0 ? "#fff" : "#f9fafb" }}
+                      >
+                        <td className="py-1.5 px-2 font-mono text-gray-500">
+                          {m.user_id.slice(0, 8)}…
+                        </td>
+                        <td className="py-1.5 px-2 font-medium" style={{ color: "#111827" }}>
+                          {m.name || "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <button
+              onClick={() => setTeamListOpen(false)}
+              className="mt-2 w-full flex items-center justify-center gap-1 text-[10px] font-semibold py-1.5 rounded-lg transition-colors hover:opacity-80"
+              style={{ color: B, background: "#EFF6FF" }}
+            >
+              <ChevronUp size={10} /> Hide
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ══ SECTION 3 — MY ORDERS ══ */}
@@ -465,7 +576,7 @@ export default function HomeTab() {
         {claiming ? <><RefreshCw size={14} className="animate-spin" /> Claiming...</> : <><Sparkles size={14} /> Daily Reserve</>}
       </button>
 
-      {/* ── Airdrop Modal ── */}
+      {/* Airdrop Modal */}
       {airdropOpen && (
         <div
           className="fixed inset-0 z-50 flex items-end justify-center"
