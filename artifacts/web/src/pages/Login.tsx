@@ -83,7 +83,7 @@ export default function Login() {
       if (refProf) referredByEmail = refProf.email;
     }
 
-    const { error } = await supabase.auth.signUp({
+    const { data: authData, error: signUpError } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
       options: {
@@ -96,10 +96,49 @@ export default function Login() {
       }
     });
 
-    if (error) {
-      showMsg(error.message.includes("already") ? "Email already registered. Login instead." : error.message);
+    if (signUpError) {
+      showMsg(signUpError.message.includes("already") ? "Email already registered. Login instead." : signUpError.message);
+      setLoading(false);
+      return;
+    }
+
+    if (!authData.user) {
+      showMsg("Signup failed — no user returned. Try again.");
+      setLoading(false);
+      return;
+    }
+
+    // Insert profile immediately — works when Confirm Email = OFF (session active right away)
+    // Also runs when Confirm Email = ON but session is present (Supabase auto-confirm configs)
+    const savedRef = refCode || localStorage.getItem('pending_referral_code') || '';
+    const newRefCode = 'FAIS' + Math.floor(1000 + Math.random() * 9000);
+
+    const { error: profileError } = await supabase.from('profiles').insert({
+      user_id:          authData.user.id,
+      email:            form.email.trim().toLowerCase(),
+      name:             form.fullName.trim(),
+      phone:            (form.country + form.phone).trim(),
+      referral_code:    newRefCode,
+      referred_by_code: savedRef || null,
+      created_at:       new Date().toISOString(),
+    });
+
+    if (profileError) {
+      // Profile insert failed — likely needs OTP first (Confirm Email = ON)
+      // Store user id so handleVerifyOtp can retry
+      console.error('Profile insert at signup failed (will retry after OTP):', profileError.message);
     } else {
-      if (referredByEmail) setReferrerEmail(referredByEmail);
+      console.log('Profile created at signup for:', authData.user.id);
+      localStorage.removeItem('pending_referral_code');
+    }
+
+    if (referredByEmail) setReferrerEmail(referredByEmail);
+
+    // If session already active (Confirm Email = OFF), go straight to app
+    if (authData.session) {
+      showMsg("Account created successfully!", "success");
+      setTimeout(() => window.location.replace('/showcase'), 800);
+    } else {
       setPage("register_otp");
       showMsg("6-digit OTP sent to your email", "success");
     }

@@ -1,0 +1,75 @@
+STOP. YOU ARE ADMIN. YOU HAVE FULL SUPABASE AUTH + DATABASE ACCESS.
+
+YOUR JOB: CHECK ALL FILES RELATED TO SIGNUP/AUTH. FIND ALL BUGS AND FIX THEM.
+
+CRITICAL RULES - VIOLATION = PROJECT BROKEN:
+1. DO NOT UPDATE/DELETE ANY EXISTING ROW in profiles, deposits, transactions, withdraw
+2. DO NOT TOUCH Faisal's wallet balance, email, daily_income, referral_code
+3. DO NOT CREATE NEW DATABASE TABLES OR COLUMNS
+4. ONLY FIX Signup.tsx AND AUTH RELATED FILES
+5. IF YOU BREAK OLD DATA, I WILL ROLLBACK EVERYTHING
+
+MAIN BUG TO FIX:
+Confirm Email is OFF so OTP is skipped. Profile insert must happen in handleSignUp, not in handleVerifyOtp.
+
+YOUR ONLY TASK:
+Replace ONLY handleSignUp function in Signup.tsx file with this exact code. Check for any other auth bugs and fix them too, but DO NOT TOUCH OLD DATA.
+
+HERE IS THE EXACT CODE. COPY PASTE IT. DO NOT ADD OR REMOVE ANYTHING:
+
+const handleSignUp = async () => {
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    const refCode = urlParams.get('ref');
+    if (refCode) {
+      localStorage.setItem('pending_referral_code', refCode);
+    }
+    
+    const { data: authData, error: signUpError } = await supabase.auth.signUp({
+      email: email,
+      password: password,
+      options: { data: { name: name } }
+    });
+    
+    if (signUpError) {
+      alert('SIGNUP ERROR: ' + signUpError.message);
+      return;
+    }
+    
+    if (!authData.user) {
+      alert('SIGNUP ERROR: No user object');
+      return;
+    }
+    
+    const savedReferral = localStorage.getItem('pending_referral_code');
+    
+    const { error: profileError } = await supabase.from('profiles').insert({
+      user_id: authData.user.id,
+      email: email,
+      name: name,
+      phone: phone || '',
+      referral_code: 'FAIS' + Math.floor(1000 + Math.random() * 9000),
+      referred_by_code: savedReferral || null,
+      created_at: new Date().toISOString()
+    });
+    
+    if (profileError) {
+      alert('DB ERROR: ' + profileError.message);
+      return;
+    }
+    
+    localStorage.removeItem('pending_referral_code');
+    alert('SUCCESS');
+    window.location.href = '/dashboard';
+    
+  } catch (err) {
+    alert('CRITICAL ERROR: ' + err.message);
+  }
+}
+
+AFTER PASTING: 
+1. SAVE THE FILE
+2. CHECK FOR RED ERRORS IN EDITOR
+3. SCAN OTHER AUTH FILES FOR BUGS - FIX THEM WITHOUT TOUCHING DATA
+4. REPLY "CODE SAVED. NO ERRORS. ALL AUTH BUGS FIXED. READY TO TEST"
+DO NOT DO ANYTHING ELSE.
