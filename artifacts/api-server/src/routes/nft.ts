@@ -3,6 +3,7 @@ import { eq, desc, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
+import { createClient } from "@supabase/supabase-js";
 import {
   db,
   nftUsers, nftSettings, nftReferrals, nftWithdrawals,
@@ -280,6 +281,65 @@ router.post("/auth/reset-password", async (req: Request, res: Response): Promise
     .set({ passwordHash: hash, resetToken: null, resetTokenExpiry: null })
     .where(eq(nftUsers.id, user.id));
   res.json({ ok: true });
+});
+
+// POST /api/nft/auth/create-profile ──────────────────────────────────────────
+// Called right after supabase.auth.signUp() on the frontend.
+// Uses the SERVICE ROLE KEY server-side → bypasses ALL RLS policies.
+// Body: { accessToken, userId, email, name, phone, referralCode }
+router.post("/auth/create-profile", async (req: Request, res: Response): Promise<void> => {
+  const { accessToken, userId, email, name, phone, referralCode } = req.body as {
+    accessToken?: string; userId?: string; email?: string;
+    name?: string; phone?: string; referralCode?: string;
+  };
+
+  if (!userId || !email) {
+    res.status(400).json({ error: "userId and email are required" }); return;
+  }
+
+  const supabaseUrl = process.env["SUPABASE_URL"] ?? process.env["VITE_SUPABASE_URL"] ?? "";
+  const serviceKey  = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
+
+  if (!supabaseUrl || !serviceKey) {
+    res.status(500).json({ error: "Supabase service credentials not configured" }); return;
+  }
+
+  // Verify the access token matches the claimed userId (security check)
+  if (accessToken) {
+    try {
+      const verifyClient = createClient(supabaseUrl, serviceKey);
+      const { data: { user }, error: verifyErr } = await verifyClient.auth.getUser(accessToken);
+      if (verifyErr || !user || user.id !== userId) {
+        res.status(401).json({ error: "Invalid access token" }); return;
+      }
+    } catch {
+      res.status(401).json({ error: "Token verification failed" }); return;
+    }
+  }
+
+  // Service-role client — bypasses RLS entirely
+  const adminClient = createClient(supabaseUrl, serviceKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+
+  const newRefCode = "FAIS" + Math.floor(1000 + Math.random() * 9000);
+
+  const { error: profileError } = await adminClient.from("profiles").upsert({
+    user_id:          userId,
+    email:            email.trim().toLowerCase(),
+    name:             (name ?? "").trim(),
+    phone:            (phone ?? "").trim(),
+    referral_code:    newRefCode,
+    referred_by_code: referralCode?.trim().toUpperCase() || null,
+  }, { onConflict: "user_id" });
+
+  if (profileError) {
+    req.log.error({ profileError, userId }, "create-profile failed");
+    res.status(400).json({ error: profileError.message }); return;
+  }
+
+  req.log.info({ userId, email, referralCode }, "Supabase profile created via service role");
+  res.json({ ok: true, referral_code: newRefCode });
 });
 
 // POST /api/nft/auth/supabase-sync ─────────────────────────────────────────

@@ -108,17 +108,23 @@ export default function Login() {
       const savedReferral = localStorage.getItem('pending_referral_code');
       alert('USING REF: ' + savedReferral);
 
-      const { error: profileError } = await supabase.from('profiles').upsert({
-        user_id:          authData.user.id,
-        email:            form.email.trim().toLowerCase(),
-        name:             form.fullName.trim(),
-        phone:            (form.country + form.phone).trim(),
-        referral_code:    'FAIS' + Math.floor(1000 + Math.random() * 9000),
-        referred_by_code: savedReferral || null,
-      }, { onConflict: 'user_id' });
+      // Call Express API — server uses service role key to bypass Supabase RLS
+      const profileRes = await fetch('/api/nft/auth/create-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accessToken:  authData.session?.access_token ?? '',
+          userId:       authData.user.id,
+          email:        form.email.trim().toLowerCase(),
+          name:         form.fullName.trim(),
+          phone:        (form.country + form.phone).trim(),
+          referralCode: savedReferral || '',
+        }),
+      });
+      const profileJson = await profileRes.json() as { ok?: boolean; error?: string };
 
-      if (profileError) {
-        alert('DB ERROR: ' + profileError.message);
+      if (!profileRes.ok || profileJson.error) {
+        alert('DB ERROR: ' + (profileJson.error ?? 'Unknown error'));
         setLoading(false);
         return;
       }
