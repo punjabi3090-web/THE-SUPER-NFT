@@ -1,0 +1,82 @@
+⚠️ CRITICAL RULES - VIOLATE MAT KARNA - FINAL WARNING ⚠️
+
+1. DO NOT MODIFY: nft_users, deposits, withdrawals, profiles, NowPayments, RLS policies, existing auth flow
+2. DO NOT BREAK: Existing deposit, NFT buy, withdrawal approve/reject, admin panel
+3. USE ONLY: Supabase Auth session. Check user with auth.uid()
+4. ADD ONLY: New tables + new UI in Profile page. Baki sab untouched rahe
+
+TASK: Add these 3 features to USER DASHBOARD Profile page ONLY
+
+=== FEATURE 1: WITHDRAWAL ADDRESS BIND + 72 HOUR LOCK ===
+Goal: User withdraw se pehle address bind kare + 72hr wait kare
+
+SQL 1 - Create new table:
+CREATE TABLE IF NOT EXISTS user_withdraw_addresses (
+  id serial primary key,
+  user_id uuid REFERENCES auth.users(id) NOT NULL UNIQUE,
+  bep20_address text,
+  trc20_address text,
+  bind_at timestamptz NOT NULL DEFAULT now(),
+  created_at timestamptz default now()
+);
+ALTER TABLE user_withdraw_addresses ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users manage own withdraw addresses" ON user_withdraw_addresses 
+FOR ALL USING (auth.uid() = user_id);
+
+UI 1 - Profile Page > Add "Withdrawal Bind" Section:
+1. Show 2 input fields: BEP20 Address, TRC20 Address + Save button
+2. On save: INSERT/UPDATE user_withdraw_addresses with user_id = auth.uid(), bind_at = now()
+3. Show status: "Address Bound: 15 hours ago" + Countdown: "57 hours remaining to withdraw"
+
+UI 2 - Withdrawal.tsx Page Logic:
+1. On page load: Check user_withdraw_addresses for auth.uid()
+2. IF no row OR bep20_address IS NULL AND trc20_address IS NULL: 
+   Show "Please bind withdrawal address in Profile first" + Button to Profile
+3. IF address exists: Calculate hours_passed = (now() - bind_at) / 3600
+4. IF hours_passed < 72: 
+   Show "Withdraw unlocks in X hours" + Disable withdraw form
+5. IF hours_passed >= 72: 
+   Enable withdraw form. Use bound addresses in dropdown, don't ask user to type again
+
+=== FEATURE 2: GOOGLE AUTHENTICATOR 2FA ===
+Goal: User withdraw se pehle Google Auth bind kare
+
+SQL 2 - Add columns to profiles:
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS totp_secret text;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS totp_enabled boolean DEFAULT false;
+
+UI 1 - Profile Page > Add "Google Authenticator" Section:
+1. IF totp_enabled = false: Show "Enable 2FA" button
+2. On click: Call /api/2fa/generate → Returns {secret, qr_code_url}
+3. Show QR code image + secret key text + Input for 6-digit code
+4. User scans QR in Google Auth app, enters 6 digits, clicks Verify
+5. On verify: Call /api/2fa/verify with token. If success: UPDATE profiles SET totp_secret=secret, totp_enabled=true
+
+UI 2 - Withdrawal.tsx Page Logic:
+1. Before allowing withdraw form submit: Check profiles.totp_enabled for auth.uid()
+2. IF false: Show "Enable Google Authenticator in Profile first" + Button to Profile
+3. IF true: Show 6-digit input field "Enter Google Auth Code" 
+4. On submit: Call /api/2fa/validate with token. Only process withdrawal if valid
+
+API - Create /api/2fa routes:
+Use 'otplib' npm package. Generate TOTP secret, verify tokens server-side with service role. DO NOT expose secret to client after binding.
+
+=== FEATURE 3: MOVE ACCOUNT DETAILS TO SETTINGS ===
+Goal: Profile page clean rakho, details Settings me dalo
+
+UI - Profile.tsx Changes:
+1. Remove existing Account Details section from main Profile view
+2. Add "Settings" button/card in Profile
+3. On Settings click: Open modal OR navigate to /profile/settings
+4. Inside Settings: Show Account Details - Email, User ID, Join Date, KYC Status, etc
+5. Keep "Withdrawal Bind" and "Google Authenticator" in main Profile, not in Settings
+
+DO NOT TOUCH: Admin panel, deposit flow, NFT packages, NowPayments webhook, withdrawals table structure, existing RLS
+
+FINAL CHECK:
+- Did you modify nft_users? If YES, STOP
+- Did you change existing withdrawal approve logic? If YES, STOP  
+- Did you break deposit? If YES, STOP
+- Are new features using auth.uid() from Supabase Auth? If NO, STOP
+
+Only add new table user_withdraw_addresses, new columns in profiles, new UI in Profile, new /api/2fa routes. Keep everything else 100% working.
