@@ -185,6 +185,19 @@ router.post("/nowpayments/webhook", async (req: Request, res: Response): Promise
   res.sendStatus(200);
 });
 
+// ── GET /api/nowpayments/admin/deposits ───────────────────────────────────
+// Admin view: all NowPayments deposits from local DB
+router.get("/nowpayments/admin/deposits", async (_req: Request, res: Response): Promise<void> => {
+  const { desc: descFn } = await import("drizzle-orm");
+  const rows = await db
+    .select()
+    .from(nftNowpaymentsDeposits)
+    .orderBy(descFn(nftNowpaymentsDeposits.createdAt))
+    .limit(200);
+  res.setHeader("Cache-Control", "no-store");
+  res.json(rows);
+});
+
 // ── GET /api/nowpayments/status/:paymentId ─────────────────────────────────
 // Frontend polls this to show live payment status
 router.get("/nowpayments/status/:paymentId", async (req: Request, res: Response): Promise<void> => {

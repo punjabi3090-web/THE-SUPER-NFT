@@ -7,11 +7,12 @@ import {
   Users, DollarSign, Clock, ShoppingBag, Shield, Search,
   Plus, Trash2, Edit2, Check, X, ChevronDown, ChevronUp,
   Settings, Send, Headphones, Link, AlertCircle, RefreshCw,
+  Megaphone, Zap,
 } from "lucide-react";
 
 const BRAND = { red: "#DC2626", blue: "#1E3A8A", bg: "#F8F9FA" };
 
-type Tab = "deposits" | "withdrawals" | "users" | "nfts" | "settings";
+type Tab = "deposits" | "withdrawals" | "users" | "nfts" | "settings" | "announcements" | "npdeposits";
 
 type DepositRow = {
   id: string; amount: number; tx_hash: string | null; screenshot_url?: string | null;
@@ -44,6 +45,19 @@ type AdminSettings = {
   trc20_qr_url: string;
   min_withdraw: string;
   max_withdraw: string;
+  withdraw_fee_percent: string;
+  withdraw_start_time: string;
+  withdraw_end_time: string;
+  min_deposit: string;
+  max_deposit: string;
+  withdrawal_min_hours: string;
+  withdrawal_max_hours: string;
+};
+
+type NpDeposit = {
+  id: number; supabase_uid: string; payment_id: string;
+  pay_address: string; price_amount: string; pay_currency: string;
+  status: string; created_at: string;
 };
 
 const DEFAULT_SETTINGS: AdminSettings = {
@@ -55,6 +69,13 @@ const DEFAULT_SETTINGS: AdminSettings = {
   trc20_qr_url:           "",
   min_withdraw:           "10",
   max_withdraw:           "10000",
+  withdraw_fee_percent:   "2",
+  withdraw_start_time:    "09:00",
+  withdraw_end_time:      "18:00",
+  min_deposit:            "10",
+  max_deposit:            "50000",
+  withdrawal_min_hours:   "24",
+  withdrawal_max_hours:   "72",
 };
 
 const inp = `w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#1E3A8A] text-gray-800 placeholder-gray-300`;
@@ -101,6 +122,17 @@ export default function Admin() {
   const [editNft, setEditNft]       = useState<NftPackage | null>(null);
   const [nftForm, setNftForm]       = useState({ name: "", price: "", daily_profit_percent: "", duration_days: "", image_url: "" });
   const [showAddNft, setShowAddNft] = useState(false);
+
+  /* ── Announcements ── */
+  const [annList,      setAnnList]      = useState<{ id: string; title: string; message: string; is_active: boolean; created_at: string }[]>([]);
+  const [annTitle,     setAnnTitle]     = useState("");
+  const [annMessage,   setAnnMessage]   = useState("");
+  const [postingAnn,   setPostingAnn]   = useState(false);
+  const [annLoading,   setAnnLoading]   = useState(false);
+
+  /* ── NowPayments deposits ── */
+  const [npDeposits,   setNpDeposits]   = useState<NpDeposit[]>([]);
+  const [npLoading,    setNpLoading]    = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -165,6 +197,46 @@ export default function Admin() {
     setSettingsLoading(false);
   }, []);
 
+  const loadAnnouncements = useCallback(async () => {
+    setAnnLoading(true);
+    const { data } = await supabase.from("announcements").select("*").order("created_at", { ascending: false });
+    setAnnList((data ?? []) as { id: string; title: string; message: string; is_active: boolean; created_at: string }[]);
+    setAnnLoading(false);
+  }, []);
+
+  const loadNpDeposits = useCallback(async () => {
+    setNpLoading(true);
+    try {
+      const res = await fetch("/api/nowpayments/admin/deposits", { cache: "no-store" });
+      if (res.ok) setNpDeposits((await res.json()) as NpDeposit[]);
+    } catch { /* silent */ }
+    setNpLoading(false);
+  }, []);
+
+  const postAnnouncement = async () => {
+    if (!annMessage.trim()) { toast.error("Write a message"); return; }
+    setPostingAnn(true);
+    const { error } = await supabase.from("announcements").insert({
+      title:      annTitle.trim() || "Announcement",
+      message:    annMessage.trim(),
+      created_by: user!.id,
+      is_active:  true,
+    });
+    setPostingAnn(false);
+    if (error) { toast.error("Failed: " + error.message); return; }
+    toast.success("Announcement posted ✓");
+    setAnnTitle(""); setAnnMessage("");
+    loadAnnouncements();
+  };
+
+  const toggleAnnActive = async (id: string, current: boolean) => {
+    setBusyKey("ann_" + id, true);
+    const { error } = await supabase.from("announcements").update({ is_active: !current }).eq("id", id);
+    setBusyKey("ann_" + id, false);
+    if (error) { toast.error(error.message); return; }
+    loadAnnouncements();
+  };
+
   useEffect(() => {
     if (role !== "admin") return;
     loadStats();
@@ -174,6 +246,12 @@ export default function Admin() {
     loadNfts();
     loadSettings();
   }, [role, loadStats, loadDeposits, loadWithdrawals, loadUsers, loadNfts, loadSettings]);
+
+  useEffect(() => {
+    if (role !== "admin") return;
+    if (tab === "announcements") loadAnnouncements();
+    if (tab === "npdeposits")    loadNpDeposits();
+  }, [tab, role, loadAnnouncements, loadNpDeposits]);
 
   const setBusyKey = (k: string, v: boolean) => setBusy(p => ({ ...p, [k]: v }));
 
@@ -305,11 +383,13 @@ export default function Admin() {
   );
 
   const TABS: { id: Tab; label: string; Icon: React.ElementType }[] = [
-    { id: "deposits",    label: "Deposits",    Icon: DollarSign },
-    { id: "withdrawals", label: "Withdrawals", Icon: Clock },
-    { id: "users",       label: "Users",       Icon: Users },
-    { id: "nfts",        label: "NFTs",        Icon: ShoppingBag },
-    { id: "settings",    label: "Settings",    Icon: Settings },
+    { id: "deposits",      label: "Deposits",    Icon: DollarSign },
+    { id: "withdrawals",   label: "Withdrawals", Icon: Clock },
+    { id: "users",         label: "Users",       Icon: Users },
+    { id: "nfts",          label: "NFTs",        Icon: ShoppingBag },
+    { id: "settings",      label: "Settings",    Icon: Settings },
+    { id: "announcements", label: "Announce",    Icon: Megaphone },
+    { id: "npdeposits",    label: "NP Deposits", Icon: Zap },
   ];
 
   return (
@@ -737,36 +817,66 @@ export default function Admin() {
                   </div>
                 </div>
 
-                {/* Section C — Limits */}
+                {/* Section C — Withdraw Limits */}
                 <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
                   <div className="flex items-center gap-2 mb-4">
                     <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "#F0FDF4" }}>
                       <AlertCircle size={14} className="text-green-600" />
                     </div>
-                    <p className="text-sm font-bold" style={{ color: BRAND.blue }}>Section C — Withdraw Limits</p>
+                    <p className="text-sm font-bold" style={{ color: BRAND.blue }}>Section C — Withdraw Limits & Window</p>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs text-gray-500 font-medium mb-1.5 block">Min Withdraw (USDT)</label>
-                      <input
-                        type="number"
-                        placeholder="e.g. 10"
-                        value={settings.min_withdraw}
-                        onChange={e => setSettings(p => ({ ...p, min_withdraw: e.target.value }))}
-                        className={inp}
-                        min="0"
-                      />
+                      <input type="number" placeholder="10" value={settings.min_withdraw}
+                        onChange={e => setSettings(p => ({ ...p, min_withdraw: e.target.value }))} className={inp} min="0" />
                     </div>
                     <div>
                       <label className="text-xs text-gray-500 font-medium mb-1.5 block">Max Withdraw (USDT)</label>
-                      <input
-                        type="number"
-                        placeholder="e.g. 10000"
-                        value={settings.max_withdraw}
-                        onChange={e => setSettings(p => ({ ...p, max_withdraw: e.target.value }))}
-                        className={inp}
-                        min="0"
-                      />
+                      <input type="number" placeholder="10000" value={settings.max_withdraw}
+                        onChange={e => setSettings(p => ({ ...p, max_withdraw: e.target.value }))} className={inp} min="0" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 font-medium mb-1.5 block">Fee %</label>
+                      <input type="number" placeholder="2" value={settings.withdraw_fee_percent}
+                        onChange={e => setSettings(p => ({ ...p, withdraw_fee_percent: e.target.value }))} className={inp} min="0" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 font-medium mb-1.5 block">Min Hours</label>
+                      <input type="number" placeholder="24" value={settings.withdrawal_min_hours}
+                        onChange={e => setSettings(p => ({ ...p, withdrawal_min_hours: e.target.value }))} className={inp} min="0" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 font-medium mb-1.5 block">Window Start (HH:MM)</label>
+                      <input type="time" value={settings.withdraw_start_time}
+                        onChange={e => setSettings(p => ({ ...p, withdraw_start_time: e.target.value }))} className={inp} />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 font-medium mb-1.5 block">Window End (HH:MM)</label>
+                      <input type="time" value={settings.withdraw_end_time}
+                        onChange={e => setSettings(p => ({ ...p, withdraw_end_time: e.target.value }))} className={inp} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section D — Deposit Limits */}
+                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "#EFF6FF" }}>
+                      <DollarSign size={14} style={{ color: BRAND.blue }} />
+                    </div>
+                    <p className="text-sm font-bold" style={{ color: BRAND.blue }}>Section D — Deposit Limits</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-gray-500 font-medium mb-1.5 block">Min Deposit (USDT)</label>
+                      <input type="number" placeholder="10" value={settings.min_deposit}
+                        onChange={e => setSettings(p => ({ ...p, min_deposit: e.target.value }))} className={inp} min="0" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 font-medium mb-1.5 block">Max Deposit (USDT)</label>
+                      <input type="number" placeholder="50000" value={settings.max_deposit}
+                        onChange={e => setSettings(p => ({ ...p, max_deposit: e.target.value }))} className={inp} min="0" />
                     </div>
                   </div>
                 </div>
@@ -785,6 +895,97 @@ export default function Admin() {
                 </button>
               </>
             )}
+          </div>
+        )}
+
+        {/* ─────────── ANNOUNCEMENTS TAB ─────────── */}
+        {tab === "announcements" && (
+          <div className="space-y-4">
+            {/* Post new announcement */}
+            <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm space-y-3">
+              <p className="text-sm font-bold" style={{ color: BRAND.blue }}>Post New Announcement</p>
+              <input
+                type="text" placeholder="Title (optional)"
+                value={annTitle} onChange={e => setAnnTitle(e.target.value)}
+                className={inp}
+              />
+              <textarea
+                placeholder="Message *"
+                rows={3}
+                value={annMessage} onChange={e => setAnnMessage(e.target.value)}
+                className={inp + " resize-none"}
+              />
+              <ActionBtn color="blue" disabled={postingAnn || !annMessage.trim()} onClick={postAnnouncement}>
+                <Megaphone size={12} /> {postingAnn ? "Posting..." : "Post Announcement"}
+              </ActionBtn>
+            </div>
+
+            {/* Existing announcements */}
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-sm font-bold" style={{ color: BRAND.blue }}>All Announcements ({annList.length})</p>
+              <button onClick={loadAnnouncements} className="p-1.5 rounded-lg hover:bg-white text-gray-400"><RefreshCw size={14} /></button>
+            </div>
+            {annLoading && <div className="flex justify-center py-6"><RefreshCw size={16} className="animate-spin text-gray-400" /></div>}
+            {annList.length === 0 && !annLoading && (
+              <div className="bg-white rounded-2xl p-8 text-center text-gray-400 text-sm border border-gray-100">No announcements yet</div>
+            )}
+            {annList.map(a => (
+              <div key={a.id} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="text-sm font-bold truncate" style={{ color: BRAND.blue }}>{a.title}</p>
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded flex-shrink-0"
+                        style={{ background: a.is_active ? "#DCFCE7" : "#F3F4F6", color: a.is_active ? "#166534" : "#6B7280" }}>
+                        {a.is_active ? "Active" : "Hidden"}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 leading-relaxed">{a.message}</p>
+                    <p className="text-[10px] text-gray-400 mt-1">{new Date(a.created_at).toLocaleString()}</p>
+                  </div>
+                  <ActionBtn
+                    color={a.is_active ? "gray" : "green"}
+                    disabled={busy["ann_" + a.id]}
+                    onClick={() => toggleAnnActive(a.id, a.is_active)}
+                  >
+                    {a.is_active ? <><X size={10} /> Hide</> : <><Check size={10} /> Show</>}
+                  </ActionBtn>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ─────────── NP DEPOSITS TAB ─────────── */}
+        {tab === "npdeposits" && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-bold" style={{ color: BRAND.blue }}>NowPayments Deposits ({npDeposits.length})</p>
+              <button onClick={loadNpDeposits} className="p-1.5 rounded-lg hover:bg-white text-gray-400"><RefreshCw size={14} /></button>
+            </div>
+            {npLoading && <div className="flex justify-center py-6"><RefreshCw size={16} className="animate-spin text-gray-400" /></div>}
+            {npDeposits.length === 0 && !npLoading && (
+              <div className="bg-white rounded-2xl p-8 text-center text-gray-400 text-sm border border-gray-100">No NowPayments deposits yet</div>
+            )}
+            {npDeposits.map(d => (
+              <div key={d.id} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{
+                        background: d.status === "finished" ? "#DCFCE7" : d.status === "waiting" ? "#FEF9C3" : d.status === "failed" || d.status === "expired" ? "#FEE2E2" : "#EFF6FF",
+                        color:      d.status === "finished" ? "#166534" : d.status === "waiting" ? "#854D0E" : d.status === "failed" || d.status === "expired" ? "#991B1B" : "#1E40AF",
+                      }}>{d.status}</span>
+                      <p className="text-xs font-bold" style={{ color: "#16a34a" }}>${parseFloat(d.price_amount).toFixed(2)}</p>
+                      <p className="text-[10px] text-gray-400 uppercase">{d.pay_currency}</p>
+                    </div>
+                    <p className="text-[10px] text-gray-400 font-mono truncate max-w-[220px]">ID: {d.payment_id}</p>
+                    <p className="text-[10px] text-gray-400 font-mono truncate max-w-[220px]">User: {d.supabase_uid.slice(0, 16)}…</p>
+                    <p className="text-[10px] text-gray-400">{new Date(d.created_at).toLocaleString()}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
 

@@ -1,0 +1,74 @@
+CRITICAL RULES - VIOLATE MAT KARNA:
+1. Do NOT modify existing Supabase tables, columns, RLS policies, auth, or user data
+2. Do NOT create new auth system. Use existing Supabase Auth ONLY
+3. Keep all current deposit/NowPayments code working as is
+
+TASK: Build Real Admin Panel with Supabase Auth integration.
+
+=== ADMIN AUTH - REAL SUPABASE ===
+
+1. ADD ROLE COLUMN SAFELY:
+   ALTER TABLE profiles ADD COLUMN IF NOT EXISTS role text DEFAULT 'user';
+   UPDATE profiles SET role = 'admin' WHERE email = 'faisalnft55@gmail.com';
+
+2. ADMIN CHECK FUNCTION - Use in every admin page:
+   const { data: { user } } = await supabase.auth.getUser();
+   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+   if (profile.role !== 'admin') redirect('/'); 
+   
+   This uses REAL Supabase session. No custom login.
+
+=== NEW TABLES ONLY ===
+
+3. CREATE THESE 4 TABLES ONLY:
+   a) admin_settings (key text, value jsonb)
+   b) announcements (id, title, message, created_by uuid, created_at, is_active bool)
+   c) user_notifications_read (user_id uuid, announcement_id int, UNIQUE constraint)
+   d) withdrawals (id, user_id uuid, amount, fee, address, network, status text default 'pending', created_at, processed_at)
+
+4. DEFAULT SETTINGS: Insert into admin_settings:
+   ('min_withdraw','10'), ('max_withdraw','10000'), ('withdraw_fee_percent','2'),
+   ('withdraw_start_time','09:00'), ('withdraw_end_time','18:00'),
+   ('min_deposit','10'), ('max_deposit','50000')
+
+=== ADMIN PANEL - /admin ===
+
+5. HEADER: Add "Admin Panel" in 3-dots menu. Only render if user.role === 'admin' from Supabase.
+
+6. PAGES:
+   /admin - Dashboard: Real stats from Supabase using COUNT/SUM queries
+   /admin/withdrawals - Table with Approve/Reject buttons. 
+     Approve: UPDATE profiles SET balance = balance - amount WHERE id = user_id
+     Reject: Just UPDATE withdrawals SET status='rejected'
+   /admin/settings - Form to UPDATE admin_settings table
+   /admin/announcements - Form to INSERT into announcements table
+   /admin/deposits - View nft_nowpayments_deposits table
+
+7. RLS FOR NEW TABLES:
+   Enable RLS. Policy: "Admins full access" using auth.uid() IN (SELECT id FROM profiles WHERE role='admin')
+   "Users read own" for withdrawals and user_notifications_read
+
+=== USER SIDE AUTO FEATURES ===
+
+8. NOTIFICATION BELL 🔔:
+   - Get unread count: SELECT COUNT(*) FROM announcements WHERE id NOT IN (SELECT announcement_id FROM user_notifications_read WHERE user_id = auth.uid())
+   - Show red badge if count > 0
+   - On click: Mark as read by INSERT into user_notifications_read
+   - Use Supabase Realtime to auto-update badge when admin sends new announcement
+
+9. WITHDRAWAL PAGE:
+   - Fetch limits/time from admin_settings table using Supabase client
+   - Check time: if NOW() NOT BETWEEN start_time AND end_time then disable button
+   - Insert into withdrawals table on submit
+
+10. DEPOSIT PAGE:
+    - Check min_deposit from admin_settings before calling /api/create-payment
+
+=== BACKEND API - SECURE ===
+
+11. All admin APIs must check role first:
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+    if (profile?.role !== 'admin') return res.status(403).json({error: 'Forbidden'});
+
+GOAL: 100% real Supabase Auth. Admin panel auto works with existing project. Zero changes to current deposit system.

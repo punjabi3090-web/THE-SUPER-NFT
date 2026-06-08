@@ -5,3 +5,5 @@
 - [Drizzle dynamic update fix](drizzle-dynamic-update.md) — never cast dynamic Record<> objects to Drizzle set(); use explicit if/else branches with typed literals instead
 - [Supabase admin migration](supabase-admin-migration.md) — AdminPanel + Showcase migrated to Supabase auth; Supabase PromiseLike has no .catch() — use async/await + try/catch instead
 - [Redirect pattern](redirect-pattern.md) — always use window.location.replace() (not href, not wouter setLocation) for all auth/guard redirects; setLocation is unreliable in this app
+- [Login registration flow](login-flow.md) — both auto-confirm and OTP paths call /api/nft/auth/create-profile (service role); pending_referral_code in sessionStorage (not localStorage); no alert() calls
+- [Drizzle push TTY issue](drizzle-push-tty.md) — drizzle-kit push blocks on non-TTY for destructive changes; apply schema changes directly via psql DO block instead

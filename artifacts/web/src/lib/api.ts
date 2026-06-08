@@ -165,7 +165,6 @@ export interface WithdrawalSettings {
 
 const STORAGE_ADMIN_TOK = "nftAdminToken";
 const STORAGE_ADMIN_EMAIL = "nftAdminEmail";
-const NOTIF_READ_KEY = "nftReadNotifs";
 
 // Module-level cache — populated by AppProvider via setCachedUserId()
 let _cachedUserId: string | null = null;
@@ -341,36 +340,23 @@ export async function getCurrentUser(): Promise<User | null> {
 }
 
 // ── Notifications (user-facing) ──────────────────────────────────────────────
+// Notification read state is now tracked in Supabase `user_notifications_read`.
+// These functions are kept for import compatibility with legacy code.
 
 export async function getNotifications(): Promise<AdminNotif[]> {
   try {
     const r = await apiFetch<{ notifications: AdminNotif[] }>("/notifications");
-    const readIds: number[] = JSON.parse(
-      localStorage.getItem(NOTIF_READ_KEY) || "[]",
-    );
-    return r.notifications.map((n) => ({
-      ...n,
-      date: n.createdAt,
-      read: readIds.includes(n.id) ? ["_all_"] : [],
-    }));
+    return r.notifications.map((n) => ({ ...n, date: n.createdAt, read: [] }));
   } catch {
     return [];
   }
 }
 
-export function markNotifRead(id: number) {
-  const readIds: number[] = JSON.parse(
-    localStorage.getItem(NOTIF_READ_KEY) || "[]",
-  );
-  if (!readIds.includes(id)) {
-    readIds.push(id);
-    localStorage.setItem(NOTIF_READ_KEY, JSON.stringify(readIds));
-  }
-}
+/** No-op — read state is persisted in Supabase `user_notifications_read`. */
+export function markNotifRead(_id: number) { /* no-op */ }
 
-export function markAllNotifsRead(notifIds: number[]) {
-  localStorage.setItem(NOTIF_READ_KEY, JSON.stringify(notifIds));
-}
+/** No-op — read state is persisted in Supabase `user_notifications_read`. */
+export function markAllNotifsRead(_notifIds: number[]) { /* no-op */ }
 
 // ── User operations ───────────────────────────────────────────────────────────
 

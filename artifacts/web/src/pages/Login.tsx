@@ -47,166 +47,146 @@ export default function Login() {
     fullName: "", email: "", confirmEmail: "", password: "",
     confirmPassword: "", phone: "", country: "+92", referralCode: ""
   });
-  const [otpCode, setOtpCode]           = useState("");
-  const [referrerEmail, setReferrerEmail] = useState<string | null>(null);
+  const [otpCode, setOtpCode] = useState("");
 
   useEffect(() => {
     const ref = new URLSearchParams(window.location.search).get('ref');
     if (ref) {
       setForm(f => ({ ...f, referralCode: ref }));
-      localStorage.setItem('pending_referral_code', ref);
+      sessionStorage.setItem('pending_referral_code', ref);
     }
   }, []);
 
   const showMsg = (text: string, type = "error") => {
     setMsg({ text, type });
-    setTimeout(() => setMsg({ text: "", type: "" }), 3000);
+    setTimeout(() => setMsg({ text: "", type: "" }), 4000);
   };
 
   const handleSendOtp = async () => {
-    if (!form.fullName) return showMsg("Enter full name");
+    if (!form.fullName.trim()) return showMsg("Enter your full name");
     if (!form.email || form.email !== form.confirmEmail) return showMsg("Emails do not match");
     if (form.password !== form.confirmPassword) return showMsg("Passwords do not match");
-    if (form.password.length < 6) return showMsg("Password min 6 chars");
+    if (form.password.length < 6) return showMsg("Password must be at least 6 characters");
     if (!agreedToTerms) return showMsg("Please agree to Terms & Conditions");
 
     setLoading(true);
 
-    try {
-      // STEP 1: Capture ref from URL and SHOW IT
-      const urlParams = new URLSearchParams(window.location.search);
-      const urlRef = urlParams.get('ref');
+    const refCode = form.referralCode.trim().toUpperCase() ||
+      sessionStorage.getItem('pending_referral_code') || '';
 
-      if (urlRef) {
-        localStorage.setItem('pending_referral_code', urlRef);
-        alert('REF CAPTURED: ' + urlRef);
-      } else if (form.referralCode.trim()) {
-        localStorage.setItem('pending_referral_code', form.referralCode.trim().toUpperCase());
-        alert('REF FROM FORM: ' + form.referralCode.trim().toUpperCase());
+    const { data: authData, error: signUpError } = await supabase.auth.signUp({
+      email: form.email.trim().toLowerCase(),
+      password: form.password,
+      options: { data: { name: form.fullName.trim(), phone: form.country + form.phone } }
+    });
+
+    if (signUpError) {
+      setLoading(false);
+      if (signUpError.message.toLowerCase().includes("already")) {
+        showMsg("Email already registered. Please login.");
       } else {
-        alert('NO REF IN URL');
+        showMsg(signUpError.message);
       }
+      return;
+    }
 
-      const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email: form.email,
-        password: form.password,
-        options: { data: { name: form.fullName, phone: form.country + form.phone } }
-      });
+    if (!authData.user) {
+      setLoading(false);
+      showMsg("Registration failed. Please try again.");
+      return;
+    }
 
-      if (signUpError) {
-        alert('SIGNUP ERROR: ' + signUpError.message);
-        setLoading(false);
-        return;
-      }
-
-      if (!authData.user) {
-        alert('SIGNUP ERROR: No user object');
-        setLoading(false);
-        return;
-      }
-
-      const savedReferral = localStorage.getItem('pending_referral_code');
-      alert('USING REF: ' + savedReferral);
-
-      // Call Express API — server uses service role key to bypass Supabase RLS
+    if (authData.session) {
+      // Email auto-confirmed — create profile via server (uses service role key, bypasses RLS)
       const profileRes = await fetch('/api/nft/auth/create-profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          accessToken:  authData.session?.access_token ?? '',
+          accessToken:  authData.session.access_token,
           userId:       authData.user.id,
           email:        form.email.trim().toLowerCase(),
           name:         form.fullName.trim(),
           phone:        (form.country + form.phone).trim(),
-          referralCode: savedReferral || '',
+          referralCode: refCode,
         }),
       });
-      const profileJson = await profileRes.json() as { ok?: boolean; error?: string };
 
-      if (!profileRes.ok || profileJson.error) {
-        alert('DB ERROR: ' + (profileJson.error ?? 'Unknown error'));
-        setLoading(false);
+      setLoading(false);
+
+      if (!profileRes.ok) {
+        const j = await profileRes.json() as { error?: string };
+        showMsg(j.error ?? "Profile setup failed. Please contact support.");
         return;
       }
 
-      localStorage.removeItem('pending_referral_code');
-      alert('SUCCESS - REF SAVED: ' + savedReferral);
-
-      if (authData.session) {
-        window.location.replace('/showcase');
-      } else {
-        setPage("register_otp");
-        showMsg("6-digit OTP sent to your email", "success");
-      }
-    } catch (err) {
-      alert('CRITICAL ERROR: ' + String(err));
+      sessionStorage.removeItem('pending_referral_code');
+      window.location.replace('/showcase');
+    } else {
+      // Email confirmation required — wait for OTP
+      setLoading(false);
+      setPage("register_otp");
+      showMsg("6-digit OTP sent to your email", "success");
     }
-
-    setLoading(false);
   };
 
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (otpCode.length !== 6) return showMsg("Enter 6-digit OTP");
+    if (otpCode.length !== 6) return showMsg("Enter the 6-digit OTP");
     setLoading(true);
 
     const { data: authData, error: verifyError } = await supabase.auth.verifyOtp({
-      email: form.email,
+      email: form.email.trim().toLowerCase(),
       token: otpCode,
       type: 'signup',
     });
 
-    if (verifyError) {
-      alert('OTP FAIL: ' + verifyError.message);
-      showMsg("Invalid or expired OTP");
-      setLoading(false);
-      return;
-    }
-    if (!authData.user) {
-      alert('OTP FAIL: No user returned from Supabase');
+    if (verifyError || !authData.user) {
+      showMsg("Invalid or expired OTP. Please try again.");
       setLoading(false);
       return;
     }
 
-    alert('OTP Verified. Creating profile...');
+    const refCode = form.referralCode.trim().toUpperCase() ||
+      sessionStorage.getItem('pending_referral_code') || '';
 
-    // Use referral from form state, fall back to localStorage
-    const refCode = (form.referralCode.trim() || localStorage.getItem('pending_referral_code') || '').toUpperCase();
-    const newRefCode = 'FAIS' + Math.floor(1000 + Math.random() * 9000);
-
-    const { error: profileError } = await supabase.from('profiles').insert({
-      user_id:          authData.user.id,
-      email:            form.email.trim().toLowerCase(),
-      name:             form.fullName.trim(),
-      phone:            (form.country + form.phone).trim(),
-      referral_code:    newRefCode,
-      referred_by_code: refCode || null,
-      created_at:       new Date().toISOString(),
+    // Create profile via server (uses service role key, bypasses RLS)
+    const profileRes = await fetch('/api/nft/auth/create-profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        accessToken:  authData.session?.access_token ?? '',
+        userId:       authData.user.id,
+        email:        form.email.trim().toLowerCase(),
+        name:         form.fullName.trim(),
+        phone:        (form.country + form.phone).trim(),
+        referralCode: refCode,
+      }),
     });
 
-    if (profileError) {
-      alert('DB ERROR: ' + profileError.message + ' | code: ' + profileError.code);
-      console.error('CRITICAL: Profile Insert Failed:', profileError);
-      setLoading(false);
+    setLoading(false);
+
+    if (!profileRes.ok) {
+      const j = await profileRes.json() as { error?: string };
+      showMsg(j.error ?? "Account created but profile setup failed. Please contact support.");
       return;
     }
 
-    localStorage.removeItem('pending_referral_code');
-    alert('SUCCESS: Account + Profile created!');
+    sessionStorage.removeItem('pending_referral_code');
     showMsg("Account created successfully!", "success");
     setTimeout(() => window.location.replace('/showcase'), 1000);
-    setLoading(false);
   };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({
-      email: form.email,
+      email: form.email.trim().toLowerCase(),
       password: form.password,
     });
     if (error) {
-      showMsg(error.message.includes("confirm") ? "Please verify your email first" : "Wrong email or password");
+      showMsg(error.message.toLowerCase().includes("confirm")
+        ? "Please verify your email first"
+        : "Wrong email or password");
     } else {
       navigate('/showcase');
     }
@@ -250,7 +230,7 @@ export default function Login() {
           <p><strong>4. Data Sharing</strong></p>
           <p>We do not sell or share your personal data with third parties except as required by law.</p>
           <p><strong>5. Cookies</strong></p>
-          <p>We use cookies to maintain your session and improve user experience on our platform.</p>
+          <p>We use cookies and session storage to maintain your session and improve user experience.</p>
           <p><strong>6. Your Rights</strong></p>
           <p>You have the right to access, correct, or delete your personal data at any time by contacting support.</p>
           <p><strong>7. Contact</strong></p>
@@ -351,29 +331,16 @@ export default function Login() {
             <input
               placeholder="Referral Code (Optional)"
               value={form.referralCode}
-              onChange={e => { setForm({ ...form, referralCode: e.target.value }); setReferrerEmail(null); }}
+              onChange={e => setForm({ ...form, referralCode: e.target.value })}
               className={inp}
             />
-            {referrerEmail && (
-              <div className="bg-green-50 border border-green-200 rounded-xl px-3 py-2 flex items-center gap-2">
-                <span className="text-green-600 text-xs">✓</span>
-                <p className="text-xs text-green-700 font-medium">Referred by: {referrerEmail}</p>
-              </div>
-            )}
 
             {/* Terms & Conditions Checkbox */}
             <div className="flex items-start gap-2.5 pt-1">
               <div className="relative flex-shrink-0 mt-0.5">
-                <input
-                  type="checkbox"
-                  id="terms"
-                  checked={agreedToTerms}
-                  onChange={e => setAgreedToTerms(e.target.checked)}
-                  className="sr-only"
-                />
                 <div
                   onClick={() => setAgreedToTerms(v => !v)}
-                  className="w-4.5 h-4.5 rounded border-2 flex items-center justify-center cursor-pointer transition-colors"
+                  className="rounded border-2 flex items-center justify-center cursor-pointer transition-colors"
                   style={{
                     width: 18, height: 18,
                     borderColor: agreedToTerms ? BRAND.red : "#D1D5DB",
@@ -387,11 +354,11 @@ export default function Login() {
                   )}
                 </div>
               </div>
-              <label htmlFor="terms" className="text-xs text-gray-500 leading-relaxed cursor-pointer">
+              <label className="text-xs text-gray-500 leading-relaxed cursor-pointer" onClick={() => setAgreedToTerms(v => !v)}>
                 I agree to the{" "}
                 <button
                   type="button"
-                  onClick={e => { e.preventDefault(); setShowTerms(true); }}
+                  onClick={e => { e.stopPropagation(); setShowTerms(true); }}
                   className="font-semibold underline"
                   style={{ color: BRAND.blue }}
                 >
@@ -400,7 +367,7 @@ export default function Login() {
                 {" "}and{" "}
                 <button
                   type="button"
-                  onClick={e => { e.preventDefault(); setShowPrivacy(true); }}
+                  onClick={e => { e.stopPropagation(); setShowPrivacy(true); }}
                   className="font-semibold underline"
                   style={{ color: BRAND.blue }}
                 >
@@ -479,15 +446,12 @@ export default function Login() {
               </button>
             </div>
 
-            {/* Forgot Password Link */}
             <div className="flex justify-end">
               <button
                 type="button"
                 onClick={() => navigate('/forgot-password')}
                 className="text-xs font-semibold transition-colors"
                 style={{ color: BRAND.blue }}
-                onMouseEnter={e => ((e.target as HTMLElement).style.color = BRAND.red)}
-                onMouseLeave={e => ((e.target as HTMLElement).style.color = BRAND.blue)}
               >
                 Forgot Password?
               </button>

@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/useAuth";
+import { supabase } from "../lib/supabase";
 import { ArrowLeft, Copy, Check, Zap, Clock, AlertCircle, RefreshCw } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 import AnnouncementBanner from "../components/AnnouncementBanner";
@@ -47,6 +48,20 @@ export default function Deposit() {
   const [status,     setStatus]     = useState<PaymentStatus>("idle");
   const [copied,     setCopied]     = useState(false);
   const [polling,    setPolling]    = useState(false);
+  const [minDeposit, setMinDeposit] = useState(10);
+  const [maxDeposit, setMaxDeposit] = useState(50000);
+
+  useEffect(() => {
+    supabase.from("admin_settings").select("key, value")
+      .in("key", ["min_deposit", "max_deposit"])
+      .then(({ data }) => {
+        if (!data) return;
+        const m: Record<string, string> = {};
+        data.forEach((r: { key: string; value: string }) => { m[r.key] = r.value; });
+        if (m["min_deposit"]) setMinDeposit(parseFloat(m["min_deposit"]));
+        if (m["max_deposit"]) setMaxDeposit(parseFloat(m["max_deposit"]));
+      });
+  }, []);
 
   if (authLoading) {
     return (
@@ -59,11 +74,14 @@ export default function Deposit() {
   if (!user) return null;
 
   const parsedAmt = Number(amount);
-  const nftInfo   = !isNaN(parsedAmt) && parsedAmt >= 10 ? getNftLevel(parsedAmt) : null;
+  const nftInfo   = !isNaN(parsedAmt) && parsedAmt >= minDeposit ? getNftLevel(parsedAmt) : null;
 
   const handleGenerate = async () => {
-    if (!amount || isNaN(parsedAmt) || parsedAmt < 10) {
-      toast.error("Minimum deposit is 10 USDT"); return;
+    if (!amount || isNaN(parsedAmt) || parsedAmt < minDeposit) {
+      toast.error(`Minimum deposit is ${minDeposit} USDT`); return;
+    }
+    if (parsedAmt > maxDeposit) {
+      toast.error(`Maximum deposit is ${maxDeposit.toLocaleString()} USDT`); return;
     }
 
     setStatus("generating");

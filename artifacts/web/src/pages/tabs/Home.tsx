@@ -77,7 +77,7 @@ export default function HomeTab() {
             .eq("is_active", true)
             .order("created_at", { ascending: false })
             .limit(5),
-          supabase.from("notification_reads")
+          supabase.from("user_notifications_read")
             .select("announcement_id")
             .eq("user_id", user.id),
         ]);
@@ -174,6 +174,19 @@ export default function HomeTab() {
     };
   }, [load]);
 
+  /* ── Realtime: new announcements → refresh bell badge ── */
+  useEffect(() => {
+    const annChannel = supabase.channel("announcements-realtime")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "announcements" }, async () => {
+        const { data: annData } = await supabase
+          .from("announcements").select("id, message, created_at")
+          .eq("is_active", true).order("created_at", { ascending: false }).limit(5);
+        setAnns((annData ?? []) as Ann[]);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(annChannel); };
+  }, []);
+
   useEffect(() => {
     const h = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
@@ -185,7 +198,7 @@ export default function HomeTab() {
 
   const markRead = async (annId: string) => {
     if (!userId || reads.has(annId)) return;
-    await supabase.from("notification_reads").insert({ user_id: userId, announcement_id: annId });
+    await supabase.from("user_notifications_read").insert({ user_id: userId, announcement_id: annId });
     setReads(prev => new Set([...prev, annId]));
   };
 
