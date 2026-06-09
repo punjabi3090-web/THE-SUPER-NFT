@@ -1,0 +1,138 @@
+⛔ PRODUCTION BREAKING BUGS - DATABASE CORRECT, APP WRONG ⛔
+
+DATABASE PROOF - THIS IS CORRECT:
+SELECT email, referred_by_code FROM profiles ORDER BY created_at DESC LIMIT 3;
+Result:
+ttt123@gmail.com → FA758743  ← Level 2
+jjj123@gmail.com → FA758743  ← Level 2  
+ppp123@gmail.com → 51C16317  ← Level 1
+
+EXPECTED DASHBOARD FOR FAISAL (51C16317):
+Total Register Members: 1  ← ppp123 only
+Total B/C Register Members: 2  ← ttt123 + jjj123
+
+ACTUAL DASHBOARD SHOWING:
+Total Register Members: 2  ❌ WRONG
+Valid Members: 0  ❌ WRONG
+
+FILE: /artifacts/web/src/pages/Dashboard.tsx
+
+BUG 1 - CRITICAL QUERY MISTAKE:
+You wrote: .select('id, email')
+MUST BE: .select('id, email, referral_code')  ← ADD referral_code
+
+Without referral_code, level1Codes array is empty, so Level 2 query fails.
+
+BUG 2 - UI LABEL:
+Find text: "Valid Members"
+Replace with: "Total B/C Register Members"
+
+BUG 3 - CLICK HANDLERS MISSING:
+Only first box clickable. Add onClick to all 4 boxes.
+
+COMPLETE FIXED CODE:
+
+const loadTeamStats = async () => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const { data: myProfile } = await supabase
+    .from('profiles')
+    .select('referral_code')
+    .eq('id', user.id)
+    .single();
+  
+  const myCode = myProfile?.referral_code;
+  if (!myCode) return;
+
+  // LEVEL 1 - FIX: Add referral_code to select
+  const { data: level1Users } = await supabase
+    .from('profiles')
+    .select('id, email, referral_code')  // ← THIS LINE WAS WRONG
+    .eq('referred_by_code', myCode);
+
+  const level1Count = level1Users?.length || 0;
+  const level1Codes = level1Users?.map(u => u.referral_code) || [];
+  const level1Ids = level1Users?.map(u => u.id) || [];
+
+  // LEVEL 2 - This will work now
+  let level2Users = [];
+  if (level1Codes.length > 0) {
+    const { data: l2Users } = await supabase
+      .from('profiles')
+      .select('id, email')
+      .in('referred_by_code', level1Codes);
+    level2Users = l2Users || [];
+  }
+  const level2Count = level2Users.length;
+  const level2Ids = level2Users.map(u => u.id);
+
+  // A ENTHUSIAST - Level 1 with deposit
+  let aEnthusiastList = [];
+  if (level1Ids.length > 0) {
+    const { data: aDeps } = await supabase
+      .from('deposits')
+      .select('user_id')
+      .in('user_id', level1Ids)
+      .eq('status', 'completed')
+      .gt('amount', 0);
+    const aUserIds = [...new Set(aDeps?.map(d => d.user_id) || [])];
+    aEnthusiastList = level1Users?.filter(u => aUserIds.includes(u.id)) || [];
+  }
+
+  // B/C ENTHUSIAST - Level 2 with deposit
+  let bcEnthusiastList = [];
+  if (level2Ids.length > 0) {
+    const { data: bcDeps } = await supabase
+      .from('deposits')
+      .select('user_id')
+      .in('user_id', level2Ids)
+      .eq('status', 'completed')
+      .gt('amount', 0);
+    const bcUserIds = [...new Set(bcDeps?.map(d => d.user_id) || [])];
+    bcEnthusiastList = level2Users?.filter(u => bcUserIds.includes(u.id)) || [];
+  }
+
+  setTeamStats({
+    totalRegister: level1Count,
+    bcRegister: level2Count,  // This goes in "Total B/C Register Members"
+    aEnthusiast: aEnthusiastList.length,
+    bcEnthusiast: bcEnthusiastList.length
+  });
+
+  // For click modals
+  setLevel1List(level1Users || []);
+  setLevel2List(level2Users || []);
+  setAEnthusiastList(aEnthusiastList);
+  setBcEnthusiastList(bcEnthusiastList);
+}
+
+UI JSX - MAKE ALL CLICKABLE + RENAME:
+<div onClick={() => showModal(level1List, 'Total Register Members')}>
+  <p>Total Register Members</p>
+  <span>{teamStats.totalRegister}</span>
+</div>
+
+<div onClick={() => showModal(level2List, 'Total B/C Register Members')}>
+  <p>Total B/C Register Members</p>  ← CHANGED FROM "Valid Members"
+  <span>{teamStats.bcRegister}</span>
+</div>
+
+<div onClick={() => showModal(aEnthusiastList, 'A Enthusiast')}>
+  <p>A Enthusiast</p>
+  <span>{teamStats.aEnthusiast}</span>
+</div>
+
+<div onClick={() => showModal(bcEnthusiastList, 'B/C Enthusiast')}>
+  <p>B/C Enthusiast</p>
+  <span>{teamStats.bcEnthusiast}</span>
+</div>
+
+CRITICAL: If deposits table doesn't exist, create it: 
+CREATE TABLE deposits (id uuid, user_id uuid, amount numeric, status text);
+
+TEST: After fix, Faisal dashboard must show:
+Total Register Members: 1
+Total B/C Register Members: 2
+
+Confirm: "Fixed Level 2 query by adding referral_code to select. Renamed Valid Members. Made all boxes clickable. Added deposits check."

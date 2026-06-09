@@ -46,16 +46,27 @@ export default function Dashboard() {
   const [activeListTitle, setActiveListTitle] = useState("");
   const [showListModal, setShowListModal]     = useState(false);
 
-  const loadTeamStats = useCallback(async (myCode: string) => {
+  const loadTeamStats = useCallback(async () => {
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (!authUser) return;
+
+    // profiles.id = Supabase auth UUID — use 'id' not 'user_id'
+    const { data: myProfile } = await supabase
+      .from('profiles')
+      .select('referral_code')
+      .eq('id', authUser.id)
+      .single();
+
+    const myCode = myProfile?.referral_code;
     if (!myCode) return;
 
     // ── Level 1 users (directly referred by me) ──
     const { data: l1 } = await supabase
       .from('profiles')
-      .select('id, user_id, email, referral_code')
+      .select('id, email, referral_code')
       .eq('referred_by_code', myCode);
 
-    const level1Users: TeamMember[] = (l1 ?? []).map(u => ({ id: u.user_id ?? u.id, email: u.email }));
+    const level1Users: TeamMember[] = (l1 ?? []).map(u => ({ id: u.id as string, email: u.email }));
     const level1Count  = level1Users.length;
     const level1Ids    = level1Users.map(u => u.id);
     const level1Codes  = (l1 ?? []).map(u => u.referral_code as string).filter(Boolean);
@@ -67,9 +78,9 @@ export default function Dashboard() {
     if (level1Codes.length > 0) {
       const { data: l2 } = await supabase
         .from('profiles')
-        .select('id, user_id, email')
+        .select('id, email')
         .in('referred_by_code', level1Codes);
-      level2Users = (l2 ?? []).map(u => ({ id: u.user_id ?? u.id, email: u.email }));
+      level2Users = (l2 ?? []).map(u => ({ id: u.id as string, email: u.email }));
       level2Ids   = level2Users.map(u => u.id);
     }
     const level2Count = level2Users.length;
@@ -119,9 +130,7 @@ export default function Dashboard() {
     if (!user) return;
     const { data } = await supabase.from('profiles').select('*').eq('user_id', user.id).single();
     setProfile(data);
-    if (data?.referral_code) {
-      await loadTeamStats(data.referral_code);
-    }
+    await loadTeamStats();
     setProfLoading(false);
   }, [user, loadTeamStats]);
 
