@@ -13,6 +13,6 @@ router.use(authRouter);
 router.use("/nft", nftRouter);
 router.use(setupDbRouter);
 router.use(nowpaymentsRouter);
-router.use("/api", twofaRouter);
+router.use(twofaRouter);
 
 export default router;

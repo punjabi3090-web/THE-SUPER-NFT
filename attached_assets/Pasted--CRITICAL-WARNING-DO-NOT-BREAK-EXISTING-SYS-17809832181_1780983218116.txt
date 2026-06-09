@@ -1,0 +1,233 @@
+████████████████████████████████████████████████
+⚠️⚠️⚠️ CRITICAL WARNING - DO NOT BREAK EXISTING SYSTEM ⚠️⚠️⚠️
+████████████████████████████████████████████████████████████████████████████████
+
+ABSOLUTE RULES - VIOLATE KARNE PE PROJECT TUT JAYEGA:
+
+1. ❌ DO NOT TOUCH: user_withdraw_addresses table - ALREADY WORKING 100%
+2. ❌ DO NOT TOUCH: 72hr withdrawal bind logic - ALREADY WORKING 100%
+3. ❌ DO NOT TOUCH: Deposit logic, NowPayments API, Balance calculation - WORKING FINE
+4. ❌ DO NOT TOUCH: NFT, Admin panel, Settings modal - BILKUL MAT CHHERNA
+5. ❌ DO NOT TOUCH: Supabase RLS policies, Auth flow, Existing routes - DON'T BREAK
+6. ❌ DO NOT MODIFY: Any existing database columns, tables, or data
+7. ❌ DO NOT DELETE: Any existing files, components, or functions
+
+✅ ONLY DO: Exactly 6 tasks listed below. Nothing more, nothing less.
+
+AGAR KOI EXISTING FEATURE TUTA TO ROLLBACK KARNA PADEGA. SAMAJH GAYA?
+
+████████████████████████████████████████████████
+ONLY IMPLEMENT THESE 6 CHANGES - NO EXTRA CODE
+████████████████████████████████████████████████████████████████████████████████
+
+═══════════════════════════════════════════
+TASK 1: GOOGLE AUTHENTICATOR NETWORK ERROR FIX ONLY
+═══════════════════════════════════════════
+
+STEP 1: npm install otplib qrcode
+
+STEP 2: CREATE/UPDATE /api/2fa/generate.ts - ONLY THIS FILE
+import { authenticator } from 'otplib';
+import QRCode from 'qrcode';
+import { createClient } from '@supabase/supabase-js';
+
+export async function POST(req: Request) {
+  try {
+    const authHeader = req.headers.get('Authorization');
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+    const { data: { user } } = await supabase.auth.getUser(authHeader?.replace('Bearer ', ''));
+    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const secret = authenticator.generateSecret();
+    const otpauth = authenticator.keyuri(user.email!, 'SuperNFT', secret);
+    const qrCodeDataURL = await QRCode.toDataURL(otpauth);
+
+    return Response.json({ secret, qr_code_url: qrCodeDataURL, otpauth_url: otpauth });
+  } catch (err: any) {
+    return Response.json({ error: err.message }, { status: 500 });
+  }
+}
+
+STEP 3: CREATE/UPDATE /api/2fa/verify.ts - ONLY THIS FILE
+import { authenticator } from 'otplib';
+import { createClient } from '@supabase/supabase-js';
+
+export async function POST(req: Request) {
+  const { token, secret } = await req.json();
+  const authHeader = req.headers.get('Authorization');
+  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+  const { data: { user } } = await supabase.auth.getUser(authHeader?.replace('Bearer ', ''));
+  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  
+  const isValid = authenticator.verify({ token, secret });
+  if (isValid) {
+    const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    await supabaseAdmin.from('profiles').update({ totp_secret: secret, totp_enabled: true }).eq('id', user.id);
+    return Response.json({ success: true });
+  }
+  return Response.json({ error: 'Invalid code' }, { status: 400 });
+}
+
+STEP 4: ADD REPLIT SECRET ONLY
+Key: SUPABASE_SERVICE_ROLE_KEY
+Value: Copy from Supabase Dashboard → Settings → API → service_role
+
+STEP 5: UPDATE Profile.tsx UI ONLY FOR 2FA SECTION
+Add QR display + Copy buttons. DO NOT TOUCH other Profile sections.
+
+═══════════════════════════════════════════
+TASK 2: WITHDRAWAL PAGE RULES UI TEXT ONLY
+═══════════════════════════════════════════
+
+FILE: /pages/withdraw.tsx OR /components/WithdrawForm.tsx ONLY
+
+FIND AND DELETE EXACTLY THIS LINE: 
+<p>Processed within 72 hours</p>
+
+ADD THIS COMPONENT RIGHT BELOW "Go to Profile → Bind Address" button - NO OTHER CHANGES:
+
+<div className="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+  <h3 className="text-base font-semibold mb-3 text-gray-900 dark:text-white flex items-center gap-2">
+    <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+    </svg>
+    Withdrawal Rules
+  </h3>
+  <div className="space-y-2.5 text-sm text-gray-700 dark:text-gray-300">
+    <div className="flex items-start gap-2">
+      <span className="font-semibold text-gray-900 dark:text-white min-w-[180px]">Minimum Withdrawal:</span>
+      <span>$50 USDT</span>
+    </div>
+    <div className="flex items-start gap-2">
+      <span className="font-semibold text-gray-900 dark:text-white min-w-[180px]">BEP-20 Network:</span>
+      <span>5% withdrawal fee. No network charges apply.</span>
+    </div>
+    <div className="flex items-start gap-2">
+      <span className="font-semibold text-gray-900 dark:text-white min-w-[180px]">TRC-20 Network:</span>
+      <span>8% withdrawal fee. Additional $1 USDT network charge will be deducted.</span>
+    </div>
+    <div className="flex items-start gap-2">
+      <span className="font-semibold text-gray-900 dark:text-white min-w-[180px]">Withdrawal Frequency:</span>
+      <span>You can apply for your next withdrawal only after 72 hours from when your previous withdrawal is credited.</span>
+    </div>
+  </div>
+</div>
+
+DO NOT MODIFY: Any withdrawal logic, API calls, state, or validation.
+
+═══════════════════════════════════════════
+TASK 3: DEPOSIT PAGE RULES UI TEXT ONLY
+═══════════════════════════════════════════
+
+FILE: /pages/deposit.tsx OR /components/DepositForm.tsx ONLY
+
+FIND: "How it works" div ending with "Balance auto-updates on confirmation"
+ADD THIS COMPONENT RIGHT AFTER THAT DIV - NO OTHER CHANGES:
+
+<div className="mt-6 p-4 bg-blue-50 dark:bg-gray-800 rounded-lg border border-blue-200 dark:border-gray-700">
+  <h3 className="text-base font-semibold mb-3 text-gray-900 dark:text-white flex items-center gap-2">
+    <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+    </svg>
+    Deposit Rules
+  </h3>
+  <div className="space-y-2.5 text-sm text-gray-700 dark:text-gray-300">
+    <div className="flex items-start gap-2">
+      <span className="font-semibold text-gray-900 dark:text-white min-w-[180px]">Minimum Deposit:</span>
+      <span>$50 USDT</span>
+    </div>
+    <div className="flex items-start gap-2">
+      <span className="font-semibold text-gray-900 dark:text-white min-w-[180px]">BEP-20 Network:</span>
+      <span>No network charges apply. The full deposit amount will be credited to your account.</span>
+    </div>
+    <div className="flex items-start gap-2">
+      <span className="font-semibold text-gray-900 dark:text-white min-w-[180px]">TRC-20 Network:</span>
+      <span>A $1 USDT network charge will be deducted from your deposit amount.</span>
+    </div>
+    <div className="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded border border-yellow-200 dark:border-yellow-800">
+      <p className="text-xs font-semibold text-yellow-800 dark:text-yellow-200 mb-1">Note:</p>
+      <p className="text-xs text-yellow-700 dark:text-yellow-300">
+        Please double-check the network and wallet address before making a deposit. The company will not be held responsible for any funds sent to the wrong network or an incorrect address.
+      </p>
+    </div>
+  </div>
+</div>
+
+DO NOT MODIFY: Any deposit logic, NowPayments integration, amount validation.
+
+═══════════════════════════════════════════
+TASK 4: MOVE BIND TOOLS TO ACCOUNT SETTINGS ONLY
+═══════════════════════════════════════════
+
+STEP 1: CREATE /components/AccountSettingsModal.tsx - NEW FILE ONLY
+Copy existing WithdrawalBindForm and GoogleAuthBindForm components into this modal:
+
+<div className="space-y-6">
+  <div className="p-4 border rounded-lg">
+    <h3 className="font-semibold mb-3">Account Details</h3>
+    <p>Email: {user.email}</p>
+    <p>User ID: {user.id}</p>
+  </div>
+  <div className="p-4 border rounded-lg">
+    <h3 className="font-semibold mb-3">Withdrawal Address Bind</h3>
+    <WithdrawalBindForm />
+  </div>
+  <div className="p-4 border rounded-lg">
+    <h3 className="font-semibold mb-3">Google Authenticator</h3>
+    <GoogleAuthBindForm />
+  </div>
+</div>
+
+STEP 2: UPDATE /pages/profile.tsx - REMOVE BIND COMPONENTS ONLY
+Delete WithdrawalBindForm and GoogleAuthBindForm from Profile page.
+Keep only: Avatar, Name, Email display.
+
+STEP 3: ADD Account Settings button in Dashboard header - NEW BUTTON ONLY
+Link to AccountSettingsModal.
+
+DO NOT MODIFY: Any bind logic, just move UI components.
+
+═══════════════════════════════════════════
+TASK 5: SIGNUP WORLDWIDE COUNTRY CODES ONLY
+═══════════════════════════════════════════
+
+FILE: /pages/signup.tsx OR /components/SignupForm.tsx ONLY
+
+STEP 1: npm install react-phone-input-2
+
+STEP 2: ADD IMPORTS
+import PhoneInput from 'react-phone-input-2'
+import 'react-phone-input-2/lib/style.css'
+
+STEP 3: REPLACE PHONE INPUT FIELD ONLY
+<PhoneInput
+  country={'us'}
+  enableSearch={true}
+  countryCodeEditable={false}
+  inputClass="w-full p-2 border rounded"
+  onChange={(phone) => setPhoneNumber(phone)}
+/>
+
+DO NOT MODIFY: Email, password, other signup fields or Supabase auth logic.
+
+═══════════════════════════════════════════
+TASK 6: FORCE SHOW CASE PAGE AFTER LOGIN ONLY
+═══════════════════════════════════════════
+
+FILE: /pages/auth/callback.tsx OR auth handler ONLY
+
+AFTER SUCCESSFUL LOGIN, ADD THIS LINE:
+router.push('/showcase')
+
+FILE: /pages/showcase.tsx - ADD BUTTON ONLY
+<button onClick={() => router.push('/dashboard')}>
+  Continue to Dashboard
+</button>
+
+DO NOT MODIFY: Any other auth logic, session handling, or RLS.
+
+████████████████████████████████████████████████████████████████████████████████
+FINAL WARNING: 
+IF YOU TOUCH ANY EXISTING WORKING CODE NOT LISTED ABOVE, PROJECT WILL BREAK.
+ONLY IMPLEMENT THE 6 TASKS. TEST EACH ONE SEPARATELY.
+████████████████████████████████████████████████████████████████████████████████

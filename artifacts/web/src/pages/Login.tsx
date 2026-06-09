@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Mail, ArrowLeft, X } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import PhoneInput from "react-phone-input-2";
+import "react-phone-input-2/lib/style.css";
 
 type PageState = "register" | "register_otp" | "login";
 
@@ -77,7 +79,7 @@ export default function Login() {
     const { data: authData, error: signUpError } = await supabase.auth.signUp({
       email: form.email.trim().toLowerCase(),
       password: form.password,
-      options: { data: { name: form.fullName.trim(), phone: form.country + form.phone } }
+      options: { data: { name: form.fullName.trim(), phone: form.phone ? "+" + form.phone.trim() : "" } }
     });
 
     if (signUpError) {
@@ -106,7 +108,7 @@ export default function Login() {
           userId:       authData.user.id,
           email:        form.email.trim().toLowerCase(),
           name:         form.fullName.trim(),
-          phone:        (form.country + form.phone).trim(),
+          phone:        form.phone ? "+" + form.phone.trim() : "",
           referralCode: refCode,
         }),
       });
@@ -158,7 +160,7 @@ export default function Login() {
         userId:       authData.user.id,
         email:        form.email.trim().toLowerCase(),
         name:         form.fullName.trim(),
-        phone:        (form.country + form.phone).trim(),
+        phone:        form.phone ? "+" + form.phone.trim() : "",
         referralCode: refCode,
       }),
     });
@@ -289,26 +291,16 @@ export default function Login() {
               onChange={e => setForm({ ...form, confirmEmail: e.target.value })}
               className={inp}
             />
-            <div className="flex gap-2">
-              <select
-                value={form.country}
-                onChange={e => setForm({ ...form, country: e.target.value })}
-                className="w-24 px-2 rounded-xl border border-gray-200 text-sm bg-white text-gray-800"
-              >
-                <option value="+92">🇵🇰 +92</option>
-                <option value="+91">🇮🇳 +91</option>
-                <option value="+1">🇺🇸 +1</option>
-                <option value="+44">🇬🇧 +44</option>
-                <option value="+971">🇦🇪 +971</option>
-                <option value="+966">🇸🇦 +966</option>
-              </select>
-              <input
-                placeholder="Phone Number"
-                value={form.phone}
-                onChange={e => setForm({ ...form, phone: e.target.value })}
-                className={inp}
-              />
-            </div>
+            <PhoneInput
+              country="pk"
+              enableSearch
+              countryCodeEditable={false}
+              value={form.phone}
+              onChange={phone => setForm({ ...form, phone })}
+              inputStyle={{ width: "100%", height: "42px", fontSize: "14px", borderRadius: "12px", border: "1px solid #e5e7eb", background: "#fff", color: "#1f2937" }}
+              buttonStyle={{ borderRadius: "12px 0 0 12px", border: "1px solid #e5e7eb", borderRight: "none", background: "#fff" }}
+              containerStyle={{ width: "100%" }}
+            />
             <div className="relative">
               <input
                 type={showPw ? "text" : "password"}
