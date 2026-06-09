@@ -12,3 +12,15 @@ id = "2LQSP2_KOCOdeiVUAfMjf"
 uri = "file://nft-platform-full-backup.zip"
 type = "unspecified"
 title = "THE SUPER NFT — Full Backup (29.75 MB)"
+
+[[outputs]]
+id = "TU0vliG_IhFb0hh8X1j4B"
+uri = "file://THE-SUPER-NFT-SOURCE.tar.gz"
+type = "unspecified"
+title = "THE-SUPER-NFT-FULL-BACKUP.tar.gz"
+
+[[outputs]]
+id = "KUTTZRseitH7m0AuhW7Jg"
+uri = "file://SECRETS-LIST.txt"
+type = "text"
+title = "SECRETS-LIST.txt"

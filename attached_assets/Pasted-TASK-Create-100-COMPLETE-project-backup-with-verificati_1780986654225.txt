@@ -1,0 +1,61 @@
+TASK: Create 100% COMPLETE project backup with verification. DO NOT MISS ANY FILE.
+
+STEP 1: CREATE ZIP BACKUP
+Run this command to create full project zip:
+
+zip -r THE-SUPER-NFT-FULL-BACKUP.zip . -x "node_modules/*" ".git/*" ".cache/*" ".config/*" ".upm/*" ".next/*" "dist/*" "build/*" ".env*"
+
+INCLUDE EVERYTHING:
+1. AUTH FILES - MOST CRITICAL:
+   - /pages/login.tsx OR /app/login/page.tsx OR /pages/auth/login.tsx
+   - /pages/signup.tsx OR /app/signup/page.tsx OR /pages/auth/signup.tsx
+   - /pages/auth/callback.tsx OR /app/auth/callback/route.ts
+   - /middleware.ts
+   - /lib/supabase.ts, /utils/supabaseClient.ts
+   - /contexts/AuthContext.tsx, /providers/
+   - Any file containing "auth" in name
+
+2. ALL SOURCE CODE:
+   - /pages OR /app - dashboard, withdraw, deposit, showcase, profile
+   - /api - /api/2fa/generate.ts, /api/2fa/verify.ts, /api/nowpayments/
+   - /components - AccountSettingsModal, WithdrawalBindForm, GoogleAuthBindForm
+   - /public, /styles, /utils, /hooks, /lib
+
+3. ALL CONFIGS:
+   - package.json, package-lock.json, tsconfig.json, next.config.js
+   - tailwind.config.js, postcss.config.js, .eslintrc.json
+   - .replit, replit.nix, .gitignore
+
+4. ALL FEATURES:
+   - 2FA Google Authenticator with QR fix
+   - Withdrawal Rules UI
+   - Deposit Rules UI with yellow warning
+   - Account Settings Modal with Bind Tools
+   - Signup with react-phone-input-2 worldwide flags
+   - ShowCase redirect on every login
+   - NowPayments integration
+
+STEP 2: VERIFY ZIP CONTENTS
+After creating zip, run these 3 commands and show me output:
+1. ls -lh THE-SUPER-NFT-FULL-BACKUP.zip
+2. unzip -l THE-SUPER-NFT-FULL-BACKUP.zip | grep -i "login\|signup\|auth" 
+3. unzip -l THE-SUPER-NFT-FULL-BACKUP.zip | wc -l
+
+STEP 3: CREATE SECRETS LIST FILE
+Create SECRETS-LIST.txt with all environment variable KEY NAMES from Replit Secrets. DO NOT include actual values, only keys:
+
+Example format:
+NEXT_PUBLIC_SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+NOWPAYMENTS_API_KEY=
+NOWPAYMENTS_IPN_SECRET=
+
+STEP 4: FINAL CONFIRMATION
+Tell me:
+1. Zip file size
+2. Total files count in zip
+3. Confirm login.tsx and signup.tsx are inside
+4. Give me download link for THE-SUPER-NFT-FULL-BACKUP.zip
+5. Give me content of SECRETS-LIST.txt
+
+DO NOT PROCEED until you confirm all auth files are included.
