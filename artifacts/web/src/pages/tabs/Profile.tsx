@@ -52,17 +52,19 @@ export default function ProfileTab() {
 
       setUserId(String(apiUser.id));
       setSupaUid(user.id);
-      setProfile({
-        name: apiUser.name, email: apiUser.email, phone: apiUser.phone || null,
-        country: apiUser.country || null, referral_code: apiUser.myReferralCode,
-        role: apiUser.isAdmin ? "admin" : null, level: apiUser.level,
-        created_at: apiUser.registeredAt,
-      });
 
       const [{ data: bindData }, { data: profData }] = await Promise.all([
         supabase.from("user_withdraw_addresses").select("bep20_address,trc20_address,bind_at").eq("user_id", user.id).single(),
-        supabase.from("profiles").select("totp_enabled").eq("user_id", user.id).single(),
+        supabase.from("profiles").select("totp_enabled,referral_code").eq("user_id", user.id).single(),
       ]);
+
+      setProfile({
+        name: apiUser.name, email: apiUser.email, phone: apiUser.phone || null,
+        country: apiUser.country || null,
+        referral_code: (profData?.referral_code as string | null) ?? null,
+        role: apiUser.isAdmin ? "admin" : null, level: apiUser.level,
+        created_at: apiUser.registeredAt,
+      });
 
       if (bindData) {
         setBindAddr(bindData);

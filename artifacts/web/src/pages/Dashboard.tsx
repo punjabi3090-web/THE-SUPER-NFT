@@ -33,11 +33,14 @@ export default function Dashboard() {
     if (!user) return;
     const { data } = await supabase.from('profiles').select('*').eq('user_id', user.id).single();
     setProfile(data);
-    const { count } = await supabase
-      .from('profiles')
-      .select('*', { count: 'exact', head: true })
-      .eq('referrer_id', user.id);
-    setReferralCount(count || 0);
+    const myCode = data?.referral_code ?? '';
+    if (myCode) {
+      const { count } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .eq('referred_by_code', myCode);
+      setReferralCount(count || 0);
+    }
     setProfLoading(false);
   }, [user]);
 
