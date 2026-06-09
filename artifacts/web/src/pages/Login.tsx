@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Eye, EyeOff, Mail, ArrowLeft, X } from "lucide-react";
+import { Eye, EyeOff, Mail, ArrowLeft, X, User, Lock, Gift } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
@@ -195,11 +195,12 @@ export default function Login() {
     setLoading(false);
   };
 
-  const inp = `w-full bg-white text-gray-800 px-3 py-2.5 rounded-xl border border-gray-200 focus:border-[#1E3A8A] outline-none text-sm`;
+  const inp = `w-full bg-white text-gray-800 px-3 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 outline-none text-sm`;
+  const inpIcon = `w-full bg-white text-gray-800 pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 outline-none text-sm`;
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center px-4 py-8"
+      className="min-h-screen flex flex-col items-center justify-center px-4 py-8"
       style={{ backgroundImage: "url('/assets/login-bg.png')", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" }}
     >
       {/* Modals */}
@@ -246,53 +247,93 @@ export default function Login() {
         </div>
       )}
 
-      <div className="rounded-2xl p-8 w-full max-w-md shadow-2xl border border-white/20" style={{ background: "rgba(255,255,255,0.92)", backdropFilter: "blur(12px)" }}>
-        {/* Logo */}
-        <div className="text-center mb-6">
-          <div className="w-14 h-14 rounded-2xl mx-auto flex items-center justify-center mb-3" style={{ background: BRAND.blue }}>
-            <span className="text-white font-extrabold text-xl">N</span>
-          </div>
-          <h1 className="text-2xl font-bold" style={{ color: BRAND.blue }}>
-            {page === "login" ? "Welcome Back" : page === "register_otp" ? "Verify Email" : "Create Account"}
+      {/* ── Register: Branding above card ── */}
+      {page === "register" && (
+        <div className="text-center mb-5 select-none">
+          <img src="/assets/logo.png" alt="Super NFT" className="h-20 w-auto mx-auto mb-3 drop-shadow-[0_0_20px_rgba(168,85,247,0.7)]" />
+          <h1 className="text-4xl font-black tracking-wide">
+            <span style={{ background: "linear-gradient(90deg,#a855f7,#3b82f6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>SUPER </span>
+            <span className="text-white">NFT</span>
           </h1>
-          <p className="text-xs text-gray-400 mt-1">THE SUPER NFT</p>
+          <div className="flex items-center justify-center gap-2 mt-1.5">
+            <span className="text-pink-400 text-base">✦</span>
+            <p className="text-gray-300 text-sm tracking-wide">Join The Super Nft Community World</p>
+            <span className="text-cyan-400 text-base">✦</span>
+          </div>
         </div>
+      )}
+
+      <div className="rounded-2xl w-full max-w-md shadow-2xl border border-white/20"
+        style={{ background: "rgba(255,255,255,0.97)", backdropFilter: "blur(16px)",
+          padding: page === "register" ? "24px" : "32px" }}>
+
+        {/* ── Register header inside card ── */}
+        {page === "register" && (
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "#EFF6FF" }}>
+              <User size={20} style={{ color: BRAND.blue }} />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold" style={{ color: BRAND.blue }}>Create Account</h2>
+              <p className="text-xs text-gray-400">Sign up to get started</p>
+            </div>
+          </div>
+        )}
+
+        {/* ── Login/OTP header ── */}
+        {page !== "register" && (
+          <div className="text-center mb-6">
+            <div className="w-14 h-14 rounded-2xl mx-auto flex items-center justify-center mb-3" style={{ background: BRAND.blue }}>
+              <span className="text-white font-extrabold text-xl">N</span>
+            </div>
+            <h1 className="text-2xl font-bold" style={{ color: BRAND.blue }}>
+              {page === "login" ? "Welcome Back" : "Verify Email"}
+            </h1>
+            <p className="text-xs text-gray-400 mt-1">THE SUPER NFT</p>
+          </div>
+        )}
 
         {/* ── Register Form ─── */}
         {page === "register" && (
           <div className="space-y-3">
-            <input
-              placeholder="Full Name"
-              value={form.fullName}
-              onChange={e => setForm({ ...form, fullName: e.target.value })}
-              className={inp}
-            />
-            <div className="flex gap-2">
+            {/* Full Name */}
+            <div className="relative">
+              <User size={15} className="absolute left-3 top-3 text-gray-400 pointer-events-none" />
               <input
-                placeholder="Email"
+                placeholder="Full Name"
+                value={form.fullName}
+                onChange={e => setForm({ ...form, fullName: e.target.value })}
+                className={inpIcon}
+              />
+            </div>
+
+            {/* Email */}
+            <div className="relative">
+              <Mail size={15} className="absolute left-3 top-3 text-gray-400 pointer-events-none" />
+              <input
                 type="email"
+                placeholder="Email Address"
                 value={form.email}
                 onChange={e => setForm({ ...form, email: e.target.value })}
-                className={inp}
+                className={inpIcon}
               />
-              <button
-                onClick={handleSendOtp}
-                disabled={loading}
-                className="px-4 rounded-xl text-white font-bold text-xs whitespace-nowrap disabled:opacity-50"
-                style={{ background: BRAND.red }}
-              >
-                {loading ? "..." : "Send OTP"}
-              </button>
             </div>
-            <input
-              placeholder="Confirm Email"
-              type="email"
-              value={form.confirmEmail}
-              onChange={e => setForm({ ...form, confirmEmail: e.target.value })}
-              className={inp}
-            />
+
+            {/* Confirm Email */}
+            <div className="relative">
+              <Mail size={15} className="absolute left-3 top-3 text-gray-400 pointer-events-none" />
+              <input
+                type="email"
+                placeholder="Confirm Email"
+                value={form.confirmEmail}
+                onChange={e => setForm({ ...form, confirmEmail: e.target.value })}
+                className={inpIcon}
+              />
+            </div>
+
+            {/* Phone */}
             <PhoneInput
-              country="pk"
+              country="us"
               enableSearch
               countryCodeEditable={false}
               value={form.phone}
@@ -301,33 +342,46 @@ export default function Login() {
               buttonStyle={{ borderRadius: "12px 0 0 12px", border: "1px solid #e5e7eb", borderRight: "none", background: "#fff" }}
               containerStyle={{ width: "100%" }}
             />
+
+            {/* Password */}
             <div className="relative">
+              <Lock size={15} className="absolute left-3 top-3 text-gray-400 pointer-events-none" />
               <input
                 type={showPw ? "text" : "password"}
-                placeholder="Password (min 6 chars)"
+                placeholder="Password"
                 value={form.password}
                 onChange={e => setForm({ ...form, password: e.target.value })}
-                className={inp}
+                className={inpIcon + " pr-9"}
               />
               <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-3 text-gray-400">
-                {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
               </button>
             </div>
-            <input
-              type="password"
-              placeholder="Confirm Password"
-              value={form.confirmPassword}
-              onChange={e => setForm({ ...form, confirmPassword: e.target.value })}
-              className={inp}
-            />
-            <input
-              placeholder="Referral Code (Optional)"
-              value={form.referralCode}
-              onChange={e => setForm({ ...form, referralCode: e.target.value })}
-              className={inp}
-            />
 
-            {/* Terms & Conditions Checkbox */}
+            {/* Confirm Password */}
+            <div className="relative">
+              <Lock size={15} className="absolute left-3 top-3 text-gray-400 pointer-events-none" />
+              <input
+                type="password"
+                placeholder="Confirm Password"
+                value={form.confirmPassword}
+                onChange={e => setForm({ ...form, confirmPassword: e.target.value })}
+                className={inpIcon}
+              />
+            </div>
+
+            {/* Referral Code */}
+            <div className="relative">
+              <Gift size={15} className="absolute left-3 top-3 text-gray-400 pointer-events-none" />
+              <input
+                placeholder="Referral Code (Optional)"
+                value={form.referralCode}
+                onChange={e => setForm({ ...form, referralCode: e.target.value })}
+                className={inpIcon}
+              />
+            </div>
+
+            {/* Terms checkbox */}
             <div className="flex items-start gap-2.5 pt-1">
               <div className="relative flex-shrink-0 mt-0.5">
                 <div
@@ -335,8 +389,8 @@ export default function Login() {
                   className="rounded border-2 flex items-center justify-center cursor-pointer transition-colors"
                   style={{
                     width: 18, height: 18,
-                    borderColor: agreedToTerms ? BRAND.red : "#D1D5DB",
-                    background: agreedToTerms ? BRAND.red : "white",
+                    borderColor: agreedToTerms ? "#8B5CF6" : "#D1D5DB",
+                    background: agreedToTerms ? "#8B5CF6" : "white",
                   }}
                 >
                   {agreedToTerms && (
@@ -348,33 +402,35 @@ export default function Login() {
               </div>
               <label className="text-xs text-gray-500 leading-relaxed cursor-pointer" onClick={() => setAgreedToTerms(v => !v)}>
                 I agree to the{" "}
-                <button
-                  type="button"
-                  onClick={e => { e.stopPropagation(); setShowTerms(true); }}
-                  className="font-semibold underline"
-                  style={{ color: BRAND.blue }}
-                >
-                  Terms & Conditions
+                <button type="button" onClick={e => { e.stopPropagation(); setShowTerms(true); }}
+                  className="font-semibold underline" style={{ color: "#3B82F6" }}>
+                  Terms of Service
                 </button>
                 {" "}and{" "}
-                <button
-                  type="button"
-                  onClick={e => { e.stopPropagation(); setShowPrivacy(true); }}
-                  className="font-semibold underline"
-                  style={{ color: BRAND.blue }}
-                >
+                <button type="button" onClick={e => { e.stopPropagation(); setShowPrivacy(true); }}
+                  className="font-semibold underline" style={{ color: "#3B82F6" }}>
                   Privacy Policy
                 </button>
               </label>
             </div>
 
-            <p className="text-xs text-center text-gray-400">Click "Send OTP" to get a 6-digit code on your email</p>
+            {/* Sign Up button — calls handleSendOtp (same logic, new label) */}
             <button
-              onClick={() => setPage("login")}
-              className="text-sm font-semibold w-full text-center"
-              style={{ color: BRAND.blue }}
+              onClick={handleSendOtp}
+              disabled={loading}
+              className="w-full py-3 rounded-xl font-bold text-white text-sm disabled:opacity-50 transition-all active:scale-95"
+              style={{ background: "linear-gradient(90deg,#8B5CF6,#3B82F6)" }}
             >
-              Already have an account? Login
+              {loading ? "Please wait..." : "Sign Up"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setPage("login")}
+              className="text-sm w-full text-center text-gray-500"
+            >
+              Already have an account?{" "}
+              <span className="font-semibold" style={{ color: "#3B82F6" }}>Login</span>
             </button>
           </div>
         )}
@@ -399,7 +455,7 @@ export default function Login() {
               type="submit"
               disabled={loading || otpCode.length !== 6}
               className="w-full py-3 rounded-xl font-bold text-white text-sm disabled:opacity-50"
-              style={{ background: BRAND.red }}
+              style={{ background: "linear-gradient(90deg,#8B5CF6,#3B82F6)" }}
             >
               {loading ? "Verifying..." : "Verify & Create Account"}
             </button>

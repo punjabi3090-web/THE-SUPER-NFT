@@ -1,0 +1,67 @@
+CRITICAL INSTRUCTIONS - READ CAREFULLY:
+
+TASK: Update ONLY the signup page UI to match the uploaded image. DO NOT TOUCH ANY OTHER CODE.
+
+STRICT RULES:
+1. ONLY MODIFY: /artifacts/web/src/pages/Login.tsx - ONLY the signup form UI part
+2. DO NOT CHANGE: Any other file, any existing logic, any API routes, any database code
+3. DO NOT TOUCH: Withdrawal, Deposit, 2FA, Account Settings, Dashboard - sab kuch jaisa hai waisa rehne do
+4. KEEP 100% SAME: All Supabase auth logic, react-phone-input-2 functionality, referral code, validation
+
+WHAT TO DO:
+
+PART A: SIGNUP PAGE UI - MATCH UPLOADED IMAGE EXACTLY
+File: /artifacts/web/src/pages/Login.tsx
+
+1. Background: Copy exact gradient galaxy theme from image
+2. Logo: Add "SUPER NFT" neon logo on top center - same as image
+3. Tagline: "Join The Super Nft Community World" - same as image  
+4. Form Card: White glassmorphism card with rounded corners - same as image
+5. Button: Purple/blue gradient "Sign Up" button - same as image
+
+PART B: ONLY CHANGE IN FORM
+Change ONLY this line in react-phone-input-2:
+country={'us'}  // Change from 'pk' to 'us' - Show USA +1 by default
+
+PART C: KEEP EVERYTHING ELSE EXACTLY SAME
+- Full Name field logic
+- Email + Confirm Email validation  
+- Password + Confirm Password with toggle
+- Referral Code handling
+- Terms checkbox validation
+- supabase.auth.signUp() call
+- Insert into profiles table
+- Redirect to /showcase
+- All error handling
+- All loading states
+
+PART D: WITHDRAWAL & DEPOSIT RULES FORMATTING ONLY
+Files: withdraw.tsx, deposit.tsx
+
+ONLY reformat the existing Rules text into bullet points. DO NOT change rule content or any logic.
+
+Withdrawal Rules format:
+<div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-6 mt-6">
+  <h3 className="text-yellow-400 font-bold text-lg mb-4">Withdrawal Rules</h3>
+  <ul className="space-y-2 text-gray-300 text-sm">
+    <li>• [Keep existing rule 1 text]</li>
+    <li>• [Keep existing rule 2 text]</li>
+  </ul>
+  <div className="mt-4 pt-4 border-t border-yellow-500/20">
+    <p className="text-yellow-400 font-semibold mb-2">Note</p>
+    <ul className="space-y-1 text-gray-400 text-xs">
+      <li>• [Keep existing note text]</li>
+    </ul>
+  </div>
+</div>
+
+Deposit Rules: Same format with blue colors.
+
+FINAL WARNING:
+If you change any file other than Login.tsx, withdraw.tsx, deposit.tsx - I will reject the code.
+If you break existing Supabase auth or 2FA logic - I will reject the code.
+If you change any API route or database code - I will reject the code.
+
+ONLY update UI to match image + phone default to US + rules formatting. Nothing else.
+
+Show me the updated code for these 3 files only.
