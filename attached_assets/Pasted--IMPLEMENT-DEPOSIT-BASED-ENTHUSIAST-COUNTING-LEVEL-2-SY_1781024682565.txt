@@ -1,0 +1,125 @@
+⛔ IMPLEMENT DEPOSIT-BASED ENTHUSIAST COUNTING + LEVEL 2 SYSTEM ⛔
+
+REQUIREMENT:
+We have 4 boxes in Dashboard > My Team section:
+
+1. Total Register Members = Count all Level 1 users (regardless of deposit)
+2. Total B/C Register Members = Count all Level 2 users (regardless of deposit) - Rename from "Valid Members"
+3. A Enthusiast = Count ONLY Level 1 users who made deposit > 0
+4. B/C Enthusiast = Count ONLY Level 2 users who made deposit > 0
+
+DATABASE TABLES:
+1. profiles: id, email, referral_code, referred_by_code
+2. deposits: user_id, amount, status  // status = 'completed' means real deposit
+
+FILE TO UPDATE: /artifacts/web/src/pages/Dashboard.tsx
+
+IMPLEMENT THIS COMPLETE LOGIC:
+
+const loadTeamStats = async () => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  // Get current user's referral code
+  const { data: myProfile } = await supabase
+    .from('profiles')
+    .select('referral_code')
+    .eq('id', user.id)
+    .single();
+  
+  const myCode = myProfile?.referral_code;
+  if (!myCode) return;
+
+  // ===== LEVEL 1 USERS =====
+  const { data: level1Users } = await supabase
+    .from('profiles')
+    .select('id, email')
+    .eq('referred_by_code', myCode);
+
+  const level1Count = level1Users?.length || 0;
+  const level1Ids = level1Users?.map(u => u.id) || [];
+  const level1Codes = level1Users?.map(u => u.referral_code) || [];
+
+  // ===== LEVEL 2 USERS =====
+  let level2Users = [];
+  let level2Count = 0;
+  let level2Ids = [];
+  
+  if (level1Codes.length > 0) {
+    const { data: l2Users } = await supabase
+      .from('profiles')
+      .select('id, email')
+      .in('referred_by_code', level1Codes);
+    
+    level2Users = l2Users || [];
+    level2Count = level2Users.length;
+    level2Ids = level2Users.map(u => u.id);
+  }
+
+  // ===== DEPOSIT CHECK FOR A ENTHUSIAST =====
+  let aEnthusiastCount = 0;
+  let aEnthusiastList = [];
+  if (level1Ids.length > 0) {
+    const { data: aDeposits } = await supabase
+      .from('deposits')
+      .select('user_id')
+      .in('user_id', level1Ids)
+      .eq('status', 'completed')
+      .gt('amount', 0);
+    
+    const aUserIds = [...new Set(aDeposits?.map(d => d.user_id) || [])];
+    aEnthusiastCount = aUserIds.length;
+    aEnthusiastList = level1Users?.filter(u => aUserIds.includes(u.id)) || [];
+  }
+
+  // ===== DEPOSIT CHECK FOR B/C ENTHUSIAST =====
+  let bcEnthusiastCount = 0;
+  let bcEnthusiastList = [];
+  if (level2Ids.length > 0) {
+    const { data: bcDeposits } = await supabase
+      .from('deposits')
+      .select('user_id')
+      .in('user_id', level2Ids)
+      .eq('status', 'completed')
+      .gt('amount', 0);
+    
+    const bcUserIds = [...new Set(bcDeposits?.map(d => d.user_id) || [])];
+    bcEnthusiastCount = bcUserIds.length;
+    bcEnthusiastList = level2Users?.filter(u => bcUserIds.includes(u.id)) || [];
+  }
+
+  // ===== SET STATE =====
+  setTeamStats({
+    totalRegister: level1Count,           // All Level 1
+    bcRegister: level2Count,              // All Level 2 - Rename "Valid Members" to "Total B/C Register Members"
+    aEnthusiast: aEnthusiastCount,        // Level 1 with deposit only
+    bcEnthusiast: bcEnthusiastCount       // Level 2 with deposit only
+  });
+
+  // For click handlers - show user_id and user_name
+  setLevel1List(level1Users || []);
+  setLevel2List(level2Users || []);
+  setAEnthusiastList(aEnthusiastList);
+  setBcEnthusiastList(bcEnthusiastList);
+}
+
+UI CHANGES:
+1. Rename "Valid Members" label to "Total B/C Register Members"
+2. Click handlers:
+   - Total Register Members → Show level1List (id, email)
+   - Total B/C Register Members → Show level2List (id, email)
+   - A Enthusiast → Show aEnthusiastList (id, email) - Only deposit users
+   - B/C Enthusiast → Show bcEnthusiastList (id, email) - Only deposit users
+
+CRITICAL RULES:
+1. Use ONLY Supabase auth + existing tables: profiles, deposits
+2. DO NOT create new tables/columns
+3. DO NOT change Login.tsx or Profile.tsx
+4. Deposit condition: deposits.status = 'completed' AND deposits.amount > 0
+
+TEST CASE:
+Faisal → Pppp → jjj123@gmail.com
+If Pppp deposits $100, jjj123 deposits $0:
+Expected: Total Register=1, Total B/C Register=1, A Enthusiast=1, B/C Enthusiast=0
+
+Confirm: "Implemented deposit-based A and B/C Enthusiast counting. Renamed Valid Members to Total B/C Register Members. Click shows user lists."
