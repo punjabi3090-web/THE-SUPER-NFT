@@ -199,10 +199,7 @@ export default function Login() {
   const inpIcon = `w-full bg-white text-gray-800 pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 outline-none text-sm`;
 
   return (
-    <div
-      className="min-h-screen flex flex-col items-center justify-center px-4 py-8"
-      style={{ backgroundImage: "url('/assets/login-bg.png')", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" }}
-    >
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-8 bg-gradient-to-b from-[#0a0a1f] via-[#1a0b3d] to-[#0a0a1f]">
       {/* Modals */}
       {showTerms && (
         <Modal title="Terms & Conditions" onClose={() => setShowTerms(false)}>
@@ -307,16 +304,27 @@ export default function Login() {
               />
             </div>
 
-            {/* Email */}
-            <div className="relative">
-              <Mail size={15} className="absolute left-3 top-3 text-gray-400 pointer-events-none" />
-              <input
-                type="email"
-                placeholder="Email Address"
-                value={form.email}
-                onChange={e => setForm({ ...form, email: e.target.value })}
-                className={inpIcon}
-              />
+            {/* Email + Send OTP button */}
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Mail size={15} className="absolute left-3 top-3 text-gray-400 pointer-events-none" />
+                <input
+                  type="email"
+                  placeholder="Email Address"
+                  value={form.email}
+                  onChange={e => setForm({ ...form, email: e.target.value })}
+                  className={inpIcon}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleSendOtp}
+                disabled={loading}
+                className="px-4 rounded-xl text-white font-bold text-xs whitespace-nowrap disabled:opacity-50 flex-shrink-0"
+                style={{ background: "linear-gradient(90deg,#8B5CF6,#3B82F6)" }}
+              >
+                {loading ? "..." : "Send"}
+              </button>
             </div>
 
             {/* Confirm Email */}
@@ -414,8 +422,9 @@ export default function Login() {
               </label>
             </div>
 
-            {/* Sign Up button — calls handleSendOtp (same logic, new label) */}
+            {/* Sign Up button */}
             <button
+              type="button"
               onClick={handleSendOtp}
               disabled={loading}
               className="w-full py-3 rounded-xl font-bold text-white text-sm disabled:opacity-50 transition-all active:scale-95"

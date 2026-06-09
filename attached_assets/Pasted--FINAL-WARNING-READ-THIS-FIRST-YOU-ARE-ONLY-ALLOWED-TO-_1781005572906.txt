@@ -1,0 +1,86 @@
+⛔⛔⛔ FINAL WARNING - READ THIS FIRST ⛔⛔⛔
+
+YOU ARE ONLY ALLOWED TO TOUCH 2 FILES:
+1. /artifacts/web/src/pages/Login.tsx
+2. /artifacts/web/src/pages/Dashboard.tsx
+
+IF YOU TOUCH ANY OTHER FILE, I WILL REJECT YOUR CODE COMPLETELY.
+
+DO NOT TOUCH - THESE ARE WORKING 100%:
+❌ api.ts - Admin JWT, routes, middleware
+❌ auth.ts - Login, logout, session logic  
+❌ twofa.ts - 2FA setup, verify, backup codes
+❌ nft.ts - NFT purchase, wallet, transactions
+❌ profile.tsx - Profile update, password change
+❌ Withdraw.tsx logic - Withdrawal processing
+❌ Deposit.tsx logic - Deposit confirmation
+❌ Supabase tables - profiles, transactions, referrals
+❌ Supabase columns - id, email, full_name, referrer_id, etc
+❌ RLS Policies - Row Level Security rules
+❌ Database schema - Any table structure
+❌ localStorage - Admin token, logout clear
+❌ Any API route or backend function
+❌ Any validation, error handling, loading state
+
+AGAR TUNE IN ME SE KUCH BHI CHHEDA TO MAIN TERA CODE REJECT KAR DUNGA.
+
+=================================================================
+
+ONLY FIX THESE 4 THINGS IN 2 FILES:
+
+FILE 1: /artifacts/web/src/pages/Login.tsx
+
+TASK 1: DELETE OLD BACKGROUND
+- Remove the old "THE SUPER NFT" green/blue neon poster completely
+- Delete that entire div/image
+- Use ONLY new galaxy background from uploaded image
+- CSS: bg-gradient-to-b from-[#0a0a1f] via-[#1a0b3d] to-[#0a0a1f]
+
+TASK 2: ADD EXACT LOGO FROM IMAGE  
+- Top center: Neon "S" hexagon logo with purple/blue glow
+- "SUPER NFT" text - SUPER purple gradient, NFT white
+- Tagline: "Join The Super Nft Community World" with ✦ stars
+
+TASK 3: ADD EMAIL SEND OTP BUTTON BACK - YOU DELETED THIS
+- Next to Email field, add "Send" button
+- OnClick: send OTP via supabase.auth.signInWithOtp()
+- Show OTP input after Send
+- Verify OTP with supabase.auth.verifyOtp()
+- Only call supabase.auth.signUp() AFTER OTP verified
+- If you delete this button again, code rejected
+
+TASK 4: PHONE DEFAULT USA
+- react-phone-input-2 country={'us'}
+- Default +1 for all users
+
+FILE 2: /artifacts/web/src/pages/Dashboard.tsx
+
+TASK 5: FIX REFERRAL COUNT ONLY
+- Find "Total Register Members" in My Team section
+- Fix query: 
+  const { count } = await supabase
+    .from('profiles')
+    .select('*', { count: 'exact', head: true })
+    .eq('referrer_id', user.id)
+- Display: {count || 0}
+- DO NOT change anything else in Dashboard
+
+=================================================================
+
+KEEP ALL THIS LOGIC EXACTLY SAME:
+✅ supabase.auth.signUp() parameters
+✅ profiles table insert
+✅ Referral code to referrer_id conversion
+✅ Password toggle
+✅ Terms checkbox
+✅ Redirect to /showcase
+✅ All error messages
+✅ All loading states
+
+FINAL CONFIRMATION REQUIRED:
+Before showing code, confirm in writing:
+"I have only changed Login.tsx UI + OTP logic and Dashboard.tsx count query. I did NOT touch any other file, table, RLS policy, or working logic."
+
+If you cannot confirm this, DO NOT send code.
+
+SHOW ME CODE FOR ONLY THESE 2 FILES. NOTHING ELSE.

@@ -27,11 +27,17 @@ export default function Dashboard() {
   const [profile, setProfile]   = useState<Profile | null>(null);
   const [profLoading, setProfLoading] = useState(true);
   const [copied, setCopied]     = useState(false);
+  const [referralCount, setReferralCount] = useState<number>(0);
 
   const fetchProfile = useCallback(async () => {
     if (!user) return;
     const { data } = await supabase.from('profiles').select('*').eq('user_id', user.id).single();
     setProfile(data);
+    const { count } = await supabase
+      .from('profiles')
+      .select('*', { count: 'exact', head: true })
+      .eq('referrer_id', user.id);
+    setReferralCount(count || 0);
     setProfLoading(false);
   }, [user]);
 
@@ -192,9 +198,15 @@ export default function Dashboard() {
 
         {/* ── Referral Link ─── */}
         <div className="bg-slate-800 rounded-2xl p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <Users size={15} className="text-purple-400" />
-            <p className="font-semibold text-white text-sm">My Referral Link</p>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Users size={15} className="text-purple-400" />
+              <p className="font-semibold text-white text-sm">My Referral Link</p>
+            </div>
+            <div className="flex items-center gap-1.5 bg-slate-700 rounded-xl px-3 py-1">
+              <Users size={12} className="text-purple-400" />
+              <p className="text-xs text-slate-300">Total Register Members: <span className="font-bold text-white">{referralCount}</span></p>
+            </div>
           </div>
           <div className="flex items-center gap-2 bg-slate-700 rounded-xl px-3 py-2.5">
             <p className="text-xs text-slate-300 font-mono flex-1 truncate">{refLink}</p>
