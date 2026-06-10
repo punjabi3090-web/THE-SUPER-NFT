@@ -1,0 +1,59 @@
+CRITICAL INSTRUCTION: DO NOT CHANGE ANYTHING ELSE. ONLY DO THESE 3 EXACT CHANGES.
+
+CURRENT PROBLEM:
+"Valid Members" box abhi sirf deposit wale Level 2 users count kar raha hai. Ye GALAT hai.
+
+TASK 1: RENAME + LOGIC CHANGE
+File: client/src/pages/Home.tsx
+Find: "Valid Members" text in My Team section
+Replace: "Valid Members" → "Total Register B/C Members"
+
+LOGIC CHANGE FOR THIS BOX:
+- Ab ye Level 2 ke SAARY users count karega jese hi account create ho
+- Deposit ki shart KHATAM kar do is box ke liye
+- Level 1 box jese bina deposit ke count karta hai, wese hi ye bhi kare
+
+TASK 2: MAKE 3 BOXES CLICKABLE
+In My Team section, make these 3 boxes clickable:
+1. Total Register B/C Members → Click pe Level 2 ke saare users ki list: user_id, user_name. Bina deposit ke bhi dikhne chahiye
+2. A Enthusiast → Click pe Level 1 ke SIRF deposit wale users ki list
+3. B/C Enthusiast → Click pe Level 2 ke SIRF deposit wale users ki list
+
+OnClick: Show dropdown list below. Add Hide button to close.
+
+TASK 3: BACKEND DATA FIX
+File: server/storage.ts
+Function: getTeamStats
+
+CHANGE LOGIC:
+1. level2Count = COUNT of ALL Level 2 users WITHOUT deposit filter
+2. level2Users = ALL Level 2 users WITHOUT deposit filter  
+3. aCount & aUsers = ONLY Level 1 users WITH completed deposit
+4. bcCount & bcUsers = ONLY Level 2 users WITH completed deposit
+
+Return format:
+{
+  level1Count: number,
+  level2Count: number, // NO DEPOSIT FILTER
+  aCount: number, // WITH DEPOSIT FILTER
+  bcCount: number, // WITH DEPOSIT FILTER
+  level1Users: [{id, username, email}],
+  level2Users: [{id, username, email}], // NO DEPOSIT FILTER
+  aUsers: [{id, username, email}], // WITH DEPOSIT FILTER
+  bcUsers: [{id, username, email}] // WITH DEPOSIT FILTER
+}
+
+STRICT RULES:
+1. DO NOT change Level 1 box logic - wo theek hai
+2. DO NOT change deposit table or schema
+3. DO NOT add new dependencies
+4. DO NOT change CSS except cursor-pointer for clickable boxes
+5. Level 2 count me deposit ki condition HATAO
+6. A aur B/C Enthusiast me deposit ki condition REHNE DO
+
+SUMMARY:
+Total Register B/C Members = Level 2 register hote hi count ho, deposit na bhi ho
+A Enthusiast = Level 1 + deposit zaroori
+B/C Enthusiast = Level 2 + deposit zaroori
+
+ONLY CHANGE WHAT I LISTED. IF YOU BREAK ANYTHING ELSE, YOU FIX IT.
