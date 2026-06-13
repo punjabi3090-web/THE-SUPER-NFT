@@ -898,11 +898,11 @@ router.get("/users/:id", async (req: Request, res: Response): Promise<void> => {
          INNER JOIN nft_deposits d ON d.user_id = u.id AND d.status = 'approved'
          WHERE u.joined_with_code = ${user.myReferralCode})::int                                             AS valid_members,
 
-      -- B enthusiasts: level-2 referrals with approved deposits
-      (SELECT COUNT(DISTINCT p2.id) FROM nft_users p2
-         INNER JOIN nft_users p1 ON p1.my_referral_code = p2.joined_with_code
-         INNER JOIN nft_deposits d ON d.user_id = p2.id AND d.status = 'approved'
-         WHERE p1.joined_with_code = ${user.myReferralCode})::int                                            AS b_enthusiasts,
+      -- B enthusiasts: level-2 total referrals without deposit filter
+(SELECT COUNT(*) FROM nft_users p2
+INNER JOIN nft_users p1 ON p1.my_referral_code = p2.joined_with_code
+WHERE p1.joined_with_code = ${user.myReferralCode})::int
+AS b_enthusiasts,
 
       -- C enthusiasts: level-3 referrals with approved deposits
       (SELECT COUNT(DISTINCT p3.id) FROM nft_users p3
