@@ -125,6 +125,7 @@ export default function HomeTab() {
     sold: 0,
   });
   const [reservePercent, setReservePercent] = useState<number>(5);
+  const [isValidMember, setIsValidMember] = useState<boolean | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const bellRef = useRef<HTMLDivElement>(null);
   const fetchReservePercent = async () => {
@@ -137,29 +138,35 @@ export default function HomeTab() {
     if (data) setReservePercent(data.daily_reserve_percent);
   };
   const fetchUserData = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
 
-    const { data: userData } = await supabase
-      .from("users")
-      .select("balance, daily_income, total_income, last_daily_reserve")
-      .eq("id", user.id)
-      .single();
+  const { data: profileData }: any = await supabase
+    .from('profiles')
+    .select('balance,daily_income,total_income,last_daily_reserve,' +
+            'referral_code,level1_count,level2_count,a_count,bc_count,' +
+            'is_valid_member,user_level')
+    .eq('user_id', user.id)
+    .single();
 
-    if (userData) {
-      setBalance(userData.balance || 0);
-      setDailyIncome(userData.daily_income || 0);
-      setTotalIncome(userData.total_income || 0);
-      setLastReserveTime(userData.last_daily_reserve);
-      setStats((prev) => ({
-        ...prev,
-        dailyIncome: userData.daily_income || 0,
-        totalIncome: userData.total_income || 0,
-      }));
-    }
-  };
+  if (profileData) {
+    setBalance(profileData.balance ?? 0);
+    setDailyIncome(profileData.daily_income ?? 0);
+    setTotalIncome(profileData.total_income ?? 0);
+    setLastReserveTime(profileData.last_daily_reserve);
+    setIsValidMember(profileData.is_valid_member ?? false);
+    setProfile(profileData);
+
+    setTeam({
+      level1Count: profileData.level1_count ?? 0,
+      level2Count: profileData.level2_count ?? 0,
+      aCount: profileData.a_count ?? 0,
+      bcCount: profileData.bc_count ?? 0,
+    });
+  }
+};
   
 const handleDailyReserve = async () => {
   const { data: { user } } = await supabase.auth.getUser();
@@ -170,13 +177,18 @@ const handleDailyReserve = async () => {
   const userId = user.id;
     // 1. SUPABASE SE DATA FETCH KARO - daily_income, total_income add kiya
     const { data: userData, error: fetchError } = await supabase
-      .from("users")
-      .select("last_daily_reserve, balance, daily_income, total_income")
-      .eq("id", userId)
+      .from("profiles")
+      .select("last_daily_reserve, balance, daily_income, total_income, user_level, is_valid_member")
+      .eq("user_id", userId)
       .single();
 
     if (fetchError || !userData) {
       toast.error("Error fetching user data");
+      return;
+    }
+
+    if (!userData.is_valid_member) {
+      toast.error("You are not a valid member. Deposit first to activate Daily Reserve.");
       return;
     }
 
@@ -225,11 +237,14 @@ const handleDailyReserve = async () => {
     // 3. BALANCE CHECK
     const currentBalance = userData.balance || 0;
     if (currentBalance <= 0) {
-      toast.error("Balance is 0, cannot activate reserve");
-      return;
-    }
+  toast.error("Balance is 0, cannot activate reserve");
+  return;
+}
 
-    const earnedAmount = (currentBalance * reservePercent) / 100;
+// ✅ LEVEL KE HISAAB SE PERCENT NIKALO
+const userLevel = userData.user_level || 1;
+const reservePercent = userLevel === 1 ? 1.5 : 2.2;
+const earnedAmount = (currentBalance * reservePercent) / 100;
 
     const boughtOrder = {
       id: Date.now(),
@@ -247,36 +262,36 @@ const handleDailyReserve = async () => {
 
     // Variables pehle define karo
     const newBalance = currentBalance + earnedAmount;
-    const newDailyIncome = userData.daily_income + earnedAmount;
+    const newDailyIncome = earnedAmount; // Daily reset hoga  // ✅ SAHI
     const newTotalIncome = userData.total_income + earnedAmount;
     const nowISO = new Date().toISOString();
 
     // 4. SUPABASE MEIN UPDATE KARO
     const { error: updateError } = await supabase
-      .from("users")
+      .from("profiles")
       .update({
         balance: newBalance,
         daily_income: newDailyIncome,
         total_income: newTotalIncome,
         last_daily_reserve: nowISO,
       })
-      .eq("id", userId);
+      .eq("user_id", userId);
 
     if (updateError) {
       toast.error("Failed to update. Try again");
       return;
     }
-  // 4.5 TEAM COMMISSION DISTRIBUTE KARO
-  try {
-    const res = await fetch('/api/team/distribute', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, earnedAmount })
-    });
-    if (!res.ok) console.error("Team API failed:", await res.text());
-  } catch (e) {
-    console.error("Team commission failed:", e);
-  }
+      // Referral commission for person who activated reserve
+try {
+  const { error: reserveCommError } = await supabase.rpc('add_reserve_commission', { 
+    reserver_id: userId, 
+    reserve_amount: earnedAmount 
+  })
+  if (reserveCommError) console.error('Reserve commission failed:', reserveCommError);
+} catch (e) {
+  console.error('Reserve commission error:', e);
+}
+  
     // 5. FRONTEND STATE UPDATE KARO
     setOrders((prev) =>
       Array.isArray(prev)
@@ -631,11 +646,11 @@ const handleDailyReserve = async () => {
     if (!user) { setTeamMembersLoading(false); return; }
     const { data: myProfile } = await supabase
       .from("profiles")
-      .select("referral_code, balance, total_orders")
+      .select("referral_code, balance, total_orders, user_level, daily_income")
       .eq("user_id", user.id)
       .single();
     setBalance(Number(myProfile?.balance) || 0);
-    setLiveTeamCount(Number(myProfile?.total_orders) || 0);
+    //setLiveTeamCount(Number(myProfile?.total_orders) || 0);
     if (!myProfile?.referral_code) {
       setTeamMembersLoading(false);
       return;
@@ -659,7 +674,10 @@ const handleDailyReserve = async () => {
     setTeamMembers(
       [...(l1 || []), ...l2].map((m) => ({ user_id: m.id, name: m.name })),
     );
-    setLiveTeamCount((l1 || []).length);
+    // ✅ LEVEL 2+ KO REAL TEAM COMMISSION DIKHAYO
+const myUserLevel = myProfile?.user_level || 1;
+const realTeamCommission = myUserLevel >= 2 ? myProfile?.daily_income || 0 : 0;
+setLiveTeamCount(realTeamCommission); // ✅ AB COMMISSION DIKHEGI
     setTeamMembersLoading(false);
   };
 
@@ -711,36 +729,22 @@ const handleDailyReserve = async () => {
       </div>
     );
   }
-
+  console.log("TEAM DATA:", team);
+  console.log("STATS DATA:", stats);
   const statsRows = [
     {
       label: "Daily Income",
-      value: `$${stats.dailyIncome.toFixed(2)}`,
+      value: `${stats.dailyIncome.toFixed(2)}`,
       hl: true,
     },
     {
       label: "Total Income",
-      value: `$${stats.totalIncome.toFixed(2)}`,
+      value: `${stats.totalIncome.toFixed(2)}`,
       hl: true,
     },
-    {
-      label: "Comprehensive",
-      value:
-        stats.comprehensive > 0 ? `$${stats.comprehensive.toFixed(2)}` : "—",
-      hl: false,
-    },
-    {
-      label: "Claim",
-      value: stats.nftRate > 0 ? `${stats.nftRate}%` : "—",
-      hl: false,
-    },
-    { label: "Team", value: String(liveTeamCount), hl: false },
+    
+    { label: "Team Income %", value: `$0.00`, hl: true },
     { label: "Activity", value: String(stats.activity), hl: false },
-    {
-      label: "Bid",
-      value: stats.bid > 0 ? `$${stats.bid.toFixed(2)}` : "—",
-      hl: false,
-    },
   ];
 
   const otherTeamBoxes = [
@@ -1269,17 +1273,23 @@ const handleDailyReserve = async () => {
       </div>
 
       {/* ══ SECTION 4 — CLAIM PROFIT ══ */}
+      {isValidMember === false && (
+        <p className="text-center text-xs mb-1" style={{ color: R }}>
+          Deposit to activate Daily Reserve
+        </p>
+      )}
       <button
         onClick={handleDailyReserve}
-        disabled={claiming}
+        disabled={claiming || isValidMember === false}
         className="w-full flex items-center justify-center gap-2 font-bold text-sm rounded-xl h-9 text-white transition-all active:scale-95 disabled:opacity-60"
         style={{ background: claiming ? "#b91c1c" : R }}
         onMouseEnter={(e) =>
-          !claiming &&
+          !claiming && isValidMember !== false &&
           ((e.currentTarget as HTMLElement).style.background = "#b91c1c")
         }
         onMouseLeave={(e) =>
-          !claiming && ((e.currentTarget as HTMLElement).style.background = R)
+          !claiming && isValidMember !== false &&
+          ((e.currentTarget as HTMLElement).style.background = R)
         }
       >
         {claiming ? (

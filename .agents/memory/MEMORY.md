@@ -7,3 +7,5 @@
 - [Redirect pattern](redirect-pattern.md) — always use window.location.replace() (not href, not wouter setLocation) for all auth/guard redirects; setLocation is unreliable in this app
 - [Login registration flow](login-flow.md) — both auto-confirm and OTP paths call /api/nft/auth/create-profile (service role); pending_referral_code in sessionStorage (not localStorage); no alert() calls
 - [Drizzle push TTY issue](drizzle-push-tty.md) — drizzle-kit push blocks on non-TTY for destructive changes; apply schema changes directly via psql DO block instead
+- [Profiles lookup pattern](profiles-lookup-pattern.md) — always use .eq('user_id', user.id) NOT .eq('id', user.id); profiles.id is auto-generated PK, not auth UUID
+- [Deposits/profiles join](deposits-profiles-join.md) — no FK between deposits/withdrawals and profiles; do two-step fetch; column is `name` not `full_name`

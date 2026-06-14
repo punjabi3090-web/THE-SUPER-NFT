@@ -21,15 +21,15 @@ type DepositRow = {
   id: string; amount: number; tx_hash: string | null;
   screenshot_url: string | null; status: string;
   created_at: string; user_id: string;
-  profiles: { email: string | null; full_name: string | null } | null;
+  profiles: { email: string | null; name: string | null } | null;
 };
 type WithdrawalRow = {
   id: string; amount: number; wallet_address: string | null;
   network: string | null; status: string; created_at: string; user_id: string;
-  profiles: { email: string | null; full_name: string | null } | null;
+  profiles: { email: string | null; name: string | null } | null;
 };
 type UserRow = {
-  id: string; user_id: string | null; email: string | null; full_name: string | null;
+  id: string; user_id: string | null; email: string | null; name: string | null;
   balance: number | null; total_deposit: number | null;
   total_withdrawn: number | null; referral_code: string | null;
   created_at: string | null; role: string | null;
@@ -152,10 +152,17 @@ export default function AdminDashboard() {
     setLoading(true);
     const { data, error } = await supabase
       .from("deposits")
-      .select("id, amount, tx_hash, screenshot_url, status, created_at, user_id, profiles(email, full_name)")
+      .select("id, amount, tx_hash, screenshot_url, status, created_at, user_id")
       .order("created_at", { ascending: false });
-    if (error) toast.error(error.message);
-    setDeposits((data ?? []) as unknown as DepositRow[]);
+    if (error) { toast.error(error.message); setLoading(false); return; }
+    const rows = data ?? [];
+    const uids = [...new Set(rows.map((r: { user_id: string }) => r.user_id).filter(Boolean))];
+    let profMap: Record<string, { email: string | null; name: string | null }> = {};
+    if (uids.length > 0) {
+      const { data: profs } = await supabase.from("profiles").select("user_id, email, name").in("user_id", uids);
+      (profs ?? []).forEach((p: { user_id: string; email: string | null; name: string | null }) => { profMap[p.user_id] = { email: p.email, name: p.name }; });
+    }
+    setDeposits(rows.map((r: { id: string; amount: number; tx_hash: string | null; screenshot_url: string | null; status: string; created_at: string; user_id: string }) => ({ ...r, profiles: profMap[r.user_id] ?? null })));
     setLoading(false);
     refreshBadges();
   }, [refreshBadges]);
@@ -164,10 +171,17 @@ export default function AdminDashboard() {
     setLoading(true);
     const { data, error } = await supabase
       .from("withdrawals")
-      .select("id, amount, wallet_address, network, status, created_at, user_id, profiles(email, full_name)")
+      .select("id, amount, wallet_address, network, status, created_at, user_id")
       .order("created_at", { ascending: false });
-    if (error) toast.error(error.message);
-    setWithdrawals((data ?? []) as unknown as WithdrawalRow[]);
+    if (error) { toast.error(error.message); setLoading(false); return; }
+    const rows = data ?? [];
+    const uids = [...new Set(rows.map((r: { user_id: string }) => r.user_id).filter(Boolean))];
+    let profMap: Record<string, { email: string | null; name: string | null }> = {};
+    if (uids.length > 0) {
+      const { data: profs } = await supabase.from("profiles").select("user_id, email, name").in("user_id", uids);
+      (profs ?? []).forEach((p: { user_id: string; email: string | null; name: string | null }) => { profMap[p.user_id] = { email: p.email, name: p.name }; });
+    }
+    setWithdrawals(rows.map((r: { id: string; amount: number; wallet_address: string | null; network: string | null; status: string; created_at: string; user_id: string }) => ({ ...r, profiles: profMap[r.user_id] ?? null })));
     setLoading(false);
     refreshBadges();
   }, [refreshBadges]);
@@ -176,7 +190,7 @@ export default function AdminDashboard() {
     setLoading(true);
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, user_id, email, full_name, balance, total_deposit, total_withdrawn, referral_code, created_at, role")
+      .select("id, user_id, email, name, balance, total_deposit, referral_code, created_at, role")
       .order("created_at", { ascending: false });
     if (error) toast.error(error.message);
     setUsers((data ?? []) as UserRow[]);
@@ -264,10 +278,14 @@ export default function AdminDashboard() {
     const refPct = parseFloat(sMap.referral_reward_percent ?? "0");
     if (refPct > 0) {
       const { data: prof } = await supabase
-        .from("profiles").select("referred_by").eq("user_id", dep.user_id).single();
-      if (prof?.referred_by) {
-        const refBonus = parseFloat(((dep.amount * refPct) / 100).toFixed(4));
-        await supabase.rpc("increment_balance", { uid: prof.referred_by, inc: refBonus });
+        .from("profiles").select("referred_by_code").eq("user_id", dep.user_id).single();
+      if (prof?.referred_by_code) {
+        const { data: referrer } = await supabase
+          .from("profiles").select("user_id").eq("referral_code", prof.referred_by_code).single();
+        if (referrer?.user_id) {
+          const refBonus = parseFloat(((dep.amount * refPct) / 100).toFixed(4));
+          await supabase.rpc("increment_balance", { uid: referrer.user_id, inc: refBonus });
+        }
       }
     }
 
@@ -369,7 +387,7 @@ export default function AdminDashboard() {
   const filteredUsers = users.filter(u =>
     !userSearch
       || (u.email ?? "").toLowerCase().includes(userSearch.toLowerCase())
-      || (u.full_name ?? "").toLowerCase().includes(userSearch.toLowerCase())
+      || (u.name ?? "").toLowerCase().includes(userSearch.toLowerCase())
   );
 
   const TABS: { id: Tab; label: string; Icon: React.ElementType; badge?: number }[] = [
@@ -495,7 +513,7 @@ export default function AdminDashboard() {
             <div className="space-y-3">
               {deposits.map(dep => {
                 const email = dep.profiles?.email ?? "—";
-                const name  = dep.profiles?.full_name;
+                const name  = dep.profiles?.name;
                 const isPending = dep.status === "pending";
                 const hasImg = !!(dep.screenshot_url || dep.tx_hash);
                 return (
@@ -555,7 +573,7 @@ export default function AdminDashboard() {
             <div className="space-y-3">
               {withdrawals.map(w => {
                 const email = w.profiles?.email ?? "—";
-                const name  = w.profiles?.full_name;
+                const name  = w.profiles?.name;
                 const isPending = w.status === "pending";
                 return (
                   <div key={w.id} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
@@ -643,7 +661,7 @@ export default function AdminDashboard() {
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-bold truncate" style={{ color: B }}>
-                            {u.full_name ?? u.email ?? "—"}
+                            {u.name ?? u.email ?? "—"}
                           </p>
                           {u.role === "admin" && (
                             <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: "#FEF2F2", color: R }}>ADMIN</span>

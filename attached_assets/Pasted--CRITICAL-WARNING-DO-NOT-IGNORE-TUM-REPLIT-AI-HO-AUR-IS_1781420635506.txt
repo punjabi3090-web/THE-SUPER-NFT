@@ -1,0 +1,51 @@
+🚨 CRITICAL WARNING - DO NOT IGNORE 🚨
+
+TUM REPLIT AI HO AUR IS PROJECT KA FULL ADMIN ACCESS RAKHTE HO SUPABASE SERVICE KEYS KE SATH.
+
+STEP 1: KYA BILKUL NAHI CHERNA
+1. Supabase Auth ka jo bhi real auto system already set hai usko HARGIZ MAT CHERNA. 
+2. Login, Signup, Password Reset, Email Verification, JWT - in sab ko bilkul mat touch karna.
+3. Auth table aur auth.users ko read-only treat karna. Koi column add/delete/change mat karna.
+4. Agar auth se related koi error aaye to bhi auth ka code change mat karna - sirf batana.
+
+STEP 2: KYA KARNA HAI - PROFILE TABLE MIGRATION
+1. Supabase mein `users_backup_2026` table ka jo pora purana kaam set tha - balance, total_deposit, user_level, is_valid_member, is_level2_qualified, valid_team_count, upline_id, enthusiast_type, team_commission_earned, daily_reserve_balance, last_daily_reserve - ye sab data `profiles` table mein move karna hai.
+2. `profiles` table mein jo already real setups hain unko bilkul waisi hi auto Supabase ke sath working mein lana hai.
+3. Migration ke baad `users_backup_2026` ka sara logic `profiles` table se chalana hai.
+4. Purane `users` table ke references code se hata kar `profiles` pe shift karna hai.
+
+STEP 3: DASHBOARD FILES KO PROFILE TABLE SE CONNECT KARO
+1. Project ke dashboard files mein jo real kaam set kiya hua hai - Real Members, Real Daily Reserve, Real Level 2 Requirements, Team Commissions, Referral Rewards - ye sab auto `profiles` table ke sath real working karwao.
+2. Level 2 ki requirements ye hain aur inko code mein enforce karo:
+   - Minimum 3 Direct Level-1 A enthusiasts with $50+ deposit
+   - Minimum 5 Level 2/3 B/C enthusiasts with $50+ deposit  
+   - Minimum balance $400
+   - Daily Reserve 2.2%
+   - 5% commission on team members daily reserve
+   - 5% referral reward on deposit
+3. Daily Reserve button sirf `is_valid_member = true` walo ke liye enable ho.
+4. `last_daily_reserve` check karke 24hr cooldown lagao.
+
+STEP 4: DASHBOARD HOME PAGE TABLES/TOOLS REAL DATA SHOW KAREIN
+1. Dashboard home page mein jo bhi tables/tools hain - Total Members, Active Members, Level 1 Count, Level 2 Count, Total Deposits, Total Reserve Paid, Team Commission, Today Claims - in sab ko exactly jis tarah hum ne Files mein setup kiya hai usi tarah real working count show karna hai.
+2. Koi dummy data, hardcoded number, ya fake stats mat lagana.
+3. Har table/tool direct `profiles` table se live query karke real count nikalay. Example:
+   - Total Members = `SELECT COUNT(*) FROM profiles`
+   - Level 2 Members = `SELECT COUNT(*) FROM profiles WHERE user_level = 2`
+   - Total Deposits = `SELECT SUM(total_deposit) FROM profiles`
+   - Active Today = `SELECT COUNT(*) FROM profiles WHERE last_daily_reserve >= CURRENT_DATE`
+4. Agar koi metric `profiles` table mein nahi ban sakta to `users_backup_2026` se join kar ke nikalna hai, lekin display `profiles` ke through hoga.
+
+SAKHT HIDAYAT:
+1. HAMARA JO BHI REAL SETUP KIYA HUA HAI SIRF USKO REAL AUTO WORKING KARWANA HAI.
+2. KOI NAYA EXPERIMENT, NAYA TABLE, NAYI LOGIC MAT BANANA.
+3. KOI BHI CHEEZ DELETE YA DROP MAT KARNA BINA CONFIRM KIYE.
+4. Agar koi column `profiles` mein nahi hai to `ALTER TABLE profiles ADD COLUMN` se add kar dena, lekin existing data ko touch mat karna.
+5. RLS policies `profiles` table pe lagani hain: User sirf apni row read/update kar sake. Admin dashboard ke liye service_role use karna hai.
+6. Har query ke baad confirm karna ki kitni rows affect hui.
+7. Dashboard ke saare cards/tables mein loading state + error handling lagana hai - crash nahi hona chahiye.
+
+FAIL HONE KI SOORAT:
+Agar tu ne Auth cher diya, real setup kharab kar diya, ya dashboard pe fake data dikha diya to project crash ho jayega. Sirf upar bataye hue kaam karo.
+
+SHURU KARO: Pehle `profiles` table ka schema check karo, phir `users_backup_2026` se data migrate karo, phir dashboard files + home page tables update karo.

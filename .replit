@@ -1,4 +1,4 @@
-modules = ["nodejs-24", "python-3.11"]
+modules = ["nodejs-24", "python-3.11", "postgresql-16"]
 
 [deployment]
 router = "application"
@@ -28,14 +28,6 @@ localPort = 8081
 externalPort = 80
 
 [[ports]]
-localPort = 8082
-externalPort = 3001
-
-[[ports]]
-localPort = 8083
-externalPort = 3002
-
-[[ports]]
 localPort = 22333
 externalPort = 3000
 
@@ -50,3 +42,4 @@ VITE_SUPABASE_URL = "https://wacdwoxpjnfxedryadky.supabase.co"
 
 [nix]
 packages = ["nano"]
+channel = "stable-25_05"
