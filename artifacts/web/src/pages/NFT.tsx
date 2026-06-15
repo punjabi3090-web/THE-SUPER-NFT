@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/useAuth";
 import { supabase } from "../lib/supabase";
+import toast, { Toaster } from "react-hot-toast";
 import { ArrowLeft, TrendingUp, Clock, DollarSign } from "lucide-react";
 
 type NftPackage = {
@@ -114,7 +115,7 @@ export default function NFT() {
     });
 
     if (error) {
-      alert("Purchase failed: " + error.message);
+      toast.error("Purchase failed: " + error.message);
       setBuying(null);
       return;
     }
@@ -122,7 +123,7 @@ export default function NFT() {
     // Distribute referral commissions (best-effort, non-blocking)
     distributeReferralEarnings(user.id, pkg.price, pkg.name).catch(() => {});
 
-    alert("NFT Purchased! Daily profit start");
+    toast.success("NFT Purchased! Daily profit has started.");
     await fetchData(user.id);
     setBuying(null);
   };
@@ -135,6 +136,7 @@ export default function NFT() {
 
   return (
     <div className="min-h-screen bg-slate-900 text-white pb-10">
+      <Toaster position="top-center" />
       <div className="max-w-md mx-auto px-4 pt-10">
 
         {/* ── Header ─── */}

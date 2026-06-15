@@ -76,23 +76,37 @@ export default function Login() {
     const refCode = form.referralCode.trim().toUpperCase() ||
       sessionStorage.getItem('pending_referral_code') || '';
 
-    const { data: authData, error: signUpError } = await supabase.auth.signUp({
-      email: form.email.trim().toLowerCase(),
-      password: form.password,
-      options: { data: { name: form.fullName.trim(), phone: form.phone ? "+" + form.phone.trim() : "" } }
-    });
+    let authData = null;
+    let signupError: Error | { message: string; code?: string } | null = null;
 
-    if (signUpError) {
+    try {
+      const result = await supabase.auth.signUp({
+        email: form.email.trim().toLowerCase(),
+        password: form.password,
+        options: {
+          data: {
+            name: form.fullName.trim(),
+            phone: form.phone ? `+${form.phone.trim()}` : '',
+          },
+        },
+      });
+      authData = result.data;
+      signupError = result.error;
+    } catch (err) {
+      signupError = err as Error;
+    }
+
+    if (signupError) {
       setLoading(false);
-      if (signUpError.message.toLowerCase().includes("already")) {
+      const msg = (signupError as { message: string }).message ?? "";
+      if (msg.toLowerCase().includes("already")) {
         showMsg("Email already registered. Please login.");
       } else {
-        showMsg(signUpError.message);
+        showMsg(msg || "Registration failed. Please try again.");
       }
       return;
     }
-
-    if (!authData.user) {
+    if (!authData || !authData.user) {
       setLoading(false);
       showMsg("Registration failed. Please try again.");
       return;

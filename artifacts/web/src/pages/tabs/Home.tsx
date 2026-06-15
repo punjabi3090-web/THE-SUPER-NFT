@@ -195,43 +195,29 @@ const handleDailyReserve = async () => {
     // 2. PAKISTAN 5AM RESET CHECK KARO
     const now = new Date();
 
-    // Pakistan ka current time nikalo - UTC+5
-    const nowPKT = new Date(now.getTime() + 5 * 60 * 60 * 1000);
-
-    // Aaj ka 5AM PKT nikalo
-    const today5AM_PKT = new Date(nowPKT);
-    today5AM_PKT.setHours(5, 0, 0, 0);
-
-    // Agar abhi 5AM se pehle hai to kal ka 5AM reset time hai
-    const lastResetTime_PKT =
-      nowPKT.getHours() < 5
-        ? new Date(today5AM_PKT.getTime() - 24 * 60 * 60 * 1000) // Kal 5AM
-        : today5AM_PKT; // Aaj 5AM
-
-    // UTC mein convert karo DB ke liye
-    const lastResetTime_UTC = new Date(
-      lastResetTime_PKT.getTime() - 5 * 60 * 60 * 1000,
-    );
+  // UTC 00:00 = PKT 5:00 AM - DIRECT UTC CHECK
+const nowUTC = new Date();
+const todayUTCStart = new Date(Date.UTC(
+  nowUTC.getUTCFullYear(),
+  nowUTC.getUTCMonth(),
+  nowUTC.getUTCDate(),
+  0, 0, 0, 0
+));
 
     if (userData.last_daily_reserve) {
       const lastClick = new Date(userData.last_daily_reserve);
 
       // Agar last claim reset time ke baad hua hai to block karo
-      if (lastClick >= lastResetTime_UTC) {
-        const nextReset_PKT = new Date(
-          today5AM_PKT.getTime() +
-            (nowPKT.getHours() < 5 ? 0 : 24 * 60 * 60 * 1000),
-        );
-        const diffMs = nextReset_PKT.getTime() - nowPKT.getTime();
+      if (lastClick >= todayUTCStart) {
+        const nextClaimUTC = new Date(todayUTCStart.getTime() + 24 * 60 * 60 * 1000);
+const diffMs = nextClaimUTC.getTime() - nowUTC.getTime(); // ← UTC SE UTC MINUS KARO
 
-        const hours = Math.floor(diffMs / (1000 * 60 * 60));
-        const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((diffMs % (1000 * 60)) / 1000);
+const hours = Math.floor(diffMs / (1000 * 60 * 60));
+const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+const seconds = Math.floor((diffMs % (1000 * 60)) / 1000);
 
-        const timeLeft = `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-
-        toast.error(`Next Reserve Wait For ${timeLeft}`);
-        return;
+toast.error(`Next Reserve: ${hours}h ${minutes}m ${seconds}s left`); // ← "Claim at" HATA DIYA
+return;
     }
 
     // 3. BALANCE CHECK
@@ -267,20 +253,6 @@ const earnedAmount = (currentBalance * reservePercent) / 100;
     const nowISO = new Date().toISOString();
 
     // 4. SUPABASE MEIN UPDATE KARO
-    const { error: updateError } = await supabase
-      .from("profiles")
-      .update({
-        balance: newBalance,
-        daily_income: newDailyIncome,
-        total_income: newTotalIncome,
-        last_daily_reserve: nowISO,
-      })
-      .eq("user_id", userId);
-
-    if (updateError) {
-      toast.error("Failed to update. Try again");
-      return;
-    }
       // Referral commission for person who activated reserve
 try {
   const { error: reserveCommError } = await supabase.rpc('add_reserve_commission', { 
@@ -292,30 +264,48 @@ try {
   console.error('Reserve commission error:', e);
 }
   
-    // 5. FRONTEND STATE UPDATE KARO
-    setOrders((prev) =>
-      Array.isArray(prev)
-        ? [...prev, boughtOrder, soldOrder]
-        : [boughtOrder, soldOrder],
-    );
+// 5. ORDERS TABLE MEIN LIFETIME ENTRY KARO
+const { error: orderError } = await supabase
+  .from('orders')
+  .insert({
+    user_id: userId,
+    type: 'daily_reserve',
+    amount: earnedAmount,
+    created_at: nowISO
+  });
 
-    setOrderStats((prev) => ({
-      ...prev,
-      total: (prev?.total || 0) + 2,
-      bought: (prev?.bought || 0) + 1,
-      sold: (prev?.sold || 0) + 1,
-    }));
+if (orderError) {
+  toast.error('Failed to record order: ' + orderError.message);
+  return;
+}
 
-    toast.success(
-      `Daily Reserve ${reservePercent}% activated +$${earnedAmount.toFixed(2)}`,
-    );
-    //await fetchUserData();//
-    // UI foran update kar
-    setBalance(newBalance);
-    setDailyIncome(newDailyIncome);
-    setTotalIncome(newTotalIncome);
-    setLastReserveTime(nowISO);
-  }
+// 6. AB PROFILE UPDATE KARO
+const { error: profileError } = await supabase
+  .from('profiles')
+  .update({
+    balance: newBalance,
+    daily_income: newDailyIncome,
+    last_daily_reserve: nowISO,
+    total_income: newTotalIncome,
+  })
+  .eq('user_id', userId);
+
+if (profileError) {
+  toast.error('Profile update failed: ' + profileError.message);
+  return;
+}
+toast.success(
+  `Daily Reserve ${reservePercent}% activated +$${earnedAmount.toFixed(2)}`
+);
+
+// await fetchUserData(); // <-- TERA PURANA CODE COMMENTED HAI, WESA HI REHNE DE
+setBalance(newBalance);
+setDailyIncome(newDailyIncome);
+setTotalIncome(newTotalIncome);
+setLastReserveTime(nowISO);
+
+await load(); // <-- YE 1 LINE ADD KI HAI. SIRF COUNT REFRESH KE LIYE
+}
 };
   useEffect(() => {
     fetchUserData();
@@ -389,25 +379,30 @@ try {
     }
     const uid = user.id;
     setUserId(uid);
-
-    // 1. PURANA CODE - Profile + Balance - TOUCH NAHI KIYA
     const [apiUser, profileRow] = await Promise.all([
       getCurrentUser(),
       supabase
         .from("profiles")
-        .select("role, referral_code, balance, total_orders")
+        .select('role, referral_code, balance, total_orders, daily_income, total_income, last_daily_reserve')
         .eq("user_id", uid)
         .maybeSingle(),
     ]);
     const profile = profileRow.data;
     setBalance(Number(profile?.balance) || 0);
     setLiveTeamCount(Number(profile?.total_orders) || 0);
-    setOrderStats({
-      total: Number(profile?.total_orders) || 0,
-      processing: 0,
-      bought: 0,
-      sold: 0,
-    });
+    // LIFETIME ORDERS COUNT FROM ORDERS TABLE
+const { count: lifetimeOrders } = await supabase
+  .from('orders')
+  .select('*', { count: 'exact', head: true })
+  .eq('user_id', uid)
+  .eq('type', 'daily_reserve');
+
+setOrderStats({
+  total: lifetimeOrders || 0,
+  processing: 0,
+  bought: lifetimeOrders || 0, // Daily Reserve = Bought
+  sold: lifetimeOrders  || 0,//Daily Reserve = Sold
+});
 
     const refCode = profileRow?.data?.referral_code ?? null;
 
@@ -419,7 +414,7 @@ try {
     // LEVEL 1 - DIRECT SUPABASE
     const { data: level1Members } = await supabase
       .from("profiles")
-      .select("id, name, email, referral_code, referred_by_code")
+      .select("id, name, email, referral_code, referred_by_code, total_deposit")
       .eq("referred_by_code", refCode);
 
     let level2Members: any[] = [];
@@ -436,7 +431,7 @@ try {
     if (level1Codes.length > 0) {
       const { data: level2Data, error: level2Error } = await supabase
         .from("profiles")
-        .select("id, name, email, referral_code, referred_by_code")
+        .select("id, name, email, referral_code, referred_by_code, total_deposit")
         .in("referred_by_code", level1Codes);
 
       level2Members = level2Data || [];
@@ -449,7 +444,7 @@ try {
 
         const { data: level3Data, error: level3Error } = await supabase
           .from("profiles")
-          .select("id, name, email, referral_code, referred_by_code")
+          .select("id, name, email, referral_code, referred_by_code, total_deposit")
           .in("referred_by_code", level3Codes);
 
         level3Members = level3Data || [];
@@ -466,63 +461,47 @@ try {
       ...level3Members,
     ].map((m) => m.id);
 
-    let depositMap = new Map();
-    if (allUserIds.length > 0) {
-      const { data: depositData } = await supabase
-        .from("deposits")
-        .select("user_id, amount")
-        .in("user_id", allUserIds)
-        .in("status", ["approved", "finished", "confirmed", "complete"]); // ← NOWPayments ke saare status
 
-      depositData?.forEach((d) => {
-        depositMap.set(
-          d.user_id,
-          (depositMap.get(d.user_id) || 0) + Number(d.amount),
-        );
-      });
-    }
-
-    // AB SAB SET KARO - LEVEL 1 + LEVEL 2 + LEVEL 3 WITH DEPOSIT
+    
     const allMembers = [
       ...level1Safe.map((m) => ({
         ...m,
         level: 1,
-        deposit: depositMap.get(m.id) || 0,
+        deposit: Number(m.total_deposit || 0),
       })),
       ...level2Members.map((m) => ({
         ...m,
         level: 2,
-        deposit: depositMap.get(m.id) || 0,
+        deposit: Number(m.total_deposit || 0),
       })),
       ...level3Members.map((m) => ({
         ...m,
         level: 3,
-        deposit: depositMap.get(m.id) || 0,
+        deposit: Number(m.total_deposit || 0),
       })),
     ];
 
     setTeam({
       level1Count: level1Safe.length,
       level2Count: level2Members.length + level3Members.length,
-      aCount: level1Safe.filter((m: any) => (depositMap.get(m.id) || 0) > 0).length,
-      bcCount: [...level2Members, ...level3Members].filter((m: any) => (depositMap.get(m.id) || 0) > 0).length,
+      aCount: level1Safe.filter((m: any) => Number(m.total_deposit || 0) > 0).length,
+bcCount: [...level2Members, ...level3Members].filter((m: any) => Number(m.total_deposit || 0) > 0).length
     });
 
     setTeamMembers(allMembers);
     setLiveTeamCount(allMembers.length);
     // 4. STATS - PURANA CODE SAME HAI
-    const [dailyRes, { data: approvedDeposits }] = await Promise.all([
-      supabase
-        .from("daily_income_stats")
-        .select("today_income, total_income")
-        .eq("user_id", uid)
-        .maybeSingle(),
-      supabase
-        .from("deposits")
-        .select("amount")
-        .eq("user_id", uid)
-        .eq("status", "approved"),
-    ]);
+    const { data: profileData } = await supabase
+  .from('profiles')
+  .select('balance, daily_income, total_income, team_commission_earned, user_level')
+  .eq('user_id', uid)
+  .single();
+
+const { data: approvedDeposits } = await supabase
+  .from('deposits')
+  .select('amount')
+  .eq('user_id', uid)
+  .eq('status', 'approved'); // ✅ Bas semicolon, koi ] nahi
     const maxAmt = (approvedDeposits ?? []).reduce(
       (m, d) => Math.max(m, Number(d.amount)),
       0,
@@ -530,21 +509,15 @@ try {
     const nftRate = getNftRate(maxAmt);
 
     setStats({
-      dailyIncome: dailyRes.data?.today_income ?? 0,
-      totalIncome: dailyRes.data?.total_income ?? 0,
+     dailyIncome: Number(profileData?.daily_income || 0),
+     totalIncome: Number(profileData?.total_income || 0), 
       activity: apiUser?.totalOrders ?? 0,
       bid: maxAmt,
       comprehensive: maxAmt * (nftRate / 100),
       nftRate,
     });
 
-    setOrderStats({
-      total: apiUser?.totalOrders ?? 0,
-      processing: apiUser?.processingOrders ?? 0,
-      bought: apiUser?.boughtCount ?? 0,
-      sold: apiUser?.soldCount ?? 0,
-    });
-
+  
     setLoading(false);
   }, [navigate]);
   useEffect(() => {
@@ -553,11 +526,6 @@ try {
 
     const channel = supabase
       .channel("home-realtime")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "profiles" },
-        () => load(),
-      )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "transactions" },
@@ -729,8 +697,6 @@ setLiveTeamCount(realTeamCommission); // ✅ AB COMMISSION DIKHEGI
       </div>
     );
   }
-  console.log("TEAM DATA:", team);
-  console.log("STATS DATA:", stats);
   const statsRows = [
     {
       label: "Daily Income",
