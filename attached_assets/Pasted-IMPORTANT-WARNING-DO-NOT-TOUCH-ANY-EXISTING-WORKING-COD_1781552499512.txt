@@ -1,0 +1,67 @@
+IMPORTANT WARNING: DO NOT TOUCH ANY EXISTING WORKING CODE.
+❌ Users tab, Settings tab, Stats tab, Login/Auth system mat cherna
+❌ Baaki project ki files mat cherna
+✅ Sirf neeche wale 4 tasks karne hain
+
+TASK 1: NOWPAYMENTS WEBHOOK + AUTO DEPOSIT
+1. deposits table update karo:
+   ALTER TABLE deposits ADD COLUMN IF NOT EXISTS payment_id text;
+   ALTER TABLE deposits ADD COLUMN IF NOT EXISTS tx_hash text;
+   ALTER TABLE deposits ADD COLUMN IF NOT EXISTS currency text;
+   ALTER TABLE deposits ADD COLUMN IF NOT EXISTS pay_address text;
+   ALTER TABLE deposits ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+
+2. Supabase Edge Function banao: 'nowpayments-webhook'
+   - NowPayments IPN verify karo using NOWPAYMENTS_IPN_SECRET
+   - payment_status = 'finished' pe:
+     a) deposits table mein INSERT/UPDATE with status='confirmed'
+     b) profiles SET balance = balance + amount, total_deposited = total_deposited + amount
+   - Mujhe webhook URL do jo NowPayments mein dalna hai
+
+TASK 2: WITHDRAWAL APPROVE/REJECT SYSTEM
+1. withdrawals table check karo, agar nahi hai to banao:
+   id uuid, user_id uuid, amount numeric, wallet_address text, status text DEFAULT 'pending', created_at timestamptz, updated_at timestamptz
+
+2. Admin panel Withdrawals tab mein 2 button add karo har request pe: Approve | Reject
+   - Approve pe: status='approved', profiles.balance se amount minus karo
+   - Reject pe: status='rejected', user ka balance wapis add karo agar pehle cut gaya tha
+   - User ko apne dashboard pe status dikhe: Pending/Approved/Rejected
+   - Supabase RLS lagao taake sirf apni request dikhe user ko
+
+TASK 3: ANNOUNCEMENT + BELL NOTIFICATION FIX
+1. announcements table banao agar nahi hai:
+   id uuid, title text, message text, created_at timestamptz, created_by uuid
+
+2. user_notifications table banao:
+   id uuid, user_id uuid, announcement_id uuid, is_read boolean DEFAULT false, created_at timestamptz
+
+3. Admin Dashboard Announce tab ka error fix karo - insert working kare
+
+4. User Dashboard pe Bell 🔔 icon:
+   - Jab admin announcement add kare to sab users ke liye user_notifications mein entry bane
+   - Bell ke oper red badge mein unread count show ho
+   - Click karne pe dropdown mein saari announcements dikhein
+   - Ek baar click karne ke baad is_read = true ho jaye aur badge count 0 ho jaye
+   - Refresh ya logout/login pe bhi count wapis na aye jab tak new announcement na ho
+   - Announcement sirf bell ke ander dikhe, dashboard pe bahar na dikhe
+
+TASK 4: ADMIN DASHBOARD TOTAL FUND SHOW
+1. Stats tab mein ye 3 cards add karo Supabase se real-time:
+   - Total Users Fund: SUM(profiles.balance)
+   - Total Deposited: SUM(profiles.total_deposited) 
+   - Total Withdrawn: SUM(profiles.total_withdrawn)
+2. Sab data Supabase auth + RLS ke sath connected ho
+
+TASK 5: SQL COMMANDS DENA ZAROORI HAI
+TAM KAAM KE BAAD MUJHE STEP BY STEP SQL COMMANDS DO JO MUJHE SUPABASE SQL EDITOR MEIN KHUD CHALANI HAIN.
+Format ye ho:
+Step 1: Ye SQL chalao...
+Step 2: Ye SQL chalao...
+Har step ka maqsad bhi batana. Agar koi SQL nahi chalani to clearly likhna "Koi SQL manual nahi chalani".
+
+STRICT RULES:
+❌ Purana working code, auth, users table, settings mat cherna
+❌ Ek task ke liye doosra task mat bigarna
+✅ Sirf upar wale 4 modules add/update karne hain
+✅ Har cheez Supabase Auth + RLS ke sath secure ho
+✅ Last mein SQL steps lazmi dena agar zaroorat ho

@@ -46,6 +46,7 @@ type Stats = {
   totalUsers: number; totalDeposits: number;
   pendingDeposits: number; pendingWithdrawals: number;
   totalWithdrawn: number;
+  usersBalance: number; totalDepositedSum: number; totalWithdrawnSum: number;
 };
 
 const DEFAULT_SETTINGS: AdminSettings = {
@@ -57,7 +58,7 @@ const DEFAULT_SETTINGS: AdminSettings = {
   telegram_link: "https://t.me/+uE-PlUgGg-wzOWRk",
   customer_service_link: "https://t.me/TigerProtocolGlobal",
 };
-const ZERO_STATS: Stats = { totalUsers: 0, totalDeposits: 0, pendingDeposits: 0, pendingWithdrawals: 0, totalWithdrawn: 0 };
+const ZERO_STATS: Stats = { totalUsers: 0, totalDeposits: 0, pendingDeposits: 0, pendingWithdrawals: 0, totalWithdrawn: 0, usersBalance: 0, totalDepositedSum: 0, totalWithdrawnSum: 0 };
 
 /* ─── Small helpers ─── */
 function StatusBadge({ status }: { status: string }) {
@@ -216,19 +217,24 @@ export default function AdminDashboard() {
       { count: pendingDeps },
       { count: pendingWds },
       { data: wdApproved },
+      { data: profData },
     ] = await Promise.all([
       supabase.from("profiles").select("*", { count: "exact", head: true }),
       supabase.from("deposits").select("amount").eq("status", "approved"),
       supabase.from("deposits").select("*", { count: "exact", head: true }).eq("status", "pending"),
       supabase.from("withdrawals").select("*", { count: "exact", head: true }).eq("status", "pending"),
       supabase.from("withdrawals").select("amount").eq("status", "approved"),
+      supabase.from("profiles").select("balance, total_deposit, total_withdrawn"),
     ]);
     setStats({
-      totalUsers:       totalUsers ?? 0,
-      totalDeposits:    (depApproved ?? []).reduce((s, r) => s + (r.amount ?? 0), 0),
-      pendingDeposits:  pendingDeps ?? 0,
+      totalUsers:        totalUsers ?? 0,
+      totalDeposits:     (depApproved ?? []).reduce((s, r) => s + (r.amount ?? 0), 0),
+      pendingDeposits:   pendingDeps ?? 0,
       pendingWithdrawals: pendingWds ?? 0,
-      totalWithdrawn:   (wdApproved ?? []).reduce((s, r) => s + (r.amount ?? 0), 0),
+      totalWithdrawn:    (wdApproved ?? []).reduce((s, r) => s + (r.amount ?? 0), 0),
+      usersBalance:      (profData ?? []).reduce((s, r) => s + (r.balance ?? 0), 0),
+      totalDepositedSum: (profData ?? []).reduce((s, r) => s + (r.total_deposit ?? 0), 0),
+      totalWithdrawnSum: (profData ?? []).reduce((s, r) => s + (r.total_withdrawn ?? 0), 0),
     });
     setLoading(false);
   }, []);
@@ -311,8 +317,9 @@ export default function AdminDashboard() {
     const { error } = await supabase.from("withdrawals").update({
       status: "approved", tx_hash: txHash, approved_at: new Date().toISOString(),
     }).eq("id", w.id);
+    if (error) { setK(w.id, false); toast.error(error.message); return; }
+    await supabase.rpc("increment_balance", { uid: w.user_id, inc: -w.amount });
     setK(w.id, false);
-    if (error) { toast.error(error.message); return; }
     toast.success("Withdrawal approved ✓");
     loadWithdrawals();
   }
@@ -357,7 +364,7 @@ export default function AdminDashboard() {
     const msg = announce.trim();
     if (!msg) { toast.error("Write a message first"); return; }
     setPosting(true);
-    const { error } = await supabase.from("announcements").insert({ message: msg });
+    const { error } = await supabase.from("announcements").insert({ message: msg, is_active: true });
     setPosting(false);
     if (error) { toast.error("Failed: " + error.message); return; }
     toast.success("Announcement posted ✓");
@@ -768,11 +775,14 @@ export default function AdminDashboard() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               {[
-                { label: "Total Users",          value: stats.totalUsers.toString(),            icon: <Users size={20} />,       color: B, bg: "#EFF6FF", sub: "registered" },
-                { label: "Total Deposits",        value: `$${stats.totalDeposits.toFixed(2)}`,  icon: <DollarSign size={20} />,  color: G, bg: "#F0FDF4", sub: "approved only" },
-                { label: "Pending Deposits",      value: stats.pendingDeposits.toString(),       icon: <DollarSign size={20} />,  color: Y, bg: "#FFFBEB", sub: "awaiting review" },
-                { label: "Pending Withdrawals",   value: stats.pendingWithdrawals.toString(),    icon: <ArrowDownToLine size={20}/>, color: R, bg: "#FEF2F2", sub: "awaiting payout" },
-                { label: "Total Withdrawn",       value: `$${stats.totalWithdrawn.toFixed(2)}`, icon: <BarChart3 size={20} />,   color: "#7C3AED", bg: "#F5F3FF", sub: "paid out" },
+                { label: "Total Users",          value: stats.totalUsers.toString(),               icon: <Users size={20} />,          color: B,        bg: "#EFF6FF", sub: "registered" },
+                { label: "Total Deposits",        value: `$${stats.totalDeposits.toFixed(2)}`,     icon: <DollarSign size={20} />,     color: G,        bg: "#F0FDF4", sub: "approved only" },
+                { label: "Pending Deposits",      value: stats.pendingDeposits.toString(),          icon: <DollarSign size={20} />,     color: Y,        bg: "#FFFBEB", sub: "awaiting review" },
+                { label: "Pending Withdrawals",   value: stats.pendingWithdrawals.toString(),       icon: <ArrowDownToLine size={20} />, color: R,       bg: "#FEF2F2", sub: "awaiting payout" },
+                { label: "Total Withdrawn",       value: `$${stats.totalWithdrawn.toFixed(2)}`,    icon: <BarChart3 size={20} />,      color: "#7C3AED", bg: "#F5F3FF", sub: "paid out" },
+                { label: "Total Users Fund",      value: `$${stats.usersBalance.toFixed(2)}`,      icon: <DollarSign size={20} />,     color: "#0891B2", bg: "#ECFEFF", sub: "current balances" },
+                { label: "Total Deposited",       value: `$${stats.totalDepositedSum.toFixed(2)}`, icon: <BarChart3 size={20} />,      color: G,        bg: "#F0FDF4", sub: "all-time sum" },
+                { label: "Total Withdrawn Sum",   value: `$${stats.totalWithdrawnSum.toFixed(2)}`, icon: <ArrowDownToLine size={20} />, color: R,       bg: "#FEF2F2", sub: "all-time sum" },
               ].map(s => (
                 <div key={s.label} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3" style={{ background: s.bg }}>

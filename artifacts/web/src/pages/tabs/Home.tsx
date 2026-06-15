@@ -24,7 +24,6 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
-import AnnouncementBanner from "../../components/AnnouncementBanner";
 
 const R = "#DC2626";
 const B = "#1E3A8A";
@@ -821,9 +820,9 @@ setLiveTeamCount(realTeamCommission); // ✅ AB COMMISSION DIKHEGI
               style={{ color: B }}
             >
               <Bell size={18} />
-              {anns.some((a) => !reads.has(a.id)) && (
-                <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full" />
-              )}
+              {(() => { const cnt = anns.filter((a) => !reads.has(a.id)).length; return cnt > 0 ? (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 bg-red-500 rounded-full text-[9px] font-bold text-white flex items-center justify-center px-0.5">{cnt > 9 ? "9+" : cnt}</span>
+              ) : null; })()}
             </button>
             {bellOpen && (
               <div className="absolute right-0 top-full mt-1 bg-white rounded-2xl shadow-xl border border-gray-100 w-72 z-50 overflow-hidden">
@@ -930,8 +929,6 @@ setLiveTeamCount(realTeamCommission); // ✅ AB COMMISSION DIKHEGI
         </div>
       </div>
 
-      {/* Announcement Banner */}
-      <AnnouncementBanner />
 
       {/* Balance Card */}
       <div
