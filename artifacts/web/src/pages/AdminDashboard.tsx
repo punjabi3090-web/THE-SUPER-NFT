@@ -129,8 +129,8 @@ export default function AdminDashboard() {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user?.email) { navigate("/", { replace: true }); return; }
-      const { data } = await supabase.from("admins").select("email").eq("email", user.email).single();
-      if (!data) { navigate("/", { replace: true }); return; }
+      const isOwner = user.email === "faisalnft55@gmail.com";
+      if (!isOwner) { navigate("/", { replace: true }); return; }
       setIsAdmin(true);
       setAdminEmail(user.email);
       setAuthDone(true);

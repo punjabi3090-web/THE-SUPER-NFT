@@ -894,7 +894,7 @@ setLiveTeamCount(realTeamCommission); // ✅ AB COMMISSION DIKHEGI
                     <button
                       onClick={() => {
                         setMenuOpen(false);
-                        navigate("/admin");
+                        navigate("/admin/dashboard");
                       }}
                       className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-medium hover:bg-red-50"
                       style={{ color: R }}
