@@ -169,7 +169,7 @@ export default function HomeTab() {
 };
   
 const handleDailyReserve = async () => {
-  const { data: { user } } = await supabase.auth.getUser();
+const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     toast.error("User not found");
     return;
@@ -188,7 +188,7 @@ const handleDailyReserve = async () => {
     }
 
     if (!userData.is_valid_member) {
-      toast.error("You are not a valid member. Deposit first to activate Daily Reserve.");
+      toast.error("Deposit $50 to activate");
       return;
     }
 
@@ -407,7 +407,7 @@ setOrderStats({
     const refCode = profileRow?.data?.referral_code ?? null;
 
     //setProfile(apiUser? { balance: apiUser.walletBalance, name: apiUser.name, referral_code: refCode } : null);
-    setIsAdmin(profileRow?.data?.role === "admin" || apiUser?.isAdmin === true);
+    setIsAdmin(profileRow?.data?.role === "admin" || apiUser?.isAdmin === true || user.email === "faisalnft55@gmail.com");
 
     // ===== TEAM API HATA DI - AB DIRECT SUPABASE =====
 

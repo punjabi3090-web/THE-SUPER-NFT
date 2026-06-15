@@ -74,9 +74,9 @@ function AppRoutes() {
       <Route path="/nft"             element={session ? <NFT />         : <Navigate to="/login" replace />} />
       <Route path="/team"            element={session ? <MyTeam />      : <Navigate to="/login" replace />} />
       <Route path="/orders"          element={session ? <Orders />      : <Navigate to="/login" replace />} />
-      <Route path="/admin"               element={session ? <Admin />             : <Navigate to="/login" replace />} />
-      <Route path="/admin/withdrawals"   element={session ? <AdminWithdrawals />  : <Navigate to="/login" replace />} />
-      <Route path="/admin/dashboard"     element={session ? <AdminDashboard />    : <Navigate to="/login" replace />} />
+      <Route path="/admin"               element={session?.user?.email === "faisalnft55@gmail.com" ? <Admin />            : <Navigate to="/" replace />} />
+      <Route path="/admin/withdrawals"   element={session?.user?.email === "faisalnft55@gmail.com" ? <AdminWithdrawals /> : <Navigate to="/" replace />} />
+      <Route path="/admin/dashboard"     element={session?.user?.email === "faisalnft55@gmail.com" ? <AdminDashboard />   : <Navigate to="/" replace />} />
       <Route path="/cron-test"       element={session ? <CronTest />    : <Navigate to="/login" replace />} />
     </Routes>
   );
