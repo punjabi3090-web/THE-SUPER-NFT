@@ -4,6 +4,8 @@ import { getCurrentUser } from "../../lib/api";
 import { useNavigate } from "react-router-dom";
 import { Wallet, ArrowDownLeft, ArrowUpRight, TrendingUp, Clock, RefreshCw } from "lucide-react";
 
+const B = "#1E3A8A";
+
 type Profile = { balance: number; total_earned: number; total_withdrawn: number };
 type Tx      = { id: string; type: string; amount: number; description: string | null; created_at: string };
 
@@ -14,12 +16,15 @@ export default function AssetTab() {
   const [claimedSum, setClaimedSum] = useState(0);
   const [loading,    setLoading]   = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [user,       setUser]       = useState<{ id: string } | null>(null);
+  const [allHistory, setAllHistory] = useState<any[]>([]);
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true); else setRefreshing(true);
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { navigate("/login", { replace: true }); return; }
+    setUser(user);
 
     const [apiUser, { data: txData }, { data: claimed }] = await Promise.all([
       getCurrentUser(),
@@ -43,6 +48,23 @@ export default function AssetTab() {
   }, [navigate]);
 
   useEffect(() => { load(); }, [load]);
+
+  const loadTransactionHistory = async () => {
+    if (!user) return;
+    const { data: withdrawals } = await supabase.from('withdrawals').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
+    const { data: deposits } = await supabase.from('deposits').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
+    const { data: bonuses } = await supabase.from('transactions').select('*').eq('user_id', user.id).in('type', ['referral_bonus', 'signup_bonus']).order('created_at', { ascending: false });
+
+    const combined = [
+    ...(withdrawals || []).map(w => ({...w, history_type: 'withdraw' })),
+    ...(deposits || []).map(d => ({...d, history_type: 'deposit' })),
+    ...(bonuses || []).map(b => ({...b, history_type: b.type === 'referral_bonus'? 'referral' : 'bonus' }))
+    ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    setAllHistory(combined);
+  };
+
+  useEffect(() => { if (user) { loadTransactionHistory(); } }, [user]);
 
   const txIcon = (type: string) => {
     if (type === "nft_profit") return <TrendingUp size={12} style={{ color: "#16a34a" }} />;
@@ -99,20 +121,6 @@ export default function AssetTab() {
         </div>
       </div>
 
-      {/* ── Stats Grid ── */}
-      <div className="grid grid-cols-3 gap-2 mb-2">
-        {[
-          { label: "Total Earned",  value: `$${earned.toFixed(2)}`,     color: "#16a34a", bg: "#F0FDF4", Icon: TrendingUp },
-          { label: "Total Claimed", value: `$${claimedSum.toFixed(2)}`, color: "#DC2626", bg: "#FEF2F2", Icon: Wallet },
-          { label: "Withdrawn",     value: `$${withdrawn.toFixed(2)}`,  color: "#1E3A8A", bg: "#EFF6FF", Icon: ArrowUpRight },
-        ].map(s => (
-          <div key={s.label} className="rounded-xl p-2 text-center border border-gray-100 bg-white shadow-sm">
-            <s.Icon size={13} style={{ color: s.color }} className="mx-auto mb-1" />
-            <p className="text-sm font-bold leading-tight" style={{ color: s.color }}>{s.value}</p>
-            <p className="text-[9px] text-gray-400 mt-0.5 leading-tight">{s.label}</p>
-          </div>
-        ))}
-      </div>
 
       {/* ── Action Buttons ── */}
       <div className="grid grid-cols-2 gap-2 mb-2">
@@ -128,34 +136,49 @@ export default function AssetTab() {
         </button>
       </div>
 
-      {/* ── Transaction History ── */}
-      <div className="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-xs font-bold" style={{ color: "#1E3A8A" }}>Transaction History</p>
-          <span className="text-[10px] text-gray-400">{txs.length} records</span>
+      <div className="mt-4 bg-white rounded-xl p-3 mb-2 shadow-sm">
+        <div className="flex justify-between items-center mb-2">
+          <h3 className="text-base font-bold" style={{color: B}}>Transaction History</h3>
+          <span className="text-xs bg-gray-100 px-2 py-1 rounded-full">
+            {allHistory.length} records
+          </span>
         </div>
-        {txs.length === 0 ? (
-          <p className="text-[10px] text-gray-400 text-center py-4">No transactions yet</p>
+        {allHistory.length === 0? (
+          <div className="text-center py-8">
+            <p className="text-gray-400 text-sm">No transactions yet</p>
+            <p className="text-gray-300 text-xs mt-1">Your deposits and withdrawals will show here</p>
+          </div>
         ) : (
-          <div className="divide-y divide-gray-100">
-            {txs.map(tx => (
-              <div key={tx.id} className="flex items-center justify-between py-1.5">
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "#F8F9FA" }}>
-                    {txIcon(tx.type)}
+          <div className="space-y-2 max-h-96 overflow-y-auto">
+            {allHistory.map((item, index) => (
+              <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border border-gray-100">
+                <div className="flex items-center gap-3">
+                  <div className="text-2xl">
+                    {item.history_type === 'withdraw' && '🔴'}
+                    {item.history_type === 'deposit' && '🟢'}
+                    {item.history_type === 'referral' && '🟡'}
+                    {item.history_type === 'bonus' && '🔵'}
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-[11px] font-semibold capitalize truncate leading-tight" style={{ color: "#1E3A8A" }}>
-                      {tx.description ?? tx.type.replace(/_/g, " ")}
+                  <div>
+                    <p className="font-semibold text-sm capitalize">
+                      {item.history_type === 'withdraw' && 'Withdrawal'}
+                      {item.history_type === 'deposit' && 'Deposit'}
+                      {item.history_type === 'referral' && 'Referral Bonus'}
+                      {item.history_type === 'bonus' && 'Signup Bonus'}
                     </p>
-                    <p className="text-[9px] text-gray-400">
-                      {new Date(tx.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    <p className="text-xs text-gray-500">
+                      {new Date(item.created_at).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </p>
                   </div>
                 </div>
-                <p className="text-xs font-bold flex-shrink-0 ml-2" style={{ color: txColor(tx.type) }}>
-                  {tx.type === "withdraw" ? "-" : "+"}${Math.abs(tx.amount).toFixed(2)}
-                </p>
+                <div className="text-right">
+                  <p className="font-bold text-sm" style={{color: item.history_type === 'withdraw'? '#ef4444' : '#22c55e'}}>
+                    {item.history_type === 'withdraw'? '-' : '+'}${Number(item.amount || item.usd_amount || 0).toFixed(2)}
+                  </p>
+                  <p className="text-xs capitalize text-gray-500">
+                    {item.status || 'completed'}
+                  </p>
+                </div>
               </div>
             ))}
           </div>

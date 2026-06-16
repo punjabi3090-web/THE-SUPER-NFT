@@ -156,6 +156,7 @@ export default function Withdraw() {
       fee:            fee,
       wallet_address: wallet,
       network,
+          chain: network,
       status:         "pending",
     });
 

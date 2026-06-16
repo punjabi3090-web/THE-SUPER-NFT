@@ -1,0 +1,119 @@
+STOP. READ ALL RULES BEFORE DOING ANYTHING.
+
+ABSOLUTE RULES - VIOLATION NOT ALLOWED:
+
+1. DO NOT TOUCH ANY EXISTING CODE, FUNCTIONS, ADMIN PANEL, DASHBOARD, API ROUTES, SUPABASE CONFIG, AUTH LOGIC, STYLES, VARIABLES, IMPORTS, OR ANY FILE OTHER THAN THE ONES MENTIONED BELOW.
+
+2. DO NOT MODIFY ANY DATABASE TABLES, SCHEMA, RLS POLICIES, OR SUPABASE SETUP.
+
+3. DO NOT CREATE NEW FUNCTIONS OR REWRITE EXISTING FUNCTIONS. ONLY CUT-PASTE OR DELETE EXACT JSX SECTIONS AS TOLD.
+
+4. IF YOU CHANGE ANYTHING ELSE, YOU ARE BREAKING THE PROJECT. ONLY DO THE 3 TASKS BELOW. NOTHING MORE.
+
+ONLY THESE 3 TASKS:
+
+TASK 1: MOVE TRANSACTION HISTORY FROM HOME.TSX TO ASSET.TSX
+
+A. In Home.tsx or HomeTab.tsx:
+   - FIND the JSX div for "Transaction History" we added
+   - DELETE ONLY THAT JSX DIV
+   - DO NOT DELETE useState, useEffect, loadTransactionHistory function, or any other code
+
+B. In Asset.tsx or AssetTab.tsx:
+   - FIND the old "Transaction History" or "No transactions yet" div
+   - DELETE THAT ENTIRE DIV
+   - ADD THE FOLLOWING CODE IN ITS EXACT PLACE:
+
+   Step 1: At top with other useState, ADD:
+   const [allHistory, setAllHistory] = useState<any[]>([]);
+   
+   Step 2: Before return(), ADD this function AS-IS, DO NOT MODIFY:
+   const loadTransactionHistory = async () => {
+     if (!user) return;
+     const { data: withdrawals } = await supabase.from('withdrawals').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
+     const { data: deposits } = await supabase.from('deposits').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
+     const { data: bonuses } = await supabase.from('transactions').select('*').eq('user_id', user.id).in('type', ['referral_bonus', 'signup_bonus']).order('created_at', { ascending: false });
+     
+     const combined = [
+     ...(withdrawals || []).map(w => ({...w, history_type: 'withdraw' })),
+     ...(deposits || []).map(d => ({...d, history_type: 'deposit' })),
+     ...(bonuses || []).map(b => ({...b, history_type: b.type === 'referral_bonus'? 'referral' : 'bonus' }))
+     ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+     
+     setAllHistory(combined);
+   };
+   
+   Step 3: In existing useEffect for user, ADD THIS LINE:
+   if (user) { loadTransactionHistory(); }
+   
+   Step 4: REPLACE old Transaction History JSX with THIS EXACT CODE:
+   <div className="mt-4 bg-white rounded-xl p-3 mb-2 shadow-sm">
+     <div className="flex justify-between items-center mb-2">
+       <h3 className="text-base font-bold" style={{color: B}}>Transaction History</h3>
+       <span className="text-xs bg-gray-100 px-2 py-1 rounded-full">
+         {allHistory.length} records
+       </span>
+     </div>
+     {allHistory.length === 0? (
+       <div className="text-center py-8">
+         <p className="text-gray-400 text-sm">No transactions yet</p>
+         <p className="text-gray-300 text-xs mt-1">Your deposits and withdrawals will show here</p>
+       </div>
+     ) : (
+       <div className="space-y-2 max-h-96 overflow-y-auto">
+         {allHistory.map((item, index) => (
+           <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border border-gray-100">
+             <div className="flex items-center gap-3">
+               <div className="text-2xl">
+                 {item.history_type === 'withdraw' && '🔴'}
+                 {item.history_type === 'deposit' && '🟢'}
+                 {item.history_type === 'referral' && '🟡'}
+                 {item.history_type === 'bonus' && '🔵'}
+               </div>
+               <div>
+                 <p className="font-semibold text-sm capitalize">
+                   {item.history_type === 'withdraw' && 'Withdrawal'}
+                   {item.history_type === 'deposit' && 'Deposit'}
+                   {item.history_type === 'referral' && 'Referral Bonus'}
+                   {item.history_type === 'bonus' && 'Signup Bonus'}
+                 </p>
+                 <p className="text-xs text-gray-500">
+                   {new Date(item.created_at).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
+                 </p>
+               </div>
+             </div>
+             <div className="text-right">
+               <p className="font-bold text-sm" style={{color: item.history_type === 'withdraw'? '#ef4444' : '#22c55e'}}>
+                 {item.history_type === 'withdraw'? '-' : '+'}${Number(item.amount || item.usd_amount || 0).toFixed(2)}
+               </p>
+               <p className="text-xs capitalize text-gray-500">
+                 {item.status || 'completed'}
+               </p>
+             </div>
+           </div>
+         ))}
+       </div>
+     )}
+   </div>
+
+TASK 2: DELETE 3 STATS BOXES FROM ASSET.TSX
+
+C. In Asset.tsx or AssetTab.tsx:
+   - FIND the 3 boxes/cards ABOVE Deposit/Withdraw buttons: "Total Earned", "Total Claimed", "Withdrawn"
+   - DELETE THE ENTIRE CONTAINER DIV OF THESE 3 BOXES ONLY
+   - DO NOT DELETE DEPOSIT OR WITHDRAW BUTTONS
+   - DO NOT DELETE ANY OTHER CODE
+
+TASK 3: MOVE GOOGLE AUTHENTICATOR TO NEW SECURITY OPTION IN PROFILE
+
+D. In Profile.tsx or AccountSettings.tsx:
+   - STEP 1: FIND "Google Authenticator (2FA)" / "Google Authenticator Bind" section inside Account Settings
+   - STEP 2: CUT THIS ENTIRE COMPONENT/SECTION FROM ACCOUNT SETTINGS
+   - STEP 3: CREATE NEW MENU ITEM "Security" ABOVE "Account Settings" in Profile page menu
+   - STEP 4: PASTE THE CUT GOOGLE AUTHENTICATOR COMPONENT INSIDE NEW "Security" OPTION
+   - STEP 5: VERIFY "Account Details", "Withdrawal Address Bind" are STILL INSIDE "Account Settings". DO NOT MOVE OR DELETE THESE.
+
+FINAL CONFIRMATION REQUIRED:
+Reply with "UNDERSTOOD. WILL ONLY DO THE 3 TASKS. WILL NOT TOUCH ANY OTHER CODE." before making changes.
+
+IF YOU MODIFY ANY OTHER FILE, FUNCTION, OR COMPONENT, YOU HAVE FAILED.

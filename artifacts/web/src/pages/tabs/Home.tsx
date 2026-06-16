@@ -113,6 +113,11 @@ export default function HomeTab() {
   const [dailyIncome, setDailyIncome] = useState(0);
   const [totalIncome, setTotalIncome] = useState(0);
   const [lastReserveTime, setLastReserveTime] = useState<string | null>(null);
+  const [withdrawals, setWithdrawals] = useState<any[]>([]);
+  const [deposits, setDeposits] = useState<any[]>([]);
+  const [referrals, setReferrals] = useState<any[]>([]);
+  const [bonuses, setBonuses] = useState<any[]>([]);
+  const [allHistory, setAllHistory] = useState<any[]>([]);
   const [activeTeamTab, setActiveTeamTab] = useState("all");
   const [teamListOpen, setTeamListOpen] = useState(false);
   const [teamMembers, setTeamMembers] = useState<Member[]>([]);
@@ -166,7 +171,52 @@ export default function HomeTab() {
     });
   }
 };
+ const fetchWithdrawals = async (uid: string) => {
+  const { data, error } = await supabase
+   .from('withdrawals')
+   .select('*')
+   .eq('user_id', uid)
+   .order('created_at', { ascending: false });
+  if (error) console.log('Withdrawals error:', error);
+  setWithdrawals(data || []);
+   return data || [];
+};
+
+const fetchDeposits = async (uid: string) => {
+  const { data, error } = await supabase
+   .from('deposits')
+   .select('*')
+   .eq('user_id', uid)
+   .order('created_at', { ascending: false });
+  if (error) console.log('Deposits error:', error);
+  setDeposits(data || []);
+  return data || [];
+};
+
+const fetchReferrals = async (uid: string) => {
+  const { data, error } = await supabase
+   .from('transactions')
+   .select('*')
+   .eq('user_id', uid)
+   .eq('type', 'referral_bonus')
+   .order('created_at', { ascending: false });
+  if (error) console.log('Referrals error:', error);
+  setReferrals(data || []);
+  return data || [];
+};
+
+const fetchBonuses = async (uid: string) => {
+  const { data, error } = await supabase
+   .from('transactions')
+   .select('*')
+   .eq('user_id', uid)
+   .eq('type', 'signup_bonus')
+   .order('created_at', { ascending: false });
+  if (error) console.log('Bonuses error:', error);
+  setBonuses(data || []);
+  return data || [];
   
+}; 
 const handleDailyReserve = async () => {
 const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
@@ -404,7 +454,22 @@ setOrderStats({
 });
 
     const refCode = profileRow?.data?.referral_code ?? null;
+// Fetch all history data
+const withdrawalsData = await fetchWithdrawals(uid);
+const depositsData = await fetchDeposits(uid);
+const referralsData = await fetchReferrals(uid);
+const bonusesData = await fetchBonuses(uid);
 
+// Merge all data into one array
+const combined = [
+  ...withdrawalsData.map(w => ({ ...w, history_type: 'withdraw' })),
+  ...depositsData.map(d => ({ ...d, history_type: 'deposit' })),
+  ...referralsData.map(r => ({ ...r, history_type: 'referral' })),
+  ...bonusesData.map(b => ({ ...b, history_type: 'bonus' }))
+].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+setAllHistory(combined);
+console.log('All History Data:', combined);
     //setProfile(apiUser? { balance: apiUser.walletBalance, name: apiUser.name, referral_code: refCode } : null);
     setIsAdmin(profileRow?.data?.role === "admin" || apiUser?.isAdmin === true || user.email === "faisalnft55@gmail.com");
 
@@ -1199,7 +1264,6 @@ setLiveTeamCount(realTeamCommission); // ✅ AB COMMISSION DIKHEGI
           </div>
         )}
       </div>
-
       {/* ══ SECTION 3 — MY ORDERS ══ */}
       <div className="bg-white rounded-xl p-3 mb-2 shadow-sm">
         <div className="flex items-center justify-between mb-2">

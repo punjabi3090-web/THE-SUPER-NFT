@@ -27,7 +27,8 @@ export default function ProfileTab() {
   const [loading,  setLoading]  = useState(true);
   const [copied,   setCopied]   = useState(false);
 
-  const [showSettings, setShowSettings] = useState(false);
+  const [showSettings,  setShowSettings]  = useState(false);
+  const [showSecurity,  setShowSecurity]  = useState(false);
 
   const [bindAddr,    setBindAddr]    = useState<BindAddr | null>(null);
   const [bep20Input,  setBep20Input]  = useState("");
@@ -230,6 +231,7 @@ export default function ProfileTab() {
         {[
           { icon: <Users size={15} />,       label: "My Team",           onClick: () => navigate("/team"),          accent: B },
           { icon: <ShoppingBag size={15} />, label: "NFT Collections",   onClick: () => navigate("/nft"),           accent: B },
+          { icon: <Lock size={15} />,        label: "Security",           onClick: () => setShowSecurity(true),     accent: B },
           { icon: <Settings size={15} />,    label: "Account Settings",  onClick: () => setShowSettings(true),      accent: B },
           ...(isAdmin ? [{ icon: <Shield size={15} />, label: "Admin Panel", onClick: () => navigate("/admin"), accent: R }] : []),
         ].map(btn => (
@@ -334,6 +336,24 @@ export default function ProfileTab() {
               <button onClick={saveBindAddr} disabled={savingBind}
                 className={btnRed} style={{ background: R }}>
                 {savingBind ? "Saving..." : hasBind ? "Update Address" : "Bind Address"}
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ── Security Modal (Google Authenticator) ── */}
+      {showSecurity && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center"
+          style={{ background: "rgba(0,0,0,0.45)" }}
+          onClick={e => { if (e.target === e.currentTarget) setShowSecurity(false); }}>
+          <div className="bg-white w-full max-w-md rounded-t-2xl p-5 pb-10 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm font-bold" style={{ color: B }}>Security</p>
+              <button onClick={() => setShowSecurity(false)}
+                className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+                <X size={15} className="text-gray-500" />
               </button>
             </div>
 
