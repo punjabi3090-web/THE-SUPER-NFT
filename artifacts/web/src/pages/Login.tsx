@@ -251,10 +251,10 @@ acceptTerms: false
     password: form.password,
     options: {
       data: {
-        full_name: form.fullName.trim(),
-        phone_number: form.phone ? `${form.countryCode}${form.phone.trim()}` : '',
-        referral_code: refCode || ''
-      }
+  full_name: form.fullName.trim(),
+  phone: form.phone ? `${form.countryCode}${form.phone.trim()}` : '',
+  referred_by: refCode || null
+}
     }
   });
       authData = result.data;
@@ -264,7 +264,6 @@ acceptTerms: false
     }
 if (signupError) {
   setLoading(false);
-  alert(`AUTH ERROR: ${signupError.message}\n\nCode: ${(signupError as { code?: string }).code}\nDetails: ${JSON.stringify(signupError)}`);
   console.log('Full Signup Error:', signupError);
   return;
     }
@@ -276,36 +275,17 @@ if (signupError) {
   }
 
   if (authData.session) {
-  // Ab trigger nahi hai, to khud INSERT karo
-  const { error: profileError } = await supabase
-    .from('profiles')
-    .insert({
-      user_id: authData.user.id,
-      name: form.fullName.trim(),
-      phone: form.phone ? `${form.countryCode}${form.phone.trim()}` : '',
-      referred_by_code: refCode || null,
-      referral_code: Math.random().toString(36).substring(2, 10).toUpperCase()
-    })
-
-    setLoading(false);
-
-      if (profileError) {
-    setLoading(false);
-    console.log('Full Profile Error:', profileError);
-    showMsg(`Account ban gaya lekin profile save nahi hui. Support se rabta karein.`, "error");
-    return;
-  }
-
-    sessionStorage.removeItem('pending_referral_code');
-    window.location.replace('/showcase');
+  setLoading(false);
+  sessionStorage.removeItem('pending_referral_code');
+  showMsg("Account created successfully!", "success");
+  window.location.replace('/');
   } else {
     // Email confirmation required - wait for OTP
     setLoading(false);
     setPage("register_otp");
     showMsg("6-digit OTP sent to your email", "success");
   }
-};
-
+}
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (otpCode.length !== 6) return showMsg("Enter the 6-digit OTP");
@@ -327,26 +307,9 @@ if (signupError) {
       sessionStorage.getItem('pending_referral_code') || '';
  
     setLoading(false);
-
-    // Ab trigger nahi hai, to khud INSERT karo
-const { error: profileError } = await supabase
-  .from('profiles')
-  .insert({
-    user_id: authData.user.id,
-    name: form.fullName.trim(),
-    phone: form.phone ? '+' + form.phone.trim() : '',
-    referred_by_code: refCode || null,
-    referral_code: Math.random().toString(36).substring(2, 10).toUpperCase()
-  })
-
-if (profileError) {
-  showMsg(profileError.message || 'Account created but profile setup failed. Please contact support.', "error");
-  return;
-}
-
-    sessionStorage.removeItem('pending_referral_code');
+sessionStorage.removeItem('pending_referral_code');
     showMsg("Account created successfully!", "success");
-    window.location.replace('/showcase');
+    window.location.replace('/');
   };
 
 
@@ -362,7 +325,7 @@ if (profileError) {
         ? "Please verify your email first"
         : "Wrong email or password");
     } else {
-      navigate('/showcase');
+      navigate('/');
     }
     setLoading(false);
   };
