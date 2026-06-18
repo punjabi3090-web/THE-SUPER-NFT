@@ -373,19 +373,42 @@ if (profileError) {
   
 return (
 <div
-  className={`min-h-screen flex flex-col items-center p-4${page !== "register" ? " justify-center" : ""}`}
-  style={page === "register" ? {
-    backgroundImage: "url('/super-nft-bg.png')",
-    backgroundSize: "cover",
-    backgroundPosition: "center",
-    backgroundRepeat: "no-repeat",
-    backgroundAttachment: "fixed",
-    paddingTop: "clamp(180px, 52vh, 360px)",
-  } : { background: BRAND.bg }}
+  style={{
+    backgroundImage: 'url(/super-nft-bg.png)',
+    backgroundSize: 'contain',
+    backgroundPosition: 'center top',
+    backgroundRepeat: 'no-repeat',
+    backgroundColor: '#0a0118',
+    minHeight: '100vh',
+    height: '100vh',
+    width: '100vw',
+    overflow: 'hidden',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '0',
+    margin: '0',
+    position: 'fixed' as const,
+    top: '0',
+    left: '0',
+  }}
 >
+  <div
+    style={{
+      maxHeight: '90vh',
+      overflowY: 'auto' as const,
+      width: '100%',
+      maxWidth: '460px',
+      padding: '20px',
+      display: 'flex',
+      flexDirection: 'column' as const,
+      justifyContent: 'center',
+      alignItems: 'center',
+    }}
+  >
 
 
-      <div className={`rounded-2xl w-full max-w-md shadow-2xl border border-white/20${page === "register" ? " mt-5" : ""}`}
+      <div className="rounded-2xl w-full max-w-md shadow-2xl border border-white/20"
         style={{ background: "rgba(255,255,255,0.97)", backdropFilter: "blur(16px)",
           padding: page === "register" ? "24px" : "32px" }}>
 
@@ -659,7 +682,8 @@ return (
           </form>
           )}
       </div>
-      </div>
+    </div>
+    </div>
     );
 }
         

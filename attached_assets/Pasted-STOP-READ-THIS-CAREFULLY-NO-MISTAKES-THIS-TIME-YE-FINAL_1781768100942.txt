@@ -1,0 +1,80 @@
+STOP. READ THIS CAREFULLY. NO MISTAKES THIS TIME.
+
+YE FINAL MASTER PROMPT HAI. 3 TASK HAIN. TEENO 100% COMPLETE KARNE HAIN.
+BACKGROUND IMAGE ALREADY UPLOADED HAI `/public/super-nft-bg.png` MEIN. 
+ABHI WO SCROLL KE SATH SET HAI AUR ZOOMED/CUT HO RAHI HAI. USKO FIX KARNA HAI.
+
+KOI BHI TASK SKIP KIYA, GHAALAT KIYA, YA AADHA CHHORA TO FAIL MANA JAYEGA.
+
+==================== CRITICAL RULES - FOLLOW STRICTLY ====================
+1. DO NOT SKIP ANY TASK. ALL 3 TASKS ARE MANDATORY.
+2. DO NOT TOUCH ANY OTHER FILES EXCEPT SignUp.tsx, Login.tsx, Profile/AccountDetails.tsx, CSS file.
+3. DO NOT DAMAGE BACKEND, FRONTEND, DATABASE, TRIGGERS, TABLES, COLUMNS, RLS POLICIES.
+4. DO NOT CREATE NEW TRIGGER. DO NOT DROP EXISTING TRIGGER OR FUNCTION.
+5. DO NOT TOUCH supabase.ts OR supabaseClient.ts
+6. DO NOT UPLOAD NEW IMAGE. USE EXISTING `/public/super-nft-bg.png` ONLY.
+7. USER DATA MUST SHOW IN PROFILE > SETTINGS > ACCOUNT DETAILS: 
+   Email, Referral Code, Phone Number, Date Since - ALL 4 FIELDS WITH REAL VALUES.
+8. AGAR KOI BHI RULE BREAK HUA TO TUMHARA CODE REJECT HOGA.
+
+==================== TASK 1 ====================
+TITLE: SignUp + Login Page Background Fix + Scroll Khatam Karo
+
+PROBLEM:
+Background image `/public/super-nft-bg.png` already uploaded hai lekin:
+1. Page up/down scroll ho raha hai
+2. Background zoomed hai - USA flag + "SUPER NFT" logo + "Join The Super Nft Community World" text cut ho raha hai
+3. Form neeche chala jata hai
+4. Login page pe bhi same masla hai
+
+REQUIRED OUTPUT:
+1. Background image 100% visible - top to bottom, NO zoom, NO crop, NO scroll
+2. USA Flag circle top-right clearly visible
+3. SUPER NFT logo center-top clearly visible
+4. "Join The Super Nft Community World" text clearly visible
+5. Form card center mein fixed
+6. Page scroll = 0. Bilkul na ho.
+7. SignUp.tsx aur Login.tsx dono ka background identical ho
+
+DO THIS EXACTLY:
+
+SignUp.tsx aur Login.tsx mein purana wrapper DELETE karo aur ye lagao:
+```jsx
+<div 
+  className="signup-page-wrapper"
+  style={{
+    backgroundImage: 'url(/super-nft-bg.png)',
+    backgroundSize: 'contain',
+    backgroundPosition: 'center top',
+    backgroundRepeat: 'no-repeat',
+    backgroundColor: '#0a0118',
+    minHeight: '100vh',
+    height: '100vh',
+    width: '100vw',
+    overflow: 'hidden',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '0',
+    margin: '0',
+    position: 'fixed',
+    top: '0',
+    left: '0'
+  }}
+>
+  <div 
+    className="signup-form-container"
+    style={{
+      maxHeight: '90vh',
+      overflowY: 'auto',
+      width: '100%',
+      maxWidth: '460px',
+      padding: '20px',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center'
+    }}
+  >
+    {/* Existing form card - SignUp mein SignUp form, Login mein Login form */}
+  </div>
+</div>
