@@ -1,0 +1,87 @@
+ROLE: You are a senior React Native + Supabase admin developer with FULL SERVICE_ROLE_KEY access. Fix ONLY signup flow.
+
+STRICT RULES - VIOLATE THESE AND YOU FAIL:
+1. ONLY edit `artifacts/web/src/pages/login.tsx` file. 
+2. DO NOT touch `home.tsx`, any other frontend file, backend code, or any other component.
+3. DO NOT create new files.
+4. You have full DB access. Run ANY SQL, RLS policy, or trigger needed yourself. User will NOT run anything manually.
+5. ONLY read `home.tsx` to understand data structure. DO NOT edit it.
+
+YOUR DATABASE ACCESS:
+You can run SQL directly. Use service_role key to:
+- SELECT from `public.profiles` 
+- Check table structure: \d public.profiles
+- Run any ALTER TABLE, CREATE POLICY, or CREATE TRIGGER if needed
+
+CONTEXT:
+Old accounts `faisalnft55@gmail.com` and `ppp123@gmail.com` work perfectly. New signups fail because `login.tsx` only calls `supabase.auth.signUp()` but never inserts into `public.profiles`. So `home.tsx` shows (-) for phone, referral_code, team, etc.
+
+YOUR TASK - DO THIS IN ORDER:
+1. VERIFY DB ACCESS: 
+   SELECT email, referral_code, balance, total_team, user_level, role FROM profiles WHERE email IN ('faisalnft55@gmail.com', 'ppp123@gmail.com');
+   Note ALL columns and values. These 2 rows are your reference.
+
+2. CHECK FRONTEND REQUIREMENTS:
+   Run: cat src/pages/home.tsx | grep "profile\." 
+   List ALL `profiles` columns home.tsx actually uses.
+
+3. FIND LOGIN FILE:
+   Run: find . -name "login.tsx"
+   Open ONLY that file.
+
+4. FIX ONLY SIGNUP FUNCTION in login.tsx:
+   After supabase.auth.signUp() succeeds, add this exact logic:
+
+   try {
+     const referralCode = 'SNP' + Math.random().toString(36).substring(2, 8).toUpperCase();
+     const urlParams = new URLSearchParams(window.location.search);
+     const refCode = urlParams.get('ref');
+     let uplineId = null;
+     
+     if (refCode) {
+       const { data: upline } = await supabase.from('profiles').select('id').eq('referral_code', refCode).single();
+       uplineId = upline?.id || null;
+     }
+
+     const { error: profileError } = await supabase.from('profiles').insert({
+       id: authData.user.id,
+       user_id: authData.user.id,
+       email: formData.email,
+       name: formData.name || null,
+       phone: formData.phone || null,
+       referral_code: referralCode,
+       referred_by_c: refCode || null,
+       upline_id: uplineId,
+       balance: 0,
+       total_team: 0,
+       user_level: 0,
+       role: 'user',
+       total_deposit: 0,
+       total_withdrs: 0
+     });
+
+     if (profileError) {
+       console.error('Profile insert failed:', profileError);
+       await supabase.auth.admin.deleteUser(authData.user.id);
+       throw new Error('Profile creation failed: ' + profileError.message);
+     }
+     
+   } catch (err) {
+     console.error('Signup error:', err);
+     toast.error(err.message || 'Signup failed');
+     return;
+   }
+
+5. IF RLS/TRIGGER NEEDED:
+   If profile insert fails due to RLS, run this SQL yourself:
+   ALTER TABLE public.profiles DISABLE ROW LEVEL SECURITY;
+   OR create proper policy. DO NOT ask user to run it. You do it.
+
+6. DO NOT change login logic. Only signup.
+
+OUTPUT:
+Return ONLY the complete updated `login.tsx` file content. No explanation.
+
+FINAL CHECK BEFORE SUBMIT:
+Run: grep -A 40 "from('profiles').insert" artifacts/web/src/pages/login.tsx
+Confirm all 13 fields are being inserted exactly like old accounts.

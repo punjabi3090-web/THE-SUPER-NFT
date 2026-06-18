@@ -274,6 +274,32 @@ if (signupError) {
     return;
   }
 
+  // Create profile row (safe upsert - trigger may have already created it)
+  const newReferralCode = 'SNP' + Math.random().toString(36).substring(2, 8).toUpperCase();
+  let uplineUserId: string | null = null;
+  if (refCode) {
+    const { data: uplineData } = await supabase
+      .from('profiles')
+      .select('user_id')
+      .eq('referral_code', refCode)
+      .single();
+    uplineUserId = (uplineData as { user_id: string } | null)?.user_id || null;
+  }
+  const { error: profileError } = await supabase.from('profiles').upsert({
+    user_id: authData.user.id,
+    name: form.fullName.trim(),
+    phone: form.phone ? `${form.countryCode}${form.phone.trim()}` : '',
+    referral_code: newReferralCode,
+    referred_by_code: refCode || null,
+    balance: 0,
+    user_level: 0,
+    total_deposit: 0,
+    total_withdraw: 0,
+  }, { onConflict: 'user_id', ignoreDuplicates: true });
+  if (profileError) {
+    console.error('Profile creation error:', profileError);
+  }
+
   if (authData.session) {
   setLoading(false);
   sessionStorage.removeItem('pending_referral_code');
