@@ -218,143 +218,39 @@ const fetchBonuses = async (uid: string) => {
   
 }; 
 const handleDailyReserve = async () => {
-const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    toast.error("User not found");
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return toast.error("User not found");
+
+  setClaiming(true);
+
+  const { data, error } = await supabase.rpc('dev_claim_daily_reserve');
+
+  // Asli error yahan aye ga
+  if (error) {
+    console.error('RPC Error:', error);
+    toast.error('Reserve failed: ' + error.message);
+    setClaiming(false);
     return;
   }
-  const userId = user.id;
-    // 1. SUPABASE SE DATA FETCH KARO - daily_income, total_income add kiya
-    const { data: userData, error: fetchError } = await supabase
-      .from("profiles")
-      .select("last_daily_reserve, balance, daily_income, total_income, user_level, is_valid_member")
-      .eq("user_id", userId)
-      .single();
 
-    if (fetchError || !userData) {
-      toast.error("Error fetching user data");
-      return;
+  // Function ka response check karo
+  if (!data.success) {
+    if (data.already_claimed) {
+      const s = data.next_claim_seconds || 0;
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      toast.error(`Next Reserve: ${h}h ${m}m left`);
+    } else {
+      toast.error(data.message); // 'msg' nahi, 'message' hai
     }
+    setClaiming(false);
+    return;
+  }
 
-    if (!userData.is_valid_member) {
-      toast.error("Deposit $50 to activate");
-      return;
-    }
-
-    // 2. PAKISTAN 5AM RESET CHECK KARO
-    const now = new Date();
-
-  // UTC 00:00 = PKT 5:00 AM - DIRECT UTC CHECK
-const nowUTC = new Date();
-const todayUTCStart = new Date(Date.UTC(
-  nowUTC.getUTCFullYear(),
-  nowUTC.getUTCMonth(),
-  nowUTC.getUTCDate(),
-  0, 0, 0, 0
-));
-
-    if (userData.last_daily_reserve) {
-      const lastClick = new Date(userData.last_daily_reserve);
-
-      // Agar last claim reset time ke baad hua hai to block karo
-      if (lastClick >= todayUTCStart) {
-        const nextClaimUTC = new Date(todayUTCStart.getTime() + 24 * 60 * 60 * 1000);
-const diffMs = nextClaimUTC.getTime() - nowUTC.getTime(); // ← UTC SE UTC MINUS KARO
-
-const hours = Math.floor(diffMs / (1000 * 60 * 60));
-const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-const seconds = Math.floor((diffMs % (1000 * 60)) / 1000);
-
-toast.error(`Next Reserve: ${hours}h ${minutes}m ${seconds}s left`); // ← "Claim at" HATA DIYA
-return;
-    }
-
-    // 3. BALANCE CHECK
-    const currentBalance = userData.balance || 0;
-    if (currentBalance <= 0) {
-  toast.error("Balance is 0, cannot activate reserve");
-  return;
-}
-
-// ✅ LEVEL KE HISAAB SE PERCENT NIKALO
-const userLevel = userData.user_level || 1;
-const reservePercent = userLevel === 1 ? 1.5 : 2.2;
-const earnedAmount = (currentBalance * reservePercent) / 100;
-
-    const boughtOrder = {
-      id: Date.now(),
-      status: "bought",
-      date: new Date().toISOString(),
-      amount: earnedAmount,
-    };
-
-    const soldOrder = {
-      id: Date.now() + 1,
-      status: "sold",
-      date: new Date().toISOString(),
-      amount: earnedAmount,
-    };
-
-    // Variables pehle define karo
-    const newBalance = currentBalance + earnedAmount;
-    const newDailyIncome = earnedAmount; // Daily reset hoga  // ✅ SAHI
-    const newTotalIncome = userData.total_income + earnedAmount;
-    const nowISO = new Date().toISOString();
-
-    // 4. SUPABASE MEIN UPDATE KARO
-      // Referral commission for person who activated reserve
-try {
-  const { error: reserveCommError } = await supabase.rpc('add_reserve_commission', { 
-    reserver_id: userId, 
-    reserve_amount: earnedAmount 
-  })
-  if (reserveCommError) console.error('Reserve commission failed:', reserveCommError);
-} catch (e) {
-  console.error('Reserve commission error:', e);
-}
+  toast.success(`Daily Reserve 1.5% activated +$${data.amount.toFixed(2)}`);
   
-// 5. ORDERS TABLE MEIN LIFETIME ENTRY KARO
-const { error: orderError } = await supabase
-  .from('orders')
-  .insert({
-    user_id: userId,
-    type: 'daily_reserve',
-    amount: earnedAmount,
-    created_at: nowISO
-  });
-
-if (orderError) {
-  toast.error('Failed to record order: ' + orderError.message);
-  return;
-}
-
-// 6. AB PROFILE UPDATE KARO
-const { error: profileError } = await supabase
-  .from('profiles')
-  .update({
-    balance: newBalance,
-    daily_income: newDailyIncome,
-    last_daily_reserve: nowISO,
-    total_income: newTotalIncome,
-  })
-  .eq('user_id', userId);
-
-if (profileError) {
-  toast.error('Profile update failed: ' + profileError.message);
-  return;
-}
-toast.success(
-  `Daily Reserve ${reservePercent}% activated +$${earnedAmount.toFixed(2)}`
-);
-
-// await fetchUserData(); // <-- TERA PURANA CODE COMMENTED HAI, WESA HI REHNE DE
-setBalance(newBalance);
-setDailyIncome(newDailyIncome);
-setTotalIncome(newTotalIncome);
-setLastReserveTime(nowISO);
-
-await load(); // <-- YE 1 LINE ADD KI HAI. SIRF COUNT REFRESH KE LIYE
-}
+  await load();
+  setClaiming(false);
 };
   useEffect(() => {
     fetchUserData();

@@ -16,6 +16,9 @@ type Profile = {
   name: string | null; email: string | null; phone: string | null;
   country: string | null; referral_code: string | null; role: string | null;
   level: number | null; created_at: string | null;
+    balance: number | null;
+  total_deposit: number | null;
+  total_withdraw: number | null;
 };
 type BindAddr = { bep20_address: string | null; trc20_address: string | null; bind_at: string | null };
 
@@ -56,7 +59,7 @@ export default function ProfileTab() {
 
       const [{ data: bindData }, { data: profData }] = await Promise.all([
         supabase.from("user_withdraw_addresses").select("bep20_address,trc20_address,bind_at").eq("user_id", user.id).single(),
-        supabase.from("profiles").select("totp_enabled,referral_code").eq("user_id", user.id).single(),
+        supabase.from('profiles').select('totp_enabled, referral_code, balance, total_deposit, total_withdraw').eq('user_id', user.id).single(),
       ]);
 
       setProfile({
@@ -65,8 +68,10 @@ export default function ProfileTab() {
         referral_code: (profData?.referral_code as string | null) ?? null,
         role: apiUser.isAdmin ? "admin" : null, level: apiUser.level,
         created_at: apiUser.registeredAt,
+        balance: profData?.balance ?? 0,
+        total_deposit: profData?.total_deposit ?? 0,
+        total_withdraw: profData?.total_withdraw ?? 0,
       });
-
       if (bindData) {
         setBindAddr(bindData);
         setBep20Input(bindData.bep20_address ?? "");

@@ -2,9 +2,176 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Mail, ArrowLeft, X, User, Lock, Gift } from "lucide-react";
 import { supabase } from "../lib/supabase";
-import PhoneInput from "react-phone-input-2";
-import "react-phone-input-2/lib/style.css";
 
+const COUNTRIES = [
+  { name: 'United States', code: '+1', flag: '🇺🇸', pattern: /^[2-9][0-9]{9}$/, example: '2125551234' },
+  { name: 'United Kingdom', code: '+44', flag: '🇬🇧', pattern: /^7[0-9]{9}$/, example: '7911123456' },
+  { name: 'Canada', code: '+1', flag: '🇨🇦', pattern: /^[2-9][0-9]{9}$/, example: '4165551234' },
+  { name: 'Australia', code: '+61', flag: '🇦🇺', pattern: /^4[0-9]{8}$/, example: '412345678' },
+  { name: 'UAE', code: '+971', flag: '🇦🇪', pattern: /^5[0-9]{8}$/, example: '501234567' },
+  { name: 'Saudi Arabia', code: '+966', flag: '🇸🇦', pattern: /^5[0-9]{8}$/, example: '512345678' },
+  { name: 'Germany', code: '+49', flag: '🇩🇪', pattern: /^1[5-7][0-9]{8,9}$/, example: '1512345678' },
+  { name: 'France', code: '+33', flag: '🇫🇷', pattern: /^[67][0-9]{8}$/, example: '612345678' },
+  { name: 'Turkey', code: '+90', flag: '🇹🇷', pattern: /^5[0-9]{9}$/, example: '5123456789' },
+  { name: 'Pakistan', code: '+92', flag: '🇵🇰', pattern: /^3[0-9]{9}$/, example: '3001234567' },
+  { name: 'India', code: '+91', flag: '🇮🇳', pattern: /^[6-9][0-9]{9}$/, example: '9876543210' },
+  { name: 'Bangladesh', code: '+880', flag: '🇧🇩', pattern: /^1[3-9][0-9]{8}$/, example: '1712345678' },
+  { name: 'China', code: '+86', flag: '🇨🇳', pattern: /^1[3-9][0-9]{9}$/, example: '13812345678' },
+  { name: 'Japan', code: '+81', flag: '🇯🇵', pattern: /^[789]0[0-9]{8}$/, example: '9012345678' },
+  { name: 'South Korea', code: '+82', flag: '🇰🇷', pattern: /^1[0-9]{8,9}$/, example: '1012345678' },
+  { name: 'Russia', code: '+7', flag: '🇷🇺', pattern: /^9[0-9]{9}$/, example: '9123456789' },
+  { name: 'Brazil', code: '+55', flag: '🇧🇷', pattern: /^[1-9]{2}9[0-9]{8}$/, example: '11987654321' },
+  { name: 'Mexico', code: '+52', flag: '🇲🇽', pattern: /^1[0-9]{10}$/, example: '15512345678' },
+  { name: 'Italy', code: '+39', flag: '🇮🇹', pattern: /^3[0-9]{9}$/, example: '3123456789' },
+  { name: 'Spain', code: '+34', flag: '🇪🇸', pattern: /^[67][0-9]{8}$/, example: '612345678' },
+  { name: 'Afghanistan', code: '+93', flag: '🇦🇫', pattern: /^7[0-9]{8}$/, example: '701234567' },
+  { name: 'Albania', code: '+355', flag: '🇦🇱', pattern: /^6[0-9]{8}$/, example: '612345678' },
+  { name: 'Algeria', code: '+213', flag: '🇩🇿', pattern: /^[5-7][0-9]{8}$/, example: '512345678' },
+  { name: 'Andorra', code: '+376', flag: '🇦🇩', pattern: /^[346][0-9]{5}$/, example: '312345' },
+  { name: 'Angola', code: '+244', flag: '🇦🇴', pattern: /^9[0-9]{8}$/, example: '912345678' },
+  { name: 'Argentina', code: '+54', flag: '🇦🇷', pattern: /^9[0-9]{10}$/, example: '91123456789' },
+  { name: 'Armenia', code: '+374', flag: '🇦🇲', pattern: /^[4-9][0-9]{7}$/, example: '91234567' },
+  { name: 'Austria', code: '+43', flag: '🇦🇹', pattern: /^6[0-9]{9,10}$/, example: '6641234567' },
+  { name: 'Azerbaijan', code: '+994', flag: '🇦🇿', pattern: /^[45][0-9]{8}$/, example: '501234567' },
+  { name: 'Bahrain', code: '+973', flag: '🇧🇭', pattern: /^[36][0-9]{7}$/, example: '36012345' },
+  { name: 'Belarus', code: '+375', flag: '🇧🇾', pattern: /^[1-9][0-9]{8}$/, example: '291234567' },
+  { name: 'Belgium', code: '+32', flag: '🇧🇪', pattern: /^4[0-9]{8}$/, example: '412345678' },
+  { name: 'Belize', code: '+501', flag: '🇧🇿', pattern: /^[67][0-9]{6}$/, example: '6123456' },
+  { name: 'Benin', code: '+229', flag: '🇧🇯', pattern: /^[4-9][0-9]{7}$/, example: '90123456' },
+  { name: 'Bhutan', code: '+975', flag: '🇧🇹', pattern: /^17[0-9]{6}$/, example: '17123456' },
+  { name: 'Bolivia', code: '+591', flag: '🇧🇴', pattern: /^[67][0-9]{7}$/, example: '71234567' },
+  { name: 'Bosnia', code: '+387', flag: '🇧🇦', pattern: /^6[0-9]{7}$/, example: '61234567' },
+  { name: 'Botswana', code: '+267', flag: '🇧🇼', pattern: /^7[0-9]{7}$/, example: '71234567' },
+  { name: 'Brunei', code: '+673', flag: '🇧🇳', pattern: /^[78][0-9]{6}$/, example: '7123456' },
+  { name: 'Bulgaria', code: '+359', flag: '🇧🇬', pattern: /^[87-9][0-9]{7,8}$/, example: '871234567' },
+  { name: 'Burkina Faso', code: '+226', flag: '🇧🇫', pattern: /^[67][0-9]{7}$/, example: '70123456' },
+  { name: 'Burundi', code: '+257', flag: '🇧🇮', pattern: /^[67][0-9]{7}$/, example: '71234567' },
+  { name: 'Cambodia', code: '+855', flag: '🇰🇭', pattern: /^[1-9][0-9]{7,8}$/, example: '12345678' },
+  { name: 'Cameroon', code: '+237', flag: '🇨🇲', pattern: /^6[0-9]{8}$/, example: '612345678' },
+  { name: 'Cape Verde', code: '+238', flag: '🇨🇻', pattern: /^9[0-9]{6}$/, example: '9123456' },
+  { name: 'Central African Rep', code: '+236', flag: '🇨🇫', pattern: /^[67][0-9]{7}$/, example: '70123456' },
+  { name: 'Chad', code: '+235', flag: '🇹🇩', pattern: /^[67][0-9]{7}$/, example: '60123456' },
+  { name: 'Chile', code: '+56', flag: '🇨🇱', pattern: /^9[0-9]{8}$/, example: '912345678' },
+  { name: 'Colombia', code: '+57', flag: '🇨🇴', pattern: /^3[0-9]{9}$/, example: '3123456789' },
+  { name: 'Comoros', code: '+269', flag: '🇰🇲', pattern: /^[367][0-9]{6}$/, example: '3212345' },
+  { name: 'Congo', code: '+242', flag: '🇨🇬', pattern: /^[0-9]{9}$/, example: '061234567' },
+  { name: 'Costa Rica', code: '+506', flag: '🇨🇷', pattern: /^[6-8][0-9]{7}$/, example: '81234567' },
+  { name: 'Croatia', code: '+385', flag: '🇭🇷', pattern: /^9[0-9]{8}$/, example: '912345678' },
+  { name: 'Cuba', code: '+53', flag: '🇨🇺', pattern: /^5[0-9]{7}$/, example: '51234567' },
+  { name: 'Cyprus', code: '+357', flag: '🇨🇾', pattern: /^9[0-9]{7}$/, example: '96123456' },
+  { name: 'Czech Republic', code: '+420', flag: '🇨🇿', pattern: /^[67][0-9]{8}$/, example: '601234567' },
+  { name: 'Denmark', code: '+45', flag: '🇩🇰', pattern: /^[2-9][0-9]{7}$/, example: '21234567' },
+  { name: 'Djibouti', code: '+253', flag: '🇩🇯', pattern: /^77[0-9]{6}$/, example: '77123456' },
+  { name: 'Dominican Rep', code: '+1', flag: '🇩🇴', pattern: /^[89][0-9]{9}$/, example: '8091234567' },
+  { name: 'Ecuador', code: '+593', flag: '🇪🇨', pattern: /^9[0-9]{8}$/, example: '991234567' },
+  { name: 'Egypt', code: '+20', flag: '🇪🇬', pattern: /^1[0-9]{9}$/, example: '1001234567' },
+  { name: 'El Salvador', code: '+503', flag: '🇸🇻', pattern: /^[67][0-9]{7}$/, example: '71234567' },
+  { name: 'Equatorial Guinea', code: '+240', flag: '🇬🇶', pattern: /^[25][0-9]{8}$/, example: '222123456' },
+  { name: 'Eritrea', code: '+291', flag: '🇪🇷', pattern: /^[17][0-9]{6}$/, example: '7123456' },
+  { name: 'Estonia', code: '+372', flag: '🇪🇪', pattern: /^[5-8][0-9]{6,7}$/, example: '51234567' },
+  { name: 'Eswatini', code: '+268', flag: '🇸🇿', pattern: /^[67][0-9]{7}$/, example: '76123456' },
+  { name: 'Ethiopia', code: '+251', flag: '🇪🇹', pattern: /^9[0-9]{8}$/, example: '911234567' },
+  { name: 'Fiji', code: '+679', flag: '🇫🇯', pattern: /^[7-9][0-9]{6}$/, example: '7123456' },
+  { name: 'Finland', code: '+358', flag: '🇫🇮', pattern: /^[4-5][0-9]{7,9}$/, example: '412345678' },
+  { name: 'Gabon', code: '+241', flag: '🇬🇦', pattern: /^[06][0-9]{7}$/, example: '06123456' },
+  { name: 'Gambia', code: '+220', flag: '🇬🇲', pattern: /^[0-9]{6}$/, example: '3012345' },
+  { name: 'Georgia', code: '+995', flag: '🇬🇪', pattern: /^5[0-9]{8}$/, example: '555123456' },
+  { name: 'Ghana', code: '+233', flag: '🇬🇭', pattern: /^[25][0-9]{8}$/, example: '201234567' },
+  { name: 'Greece', code: '+30', flag: '🇬🇷', pattern: /^69[0-9]{8}$/, example: '6912345678' },
+  { name: 'Guatemala', code: '+502', flag: '🇬🇹', pattern: /^[3-5][0-9]{7}$/, example: '51234567' },
+  { name: 'Guinea', code: '+224', flag: '🇬🇳', pattern: /^6[0-9]{8}$/, example: '601234567' },
+  { name: 'Guyana', code: '+592', flag: '🇬🇾', pattern: /^6[0-9]{6}$/, example: '6123456' },
+  { name: 'Haiti', code: '+509', flag: '🇭🇹', pattern: /^[34][0-9]{7}$/, example: '31234567' },
+  { name: 'Honduras', code: '+504', flag: '🇭🇳', pattern: /^[389][0-9]{7}$/, example: '91234567' },
+  { name: 'Hong Kong', code: '+852', flag: '🇭🇰', pattern: /^[5-9][0-9]{7}$/, example: '51234567' },
+  { name: 'Hungary', code: '+36', flag: '🇭🇺', pattern: /^[2-7][0-9]{8}$/, example: '201234567' },
+  { name: 'Iceland', code: '+354', flag: '🇮🇸', pattern: /^[6-8][0-9]{6}$/, example: '6123456' },
+  { name: 'Indonesia', code: '+62', flag: '🇮🇩', pattern: /^8[1-9][0-9]{7,10}$/, example: '8123456789' },
+  { name: 'Iran', code: '+98', flag: '🇮🇷', pattern: /^9[0-9]{9}$/, example: '9123456789' },
+  { name: 'Iraq', code: '+964', flag: '🇮🇶', pattern: /^7[0-9]{9}$/, example: '7911234567' },
+  { name: 'Ireland', code: '+353', flag: '🇮🇪', pattern: /^8[0-9]{8}$/, example: '851234567' },
+  { name: 'Israel', code: '+972', flag: '🇮🇱', pattern: /^5[0-9]{8}$/, example: '501234567' },
+  { name: 'Ivory Coast', code: '+225', flag: '🇨🇮', pattern: /^[0-9]{10}$/, example: '0123456789' },
+  { name: 'Jamaica', code: '+1', flag: '🇯🇲', pattern: /^[89][0-9]{9}$/, example: '8761234567' },
+  { name: 'Jordan', code: '+962', flag: '🇯🇴', pattern: /^7[0-9]{8}$/, example: '791234567' },
+  { name: 'Kazakhstan', code: '+7', flag: '🇰🇿', pattern: /^7[0-9]{9}$/, example: '7123456789' },
+  { name: 'Kenya', code: '+254', flag: '🇰🇪', pattern: /^7[0-9]{8}$/, example: '712345678' },
+  { name: 'Kuwait', code: '+965', flag: '🇰🇼', pattern: /^[569][0-9]{7}$/, example: '51234567' },
+  { name: 'Kyrgyzstan', code: '+996', flag: '🇰🇬', pattern: /^[5-7][0-9]{8}$/, example: '551123456' },
+  { name: 'Laos', code: '+856', flag: '🇱🇦', pattern: /^20[0-9]{8}$/, example: '2012345678' },
+  { name: 'Latvia', code: '+371', flag: '🇱🇻', pattern: /^2[0-9]{7}$/, example: '21234567' },
+  { name: 'Lebanon', code: '+961', flag: '🇱🇧', pattern: /^[37][0-9]{7}$/, example: '71123456' },
+  { name: 'Lesotho', code: '+266', flag: '🇱🇸', pattern: /^[5-6][0-9]{7}$/, example: '51234567' },
+  { name: 'Liberia', code: '+231', flag: '🇱🇷', pattern: /^[45][0-9]{7,8}$/, example: '41234567' },
+  { name: 'Libya', code: '+218', flag: '🇱🇾', pattern: /^9[0-9]{8}$/, example: '911234567' },
+  { name: 'Lithuania', code: '+370', flag: '🇱🇹', pattern: /^6[0-9]{7}$/, example: '61234567' },
+  { name: 'Luxembourg', code: '+352', flag: '🇱🇺', pattern: /^6[0-9]{8}$/, example: '612345678' },
+  { name: 'Madagascar', code: '+261', flag: '🇲🇬', pattern: /^3[0-9]{8}$/, example: '321234567' },
+  { name: 'Malawi', code: '+265', flag: '🇲🇼', pattern: /^[89][0-9]{8}$/, example: '881234567' },
+  { name: 'Malaysia', code: '+60', flag: '🇲🇾', pattern: /^1[0-9]{8,9}$/, example: '123456789' },
+  { name: 'Maldives', code: '+960', flag: '🇲🇻', pattern: /^[79][0-9]{6}$/, example: '7123456' },
+  { name: 'Mali', code: '+223', flag: '🇲🇱', pattern: /^[67][0-9]{7}$/, example: '60123456' },
+  { name: 'Malta', code: '+356', flag: '🇲🇹', pattern: /^7[0-9]{7}$/, example: '71234567' },
+  { name: 'Mauritania', code: '+222', flag: '🇲🇷', pattern: /^[2-4][0-9]{7}$/, example: '21234567' },
+  { name: 'Mauritius', code: '+230', flag: '🇲🇺', pattern: /^5[0-9]{7}$/, example: '51234567' },
+  { name: 'Moldova', code: '+373', flag: '🇲🇩', pattern: /^6[0-9]{7}$/, example: '61234567' },
+  { name: 'Monaco', code: '+377', flag: '🇲🇨', pattern: /^[46][0-9]{7,8}$/, example: '612345678' },
+  { name: 'Mongolia', code: '+976', flag: '🇲🇳', pattern: /^[5-9][0-9]{7}$/, example: '88123456' },
+  { name: 'Montenegro', code: '+382', flag: '🇲🇪', pattern: /^6[0-9]{7,8}$/, example: '67123456' },
+  { name: 'Morocco', code: '+212', flag: '🇲🇦', pattern: /^[67][0-9]{8}$/, example: '612345678' },
+  { name: 'Mozambique', code: '+258', flag: '🇲🇿', pattern: /^8[0-9]{8}$/, example: '821234567' },
+  { name: 'Myanmar', code: '+95', flag: '🇲🇲', pattern: /^9[0-9]{7,9}$/, example: '912345678' },
+  { name: 'Namibia', code: '+264', flag: '🇳🇦', pattern: /^81[0-9]{7}$/, example: '811234567' },
+  { name: 'Nepal', code: '+977', flag: '🇳🇵', pattern: /^9[0-9]{9}$/, example: '9812345678' },
+  { name: 'Netherlands', code: '+31', flag: '🇳🇱', pattern: /^6[0-9]{8}$/, example: '612345678' },
+  { name: 'New Zealand', code: '+64', flag: '🇳🇿', pattern: /^2[0-9]{8,9}$/, example: '211234567' },
+  { name: 'Nicaragua', code: '+505', flag: '🇳🇮', pattern: /^[578][0-9]{7}$/, example: '81234567' },
+  { name: 'Niger', code: '+227', flag: '🇳🇪', pattern: /^[89][0-9]{7}$/, example: '90123456' },
+  { name: 'Nigeria', code: '+234', flag: '🇳🇬', pattern: /^[789][01][0-9]{8}$/, example: '8012345678' },
+  { name: 'North Macedonia', code: '+389', flag: '🇲🇰', pattern: /^7[0-9]{7}$/, example: '71234567' },
+  { name: 'Norway', code: '+47', flag: '🇳🇴', pattern: /^[49][0-9]{7}$/, example: '41234567' },
+  { name: 'Oman', code: '+968', flag: '🇴🇲', pattern: /^9[0-9]{7}$/, example: '91234567' },
+  { name: 'Palestine', code: '+970', flag: '🇵🇸', pattern: /^5[0-9]{8}$/, example: '591234567' },
+  { name: 'Panama', code: '+507', flag: '🇵🇦', pattern: /^6[0-9]{7}$/, example: '61234567' },
+  { name: 'Papua New Guinea', code: '+675', flag: '🇵🇬', pattern: /^7[0-9]{7}$/, example: '71234567' },
+  { name: 'Paraguay', code: '+595', flag: '🇵🇾', pattern: /^9[0-9]{8}$/, example: '961234567' },
+  { name: 'Peru', code: '+51', flag: '🇵🇪', pattern: /^9[0-9]{8}$/, example: '912345678' },
+  { name: 'Philippines', code: '+63', flag: '🇵🇭', pattern: /^9[0-9]{9}$/, example: '9171234567' },
+  { name: 'Poland', code: '+48', flag: '🇵🇱', pattern: /^[4-9][0-9]{8}$/, example: '512345678' },
+  { name: 'Portugal', code: '+351', flag: '🇵🇹', pattern: /^9[0-9]{8}$/, example: '912345678' },
+  { name: 'Qatar', code: '+974', flag: '🇶🇦', pattern: /^[35-7][0-9]{7}$/, example: '51234567' },
+  { name: 'Romania', code: '+40', flag: '🇷🇴', pattern: /^7[0-9]{8}$/, example: '712345678' },
+  { name: 'Rwanda', code: '+250', flag: '🇷🇼', pattern: /^7[0-9]{8}$/, example: '781234567' },
+  { name: 'Senegal', code: '+221', flag: '🇸🇳', pattern: /^7[0-9]{8}$/, example: '701234567' },
+  { name: 'Serbia', code: '+381', flag: '🇷🇸', pattern: /^6[0-9]{7,8}$/, example: '601234567' },
+  { name: 'Sierra Leone', code: '+232', flag: '🇸🇱', pattern: /^[2-8][0-9]{7}$/, example: '30123456' },
+  { name: 'Singapore', code: '+65', flag: '🇸🇬', pattern: /^[89][0-9]{7}$/, example: '81234567' },
+  { name: 'Slovakia', code: '+421', flag: '🇸🇰', pattern: /^9[0-9]{8}$/, example: '912345678' },
+  { name: 'Slovenia', code: '+386', flag: '🇸🇮', pattern: /^[3-7][0-9]{7}$/, example: '31234567' },
+  { name: 'Somalia', code: '+252', flag: '🇸🇴', pattern: /^[6-7][0-9]{7,8}$/, example: '612345678' },
+  { name: 'South Africa', code: '+27', flag: '🇿🇦', pattern: /^[6-8][0-9]{8}$/, example: '721234567' },
+  { name: 'Sri Lanka', code: '+94', flag: '🇱🇰', pattern: /^7[0-9]{8}$/, example: '712345678' },
+  { name: 'Sudan', code: '+249', flag: '🇸🇩', pattern: /^9[0-9]{8}$/, example: '912345678' },
+  { name: 'Sweden', code: '+46', flag: '🇸🇪', pattern: /^7[0-9]{8}$/, example: '712345678' },
+  { name: 'Switzerland', code: '+41', flag: '🇨🇭', pattern: /^7[0-9]{8}$/, example: '781234567' },
+  { name: 'Syria', code: '+963', flag: '🇸🇾', pattern: /^9[0-9]{8}$/, example: '912345678' },
+  { name: 'Taiwan', code: '+886', flag: '🇹🇼', pattern: /^9[0-9]{8}$/, example: '912345678' },
+  { name: 'Tajikistan', code: '+992', flag: '🇹🇯', pattern: /^9[0-9]{8}$/, example: '911234567' },
+  { name: 'Tanzania', code: '+255', flag: '🇹🇿', pattern: /^[67][0-9]{8}$/, example: '712345678' },
+  { name: 'Thailand', code: '+66', flag: '🇹🇭', pattern: /^[689][0-9]{8}$/, example: '812345678' },
+  { name: 'Togo', code: '+228', flag: '🇹🇬', pattern: /^9[0-9]{7}$/, example: '90123456' },
+  { name: 'Tunisia', code: '+216', flag: '🇹🇳', pattern: /^[2-9][0-9]{7}$/, example: '20123456' },
+  { name: 'Turkmenistan', code: '+993', flag: '🇹🇲', pattern: /^6[0-9]{7}$/, example: '61234567' },
+  { name: 'Uganda', code: '+256', flag: '🇺🇬', pattern: /^7[0-9]{8}$/, example: '712345678' },
+  { name: 'Ukraine', code: '+380', flag: '🇺🇦', pattern: /^[3-9][0-9]{8}$/, example: '501234567' },
+  { name: 'Uruguay', code: '+598', flag: '🇺🇾', pattern: /^9[0-9]{7}$/, example: '91234567' },
+  { name: 'Uzbekistan', code: '+998', flag: '🇺🇿', pattern: /^9[0-9]{8}$/, example: '901234567' },
+  { name: 'Venezuela', code: '+58', flag: '🇻🇪', pattern: /^4[0-9]{9}$/, example: '4123456789' },
+  { name: 'Vietnam', code: '+84', flag: '🇻🇳', pattern: /^[3-9][0-9]{8}$/, example: '912345678' },
+  { name: 'Yemen', code: '+967', flag: '🇾🇪', pattern: /^7[0-9]{8}$/, example: '712345678' },
+  { name: 'Zambia', code: '+260', flag: '🇿🇲', pattern: /^9[0-9]{8}$/, example: '971234567' },
+  { name: 'Zimbabwe', code: '+263', flag: '🇿🇼', pattern: /^7[0-9]{8}$/, example: '712345678' },
+];
 type PageState = "register" | "register_otp" | "login";
 
 const BRAND = { red: "#DC2626", blue: "#1E3A8A", bg: "#F8F9FA" };
@@ -42,13 +209,12 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const [msg, setMsg] = useState({ text: "", type: "" });
-  const [agreedToTerms, setAgreedToTerms] = useState(false);
-  const [showTerms, setShowTerms] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [form, setForm] = useState({
-    fullName: "", email: "", confirmEmail: "", password: "",
-    confirmPassword: "", phone: "", country: "+92", referralCode: ""
-  });
+fullName: '', email: '', confirmEmail: '', password: '',
+confirmPassword: '', countryCode: '+1', phone: '', referralCode: '',
+acceptTerms: false
+}); 
   const [otpCode, setOtpCode] = useState("");
 
   useEffect(() => {
@@ -69,7 +235,7 @@ export default function Login() {
     if (!form.email || form.email !== form.confirmEmail) return showMsg("Emails do not match");
     if (form.password !== form.confirmPassword) return showMsg("Passwords do not match");
     if (form.password.length < 6) return showMsg("Password must be at least 6 characters");
-    if (!agreedToTerms) return showMsg("Please agree to Terms & Conditions");
+    if (!form.acceptTerms) return showMsg("Please agree to Terms & Conditions");
 
     setLoading(true);
 
@@ -80,70 +246,65 @@ export default function Login() {
     let signupError: Error | { message: string; code?: string } | null = null;
 
     try {
-      const result = await supabase.auth.signUp({
-        email: form.email.trim().toLowerCase(),
-        password: form.password,
-        options: {
-          data: {
-            name: form.fullName.trim(),
-            phone: form.phone ? `+${form.phone.trim()}` : '',
-          },
-        },
-      });
+  const result = await supabase.auth.signUp({
+    email: form.email.trim().toLowerCase(),
+    password: form.password,
+    options: {
+      data: {
+        full_name: form.fullName.trim(),
+        phone_number: form.phone ? `${form.countryCode}${form.phone.trim()}` : '',
+        referral_code: refCode || ''
+      }
+    }
+  });
       authData = result.data;
       signupError = result.error;
     } catch (err) {
       signupError = err as Error;
     }
-
-    if (signupError) {
-      setLoading(false);
-      const msg = (signupError as { message: string }).message ?? "";
-      if (msg.toLowerCase().includes("already")) {
-        showMsg("Email already registered. Please login.");
-      } else {
-        showMsg(msg || "Registration failed. Please try again.");
-      }
-      return;
-    }
-    if (!authData || !authData.user) {
-      setLoading(false);
-      showMsg("Registration failed. Please try again.");
-      return;
+if (signupError) {
+  setLoading(false);
+  alert(`AUTH ERROR: ${signupError.message}\n\nCode: ${(signupError as { code?: string }).code}\nDetails: ${JSON.stringify(signupError)}`);
+  console.log('Full Signup Error:', signupError);
+  return;
     }
 
-    if (authData.session) {
-      // Email auto-confirmed — create profile via server (uses service role key, bypasses RLS)
-      const profileRes = await fetch('/api/nft/auth/create-profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          accessToken:  authData.session.access_token,
-          userId:       authData.user.id,
-          email:        form.email.trim().toLowerCase(),
-          name:         form.fullName.trim(),
-          phone:        form.phone ? "+" + form.phone.trim() : "",
-          referralCode: refCode,
-        }),
-      });
+      if (!authData || !authData.user) {
+    setLoading(false);
+    showMsg("Registration failed. Please try again.");
+    return;
+  }
 
-      setLoading(false);
+  if (authData.session) {
+  // Ab trigger nahi hai, to khud INSERT karo
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .insert({
+      user_id: authData.user.id,
+      name: form.fullName.trim(),
+      phone: form.phone ? `${form.countryCode}${form.phone.trim()}` : '',
+      referred_by_code: refCode || null,
+      referral_code: Math.random().toString(36).substring(2, 10).toUpperCase()
+    })
 
-      if (!profileRes.ok) {
-        const j = await profileRes.json() as { error?: string };
-        showMsg(j.error ?? "Profile setup failed. Please contact support.");
-        return;
-      }
+    setLoading(false);
 
-      sessionStorage.removeItem('pending_referral_code');
-      window.location.replace('/showcase');
-    } else {
-      // Email confirmation required — wait for OTP
-      setLoading(false);
-      setPage("register_otp");
-      showMsg("6-digit OTP sent to your email", "success");
-    }
-  };
+      if (profileError) {
+    setLoading(false);
+    console.log('Full Profile Error:', profileError);
+    showMsg(`Account ban gaya lekin profile save nahi hui. Support se rabta karein.`, "error");
+    return;
+  }
+
+    sessionStorage.removeItem('pending_referral_code');
+    window.location.replace('/showcase');
+  } else {
+    // Email confirmation required - wait for OTP
+    setLoading(false);
+    setPage("register_otp");
+    showMsg("6-digit OTP sent to your email", "success");
+  }
+};
 
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -162,35 +323,32 @@ export default function Login() {
       return;
     }
 
-    const refCode = form.referralCode.trim().toUpperCase() ||
+       const refCode = form.referralCode.trim().toUpperCase() || 
       sessionStorage.getItem('pending_referral_code') || '';
-
-    // Create profile via server (uses service role key, bypasses RLS)
-    const profileRes = await fetch('/api/nft/auth/create-profile', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        accessToken:  authData.session?.access_token ?? '',
-        userId:       authData.user.id,
-        email:        form.email.trim().toLowerCase(),
-        name:         form.fullName.trim(),
-        phone:        form.phone ? "+" + form.phone.trim() : "",
-        referralCode: refCode,
-      }),
-    });
-
+ 
     setLoading(false);
 
-    if (!profileRes.ok) {
-      const j = await profileRes.json() as { error?: string };
-      showMsg(j.error ?? "Account created but profile setup failed. Please contact support.");
-      return;
-    }
+    // Ab trigger nahi hai, to khud INSERT karo
+const { error: profileError } = await supabase
+  .from('profiles')
+  .insert({
+    user_id: authData.user.id,
+    name: form.fullName.trim(),
+    phone: form.phone ? '+' + form.phone.trim() : '',
+    referred_by_code: refCode || null,
+    referral_code: Math.random().toString(36).substring(2, 10).toUpperCase()
+  })
+
+if (profileError) {
+  showMsg(profileError.message || 'Account created but profile setup failed. Please contact support.', "error");
+  return;
+}
 
     sessionStorage.removeItem('pending_referral_code');
     showMsg("Account created successfully!", "success");
-    setTimeout(() => window.location.replace('/showcase'), 1000);
+    window.location.replace('/showcase');
   };
+
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -200,7 +358,7 @@ export default function Login() {
       password: form.password,
     });
     if (error) {
-      showMsg(error.message.toLowerCase().includes("confirm")
+      showMsg(error.message.toLowerCase().includes('confirm')
         ? "Please verify your email first"
         : "Wrong email or password");
     } else {
@@ -212,69 +370,22 @@ export default function Login() {
   const inp = `w-full bg-white text-gray-800 px-3 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 outline-none text-sm`;
   const inpIcon = `w-full bg-white text-gray-800 pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 outline-none text-sm`;
 
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-8 bg-gradient-to-b from-[#0a0a1f] via-[#1a0b3d] to-[#0a0a1f]">
-      {/* Modals */}
-      {showTerms && (
-        <Modal title="Terms & Conditions" onClose={() => setShowTerms(false)}>
-          <p><strong>1. Acceptance of Terms</strong></p>
-          <p>By accessing and using THE SUPER NFT platform, you accept and agree to be bound by these Terms & Conditions.</p>
-          <p><strong>2. NFT Investments</strong></p>
-          <p>All NFT investments carry risk. Past performance is not indicative of future results. Only invest what you can afford to lose.</p>
-          <p><strong>3. Profit Distribution</strong></p>
-          <p>Daily profits are distributed based on NFT package terms. Profits must be claimed manually through the platform.</p>
-          <p><strong>4. Withdrawals</strong></p>
-          <p>Withdrawals are subject to minimum limits and admin approval. Processing time is 5-30 minutes during business hours.</p>
-          <p><strong>5. Account Security</strong></p>
-          <p>Users are responsible for maintaining their account security. Do not share your login credentials with anyone.</p>
-          <p><strong>6. Prohibited Activities</strong></p>
-          <p>Users may not engage in fraud, money laundering, or any illegal activities on the platform.</p>
-          <p><strong>7. Termination</strong></p>
-          <p>THE SUPER NFT reserves the right to terminate accounts that violate these terms.</p>
-        </Modal>
-      )}
-      {showPrivacy && (
-        <Modal title="Privacy Policy" onClose={() => setShowPrivacy(false)}>
-          <p><strong>1. Information We Collect</strong></p>
-          <p>We collect information you provide during registration: name, email, phone number, and country.</p>
-          <p><strong>2. How We Use Your Information</strong></p>
-          <p>Your information is used to provide platform services, process transactions, and communicate important updates.</p>
-          <p><strong>3. Data Security</strong></p>
-          <p>We use industry-standard encryption and security measures to protect your personal data.</p>
-          <p><strong>4. Data Sharing</strong></p>
-          <p>We do not sell or share your personal data with third parties except as required by law.</p>
-          <p><strong>5. Cookies</strong></p>
-          <p>We use cookies and session storage to maintain your session and improve user experience.</p>
-          <p><strong>6. Your Rights</strong></p>
-          <p>You have the right to access, correct, or delete your personal data at any time by contacting support.</p>
-          <p><strong>7. Contact</strong></p>
-          <p>For privacy-related inquiries, contact us through our Customer Service on Telegram.</p>
-        </Modal>
-      )}
+  
+return (
+<div
+  className={`min-h-screen flex flex-col items-center p-4${page !== "register" ? " justify-center" : ""}`}
+  style={page === "register" ? {
+    backgroundImage: "url('/super-nft-bg.png')",
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    backgroundRepeat: "no-repeat",
+    backgroundAttachment: "fixed",
+    paddingTop: "clamp(180px, 52vh, 360px)",
+  } : { background: BRAND.bg }}
+>
 
-      {msg.text && (
-        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-xl text-white font-semibold text-sm shadow-lg ${msg.type === "success" ? "bg-green-500" : "bg-red-500"}`}>
-          {msg.text}
-        </div>
-      )}
 
-      {/* ── Register: Branding above card ── */}
-      {page === "register" && (
-        <div className="text-center mb-5 select-none">
-          <img src="/assets/logo.png" alt="Super NFT" className="h-20 w-auto mx-auto mb-3 drop-shadow-[0_0_20px_rgba(168,85,247,0.7)]" />
-          <h1 className="text-4xl font-black tracking-wide">
-            <span style={{ background: "linear-gradient(90deg,#a855f7,#3b82f6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>SUPER </span>
-            <span className="text-white">NFT</span>
-          </h1>
-          <div className="flex items-center justify-center gap-2 mt-1.5">
-            <span className="text-pink-400 text-base">✦</span>
-            <p className="text-gray-300 text-sm tracking-wide">Join The Super Nft Community World</p>
-            <span className="text-cyan-400 text-base">✦</span>
-          </div>
-        </div>
-      )}
-
-      <div className="rounded-2xl w-full max-w-md shadow-2xl border border-white/20"
+      <div className={`rounded-2xl w-full max-w-md shadow-2xl border border-white/20${page === "register" ? " mt-5" : ""}`}
         style={{ background: "rgba(255,255,255,0.97)", backdropFilter: "blur(16px)",
           padding: page === "register" ? "24px" : "32px" }}>
 
@@ -353,18 +464,37 @@ export default function Login() {
               />
             </div>
 
-            {/* Phone */}
-            <PhoneInput
-              country="us"
-              enableSearch
-              countryCodeEditable={false}
-              value={form.phone}
-              onChange={phone => setForm({ ...form, phone })}
-              inputStyle={{ width: "100%", height: "42px", fontSize: "14px", borderRadius: "12px", border: "1px solid #e5e7eb", background: "#fff", color: "#1f2937" }}
-              buttonStyle={{ borderRadius: "12px 0 0 12px", border: "1px solid #e5e7eb", borderRight: "none", background: "#fff" }}
-              containerStyle={{ width: "100%" }}
-            />
+            {/* Phone Number with Country Code */}
+<div className="mb-4">
+  <label className="text-sm text-slate-400 mb-2 block">Phone Number *</label>
+  <div className="flex gap-2">
+    <select
+      value={form.countryCode}
+      onChange={(e) => setForm({...form, countryCode: e.target.value, phone: '' })}
+      className="w-36 p-3 rounded-lg bg-slate-700 border border-slate-600 text-white"
+      required
+    >
+      {COUNTRIES.map((c, index) => (
+        <option key={`${c.code}-${c.name}-${index}`} value={c.code}>
+          {c.flag} {c.code} {c.name}
+        </option>
+      ))}
+    </select>
 
+    <input
+      type="tel"
+      placeholder={`e.g. ${COUNTRIES.find(c => c.code === form.countryCode)?.example || '123456789'}`}
+      value={form.phone}
+      onChange={(e) => setForm({...form, phone: e.target.value.replace(/[^0-9]/g, '') })}
+      className="flex-1 p-3 rounded-lg bg-slate-700 border border-slate-600 text-white"
+      required
+      maxLength={15}
+    />
+  </div>
+  <p className="text-xs text-slate-500 mt-1">
+    Selected: {COUNTRIES.find(c => c.code === form.countryCode)?.name}
+  </p>
+</div>
             {/* Password */}
             <div className="relative">
               <Lock size={15} className="absolute left-3 top-3 text-gray-400 pointer-events-none" />
@@ -379,19 +509,19 @@ export default function Login() {
                 {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
               </button>
             </div>
-
-            {/* Confirm Password */}
-            <div className="relative">
-              <Lock size={15} className="absolute left-3 top-3 text-gray-400 pointer-events-none" />
-              <input
-                type="password"
-                placeholder="Confirm Password"
-                value={form.confirmPassword}
-                onChange={e => setForm({ ...form, confirmPassword: e.target.value })}
-                className={inpIcon}
-              />
-            </div>
-
+{/* Confirm Password */}
+<div className="relative">
+  <Lock size={15} className="absolute left-3 top-3 text-gray-400 pointer-events-none" />
+  <input
+    type="password"
+    placeholder="Confirm Password"
+    value={form.confirmPassword}
+    onChange={e => setForm({ ...form, confirmPassword: e.target.value })}
+    className={inpIcon}
+    required
+  />
+</div>
+            
             {/* Referral Code */}
             <div className="relative">
               <Gift size={15} className="absolute left-3 top-3 text-gray-400 pointer-events-none" />
@@ -403,38 +533,20 @@ export default function Login() {
               />
             </div>
 
-            {/* Terms checkbox */}
-            <div className="flex items-start gap-2.5 pt-1">
-              <div className="relative flex-shrink-0 mt-0.5">
-                <div
-                  onClick={() => setAgreedToTerms(v => !v)}
-                  className="rounded border-2 flex items-center justify-center cursor-pointer transition-colors"
-                  style={{
-                    width: 18, height: 18,
-                    borderColor: agreedToTerms ? "#8B5CF6" : "#D1D5DB",
-                    background: agreedToTerms ? "#8B5CF6" : "white",
-                  }}
-                >
-                  {agreedToTerms && (
-                    <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                      <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  )}
-                </div>
-              </div>
-              <label className="text-xs text-gray-500 leading-relaxed cursor-pointer" onClick={() => setAgreedToTerms(v => !v)}>
-                I agree to the{" "}
-                <button type="button" onClick={e => { e.stopPropagation(); setShowTerms(true); }}
-                  className="font-semibold underline" style={{ color: "#3B82F6" }}>
-                  Terms of Service
-                </button>
-                {" "}and{" "}
-                <button type="button" onClick={e => { e.stopPropagation(); setShowPrivacy(true); }}
-                  className="font-semibold underline" style={{ color: "#3B82F6" }}>
-                  Privacy Policy
-                </button>
-              </label>
-            </div>
+            {/* Terms & Conditions Checkbox */}
+<div className="flex items-start gap-3 mb-4">
+  <input
+    type="checkbox"
+    id="terms"
+    checked={form.acceptTerms || false}
+    onChange={(e) => setForm({ ...form, acceptTerms: e.target.checked })}
+    className="w-5 h-5 mt-1 rounded bg-slate-700 border border-slate-600 cursor-pointer accent-cyan-500"
+    required
+  />
+  <label htmlFor="terms" className="text-sm text-slate-300 cursor-pointer">
+    Main <span className="text-cyan-400 underline">Terms & Conditions</span> se agree karta hun
+  </label>
+</div>
 
             {/* Sign Up button */}
             <button
@@ -545,8 +657,9 @@ export default function Login() {
               No account? Sign Up
             </button>
           </form>
-        )}
+          )}
       </div>
-    </div>
-  );
+      </div>
+    );
 }
+        

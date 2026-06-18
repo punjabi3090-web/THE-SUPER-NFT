@@ -34,12 +34,18 @@ export default function AssetTab() {
     ]);
 
     if (apiUser) {
-      setProfile({
-        balance:       apiUser.walletBalance,
-        total_earned:  apiUser.reserveIncome + apiUser.teamIncome + apiUser.activityIncome,
-        total_withdrawn: apiUser.totalWithdraw,
-      });
-    }
+  const { data: profData } = await supabase.from('profiles')
+    .select('balance, total_withdraw')
+    .eq('user_id', user.id)
+    .single();
+
+  setProfile({
+    balance: profData?.balance ?? 0,
+    total_earned: apiUser.reserveIncome + apiUser.teamIncome + apiUser.activityIncome,
+    total_withdrawn: profData?.total_withdraw ?? 0,
+  });
+}
+  
     setTxs((txData ?? []) as Tx[]);
     const sum = (claimed ?? []).reduce((s: number, r: { amount: number }) => s + (r.amount ?? 0), 0);
     setClaimedSum(sum);
@@ -63,7 +69,17 @@ export default function AssetTab() {
 
     setAllHistory(combined);
   };
-
+// ===== REAL-TIME UPDATES START =====
+useEffect(() => {
+  if (!user) return;
+  const channel = supabase.channel('all_transactions_changes')
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'withdrawals', filter: `user_id=eq.${user.id}` }, () => loadTransactionHistory())
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'deposits', filter: `user_id=eq.${user.id}` }, () => loadTransactionHistory())
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions', filter: `user_id=eq.${user.id}` }, () => loadTransactionHistory())
+  .subscribe();
+  return () => { supabase.removeChannel(channel); };
+}, );
+// ===== REAL-TIME UPDATES END =====
   useEffect(() => { if (user) { loadTransactionHistory(); } }, [user]);
 
   const txIcon = (type: string) => {
@@ -153,12 +169,6 @@ export default function AssetTab() {
             {allHistory.map((item, index) => (
               <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border border-gray-100">
                 <div className="flex items-center gap-3">
-                  <div className="text-2xl">
-                    {item.history_type === 'withdraw' && '🔴'}
-                    {item.history_type === 'deposit' && '🟢'}
-                    {item.history_type === 'referral' && '🟡'}
-                    {item.history_type === 'bonus' && '🔵'}
-                  </div>
                   <div>
                     <p className="font-semibold text-sm capitalize">
                       {item.history_type === 'withdraw' && 'Withdrawal'}
@@ -167,17 +177,17 @@ export default function AssetTab() {
                       {item.history_type === 'bonus' && 'Signup Bonus'}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {new Date(item.created_at).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
+                     {new Date(item.created_at).toLocaleString('en-US', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}
                     </p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="font-bold text-sm" style={{color: item.history_type === 'withdraw'? '#ef4444' : '#22c55e'}}>
+                  <p className="font-bold text-sm" style={{color: item.history_type === 'deposit' || item.history_type === 'bonus' ? '#22c55e' : item.history_type === 'withdraw' && item.status === 'approved' ? '#22c55e' : '#ef4444'}}> 
                     {item.history_type === 'withdraw'? '-' : '+'}${Number(item.amount || item.usd_amount || 0).toFixed(2)}
                   </p>
-                  <p className="text-xs capitalize text-gray-500">
-                    {item.status || 'completed'}
-                  </p>
+                  <p className="text-xs capitalize" style={{color: item.history_type === 'deposit' || item.history_type === 'bonus' ? '#22c55e' : item.status === 'approved' || item.status === 'confirmed' ? '#22c55e' : item.status === 'rejected' || item.status === 'pending' ? '#ef4444' : '#6b7280'}}>
+  {item.status === 'approved' ? 'Completed' : item.status === 'confirmed' ? 'Completed' : item.status || 'pending'}
+</p>
                 </div>
               </div>
             ))}

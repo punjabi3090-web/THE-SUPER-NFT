@@ -1,0 +1,53 @@
+IMPORTANT: Main image upload kar raha hun. Is image ko SignUp page ka background banana hai.
+
+==================== TASK 1 ====================
+Update SignUp Page UI with New Background
+
+CRITICAL RULES - TASK 1:
+1. DO NOT change any Supabase auth code, RLS policies, tables, columns, functions, or working logic. SignUp must work exactly like before.
+2. DO NOT modify handleSignUp, handleLogin, or any API calls except what's mentioned in Task 2. Keep all state, validation, error handling 100% same.
+3. Only change the visual layout and background.
+
+CHANGES TO MAKE - TASK 1:
+1. Remove the old background image and old SUPER NFT logo from SignUp page.
+2. Set the uploaded image as the new full-screen background for SignUp page only. Save image as `/public/super-nft-bg.png`. Background CSS: cover, center, no-repeat, fixed.
+3. Keep everything from the uploaded image visible as-is: the USA flag circle top-right, the SUPER NFT logo center, and "JOIN THE SUPER NFT COMMUNITY WORLD" text. Do not recreate these - they are part of the background image.
+4. Place the existing SignUp form card directly BELOW the "JOIN THE SUPER NFT COMMUNITY WORLD" text from the background image.
+5. Form position: center horizontally, margin-top: 20px or adjust so it starts right after the text. Keep existing white card design with same padding, border-radius, shadow.
+6. Make responsive: On mobile add padding-top: 180px so form doesn't overlap with logo/text.
+7. Keep all existing form fields: Full Name, Email, Confirm Email, Phone Number, Password, Confirm Password, Referral Code, Terms checkbox, Sign Up button, Login link.
+
+==================== TASK 2 ====================
+Fix Account Details Bug - Show Phone Number & Referral Code
+
+CRITICAL WARNING - TASK 2 - READ THIS 3 TIMES:
+⚠️ HUMNE PEHLE SE SUPABASE MEIN AUTO PROFILE CREATION SET KIYA HUA HAI ⚠️
+
+1. Ek trigger already exist karta hai: `on_auth_user_created` jo `auth.users` mein insert hone par `profiles` table mein row bana deta hai.
+2. Ek function already exist karta hai: `public.handle_new_user()` jo ye kaam karta hai.
+3. TUMHE NAYA TRIGGER YA NAYA FUNCTION NAHI BANANA. SIRF EXISTING FUNCTION KO UPDATE KARNA HAI USING `CREATE OR REPLACE`.
+4. AGAR GALTI SE NAYA TRIGGER BANAYA YA PURANA DELETE KIYA YA DROP KIYA TO POORA AUTH SYSTEM BREAK HO JAYEGA. HARGIZ YE GALTI NAHI KARNI.
+5. Sirf SignUp page ka ye bug theek karna hai. Baaki poore project ki kisi bhi setting, functions ki files, codes, tables, tools, RLS, logic, triggers ko GALTI SE BHI TOUCH NAHI KARNA.
+6. Kuch bhi DELETE nahi karna. Agar naye columns ki zarurat pade to ADD kar sakte ho with `ADD COLUMN IF NOT EXISTS`, lekin existing kuch delete nahi karna.
+
+BUG DESCRIPTION:
+Jab user SignUp page par account create karta hai aur app ke dashboard mein Profile > Settings > Account Details check karta hai, to wahan sirf Email aur Date Since nazar aa raha hai.
+
+FIX REQUIRED:
+User jo data SignUp form mein fill karta hai - Phone Number aur Referral Code - wo bhi Account Details page mein show hona chahiye.
+
+IMPLEMENTATION - EXACT STEPS:
+
+STEP 1: SignUp.tsx mein handleSignUp function mein `options.data` add karo:
+```js
+const { data, error } = await supabase.auth.signUp({
+  email: email,
+  password: password,
+  options: {
+    data: {
+      full_name: fullName,
+      phone_number: phone,
+      referral_code: referral
+    }
+  }
+})
