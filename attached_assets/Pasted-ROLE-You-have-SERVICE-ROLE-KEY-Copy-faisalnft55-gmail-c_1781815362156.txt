@@ -1,0 +1,106 @@
+ROLE: You have SERVICE_ROLE_KEY. Copy faisalnft55@gmail.com structure EXACTLY for new signups.
+
+REFERENCE DATA FROM DB:
+Faisal's ID: 5eca5246-e02a-4d0e-8f3e-e728ab752c2c
+Faisal's referral_code: 51C16317
+Key columns: id, user_id, name, email, phone, referral_code, referred_by_code, upline_id, balance, total_team, user_level, role, total_deposit, total_withdraw, total_orders, bought_count, sold_count, level, level1_count, level2_count, level3_count, a_count, bc_count, daily_income, total_income, team_commission_earned, referral_earnings, is_level2_qualified, valid_team_count, enthusiast_type, is_valid_member
+
+TASK: Update ONLY login.tsx signup function. After supabase.auth.signUp() succeeds:
+
+   // 1. Generate new referral code
+   const newReferralCode = 'SNP' + Math.random().toString(36).substring(2, 8).toUpperCase();
+   
+   // 2. Check URL for referral
+   const urlParams = new URLSearchParams(window.location.search);
+   const refCode = urlParams.get('ref');
+   let uplineId = null;
+   
+   if (refCode) {
+     const { data: upline } = await supabase
+       .from('profiles')
+       .select('id')
+       .eq('referral_code', refCode)
+       .single();
+     uplineId = upline?.id || null;
+   }
+
+   // 3. Insert with EXACT structure like Faisal - all 40+ columns
+   const { data, error: profileError } = await supabase
+     .from('profiles')
+     .insert({
+       id: authData.user.id,
+       user_id: authData.user.id,
+       email: formData.email,
+       name: formData.name || null,
+       phone: formData.phone || null,
+       phone_number: formData.phone || null,
+       referral_code: newReferralCode,
+       referred_by_code: refCode || null,
+       upline_id: uplineId,
+       role: 'user',
+       totp_secret: null,
+       totp_enabled: false,
+       total_orders: 0,
+       bought_count: 0,
+       sold_count: 0,
+       balance: 0,
+       total_deposit: 0,
+       user_level: 0,
+       level: 0,
+       level1_count: 0,
+       level2_count: 0,
+       level3_count: 0,
+       a_count: 0,
+       bc_count: 0,
+       total_team: 0,
+       daily_income: 0,
+       total_income: 0,
+       last_daily_reserve: null,
+       last_income_reset: null,
+       enthusiast_type: null,
+       is_valid_member: true,
+       team_commission_earned: 0,
+       daily_reserve_balance: 0,
+       referral_earnings: 0,
+       is_level2_qualified: false,
+       valid_team_count: 0,
+       validated_at: null,
+       total_withdrawn: 0,
+       total_deposited: 0,
+       total_referral_earning: 0,
+       referred_by: null,
+       total_withdraw: 0,
+       total_bought: 0,
+       total_sold: 0
+     })
+     .select()
+     .single();
+
+   if (profileError) {
+     console.error('PROFILE INSERT FAILED:', profileError);
+     await supabase.auth.admin.deleteUser(authData.user.id);
+     throw new Error('Profile creation failed: ' + profileError.message);
+   }
+
+   // 4. If upline exists, increment their total_team
+   if (uplineId) {
+     await supabase.rpc('increment', { 
+       table_name: 'profiles', 
+       column_name: 'total_team', 
+       row_id: uplineId 
+     }).catch(async () => {
+       // Fallback if RPC doesn't exist
+       const { data: upline } = await supabase.from('profiles').select('total_team').eq('id', uplineId).single();
+       await supabase.from('profiles').update({ total_team: (upline.total_team || 0) + 1 }).eq('id', uplineId);
+     });
+   }
+
+   console.log('Profile created successfully:', data);
+
+RULES:
+1. ONLY edit login.tsx signup function
+2. Use EXACT column names from Faisal's row above
+3. DO NOT skip any column - insert all 40+ columns
+4. DO NOT touch home.tsx or any other file
+
+OUTPUT: Return ONLY updated login.tsx. Then run: SELECT * FROM profiles ORDER BY created_at DESC LIMIT 1; to verify.

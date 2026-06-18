@@ -274,30 +274,85 @@ if (signupError) {
     return;
   }
 
-  // Create profile row (safe upsert - trigger may have already created it)
+  // Create profile row - exact structure matching existing accounts
   const newReferralCode = 'SNP' + Math.random().toString(36).substring(2, 8).toUpperCase();
-  let uplineUserId: string | null = null;
-  if (refCode) {
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlRefCode = urlParams.get('ref');
+  const finalRefCode = refCode || urlRefCode || null;
+  let uplineId: string | null = null;
+  if (finalRefCode) {
     const { data: uplineData } = await supabase
       .from('profiles')
-      .select('user_id')
-      .eq('referral_code', refCode)
+      .select('id')
+      .eq('referral_code', finalRefCode)
       .single();
-    uplineUserId = (uplineData as { user_id: string } | null)?.user_id || null;
+    uplineId = (uplineData as { id: string } | null)?.id || null;
   }
-  const { error: profileError } = await supabase.from('profiles').upsert({
-    user_id: authData.user.id,
-    name: form.fullName.trim(),
-    phone: form.phone ? `${form.countryCode}${form.phone.trim()}` : '',
-    referral_code: newReferralCode,
-    referred_by_code: refCode || null,
-    balance: 0,
-    user_level: 0,
-    total_deposit: 0,
-    total_withdraw: 0,
-  }, { onConflict: 'user_id', ignoreDuplicates: true });
+  const formattedPhone = form.phone ? `${form.countryCode}${form.phone.trim()}` : null;
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .insert({
+      user_id: authData.user.id,
+      name: form.fullName.trim(),
+      email: form.email.trim().toLowerCase(),
+      phone: formattedPhone,
+      phone_number: formattedPhone,
+      referral_code: newReferralCode,
+      referred_by_code: finalRefCode,
+      upline_id: uplineId,
+      role: 'user',
+      totp_secret: null,
+      totp_enabled: false,
+      total_orders: 0,
+      bought_count: 0,
+      sold_count: 0,
+      balance: 0,
+      total_deposit: 0,
+      user_level: 0,
+      level: 0,
+      level1_count: 0,
+      level2_count: 0,
+      level3_count: 0,
+      a_count: 0,
+      bc_count: 0,
+      total_team: 0,
+      daily_income: 0,
+      total_income: 0,
+      last_daily_reserve: null,
+      last_income_reset: null,
+      enthusiast_type: null,
+      is_valid_member: true,
+      team_commission_earned: 0,
+      daily_reserve_balance: 0,
+      referral_earnings: 0,
+      is_level2_qualified: false,
+      valid_team_count: 0,
+      validated_at: null,
+      total_withdrawn: 0,
+      total_deposited: 0,
+      total_referral_earning: 0,
+      referred_by: null,
+      total_withdraw: 0,
+      total_bought: 0,
+      total_sold: 0,
+    });
   if (profileError) {
-    console.error('Profile creation error:', profileError);
+    console.error('PROFILE INSERT FAILED:', profileError);
+    setLoading(false);
+    showMsg('Account creation failed: ' + profileError.message);
+    return;
+  }
+  // Increment upline's total_team count
+  if (uplineId) {
+    const { data: uplineRow } = await supabase
+      .from('profiles')
+      .select('total_team')
+      .eq('id', uplineId)
+      .single();
+    await supabase
+      .from('profiles')
+      .update({ total_team: ((uplineRow as { total_team: number } | null)?.total_team || 0) + 1 })
+      .eq('id', uplineId);
   }
 
   if (authData.session) {
