@@ -1,0 +1,144 @@
+TASK: Make Signup System DEFAULT + AUTO + ERROR-PROOF using Old Profile Table Logic
+
+CRITICAL RULE #1: profiles table ke faisalnft55@gmail.com wale account me jitne bhi columns hain, un sab ko DEFAULT values ke sath Login.tsx me set karo. Future me koi naya column add ho to bhi system na toote.
+
+CRITICAL RULE #2: Home.tsx me Level 1,2,3 + Total Register Members ka jo logic hai, usi ko DEFAULT signup flow bana do. Kabhi bhi naya user aaye to auto link bane.
+
+CRITICAL RULE #3: System ko "Set it and Forget it" banao. RLS, Trigger, Functions sab auto handle hon.
+
+CRITICAL RULE #4: JAB BHI ACCOUNT CREATE KE TIME KOI BHI ERROR AAYE - email invalid, password weak, terms not accepted, RLS block, Trigger fail, Schema mismatch, No data, Duplicate user - to foran Signup page ke top pe Alert/Toast me exact error message show karo. User ko samajh aaye ki kya masla hai.
+
+CONTEXT:
+1. App: THE SUPER NFT
+2. Database: Supabase - table `profiles` with old data for faisalnft55@gmail.com
+3. Home.tsx: Uses referred_by_code for Level 1, then Level 1 ke referral_code se Level 2, Level 3. Also uses total_team for Total Register Members. DO NOT CHANGE Home.tsx
+4. Problem: Signup broken + errors silent rehte hain. User ko pata nahi chalta kya galat hua.
+
+STEP 1: AUDIT + DEFAULT SCHEMA SETUP
+1. Run: SELECT column_name, column_default, data_type, is_nullable FROM information_schema.columns WHERE table_name = 'profiles' ORDER BY ordinal_position;
+2. Note ALL columns. For every column with no default, decide sensible default: 0 for numbers, '' for text, false for boolean, now() for timestamps, null for nullable.
+3. Read Home.tsx lines 375-410 to lock the Level 1,2,3 logic: referred_by_code = upline ka referral_code
+
+STEP 2: BULLETPROOF Login.tsx handleVerifyOtp + REAL-TIME ERROR ALERTS
+OPEN Login.tsx → find handleVerifyOtp → After OTP verify success, BEFORE setLoading(false), replace with this DEFAULT-SAFE code:
+
+try {
+  // 1. VALIDATE INPUTS FIRST - Show error instantly if missing
+  if (!form.fullName.trim()) throw new Error('Full Name is required');
+  if (!form.email.trim()) throw new Error('Email is required');
+  if (!form.email.includes('@')) throw new Error('Invalid email format');
+  if (!termsAccepted) throw new Error('Please accept Terms & Conditions');
+
+  // 2. Get referral code - DEFAULT to empty if missing
+  const refCode = (form.referralCode.trim().toUpperCase() || sessionStorage.getItem('pending_referral_code') || '').toUpperCase();
+
+  // 3. Find UPLINE - If referral code invalid, show clear error
+  let uplineId: string | null = null;
+  if (refCode) {
+    const { data: uplineData, error: uplineError } = await supabase
+     .from('profiles')
+     .select('id, referral_code')
+     .eq('referral_code', refCode)
+     .maybeSingle();
+    
+    if (uplineError) throw new Error('Database error while checking referral code: ' + uplineError.message);
+    if (!uplineData) throw new Error('Referral code ' + refCode + ' not found. Please check and try again.');
+    uplineId = uplineData.id;
+  }
+
+  // 4. Generate new referral code - ALWAYS unique
+  const newReferralCode = 'SNP' + crypto.randomUUID().substring(0, 6).toUpperCase();
+
+  // 5. BUILD PROFILE OBJECT WITH ALL COLUMNS + SENSIBLE DEFAULTS
+  const profileData = {
+    user_id: authData.user.id,
+    name: form.fullName.trim(),
+    email: form.email.trim().toLowerCase(),
+    phone: form.phone? `${form.countryCode}${form.phone.trim()}` : null,
+    referral_code: newReferralCode,
+    upline_id: uplineId,
+    referred_by_code: refCode || null,
+    total_team: 0,
+    total_deposit: 0,
+    level: 1,
+    status: 'active',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    // ADD ALL OTHER COLUMNS FROM SCHEMA HERE WITH DEFAULTS:
+    balance: 0,
+    avatar_url: null,
+    is_verified: false,
+    // ...keep adding until ALL columns covered from STEP 1
+  };
+
+  // 6. UPSERT - CATCH SCHEMA/RLS/TRIGGER ERRORS HERE
+  const { error: profileError } = await supabase
+   .from('profiles')
+   .upsert(profileData, { onConflict: 'user_id' });
+
+  if (profileError) {
+    // SPECIFIC ERROR MESSAGES FOR USER
+    if (profileError.code === '42501') throw new Error('Permission denied by database security. Contact admin.');
+    if (profileError.code === '23505') throw new Error('Account already exists. Please login.');
+    if (profileError.message.includes('null value')) throw new Error('Missing required data: ' + profileError.message);
+    if (profileError.message.includes('trigger')) throw new Error('Database trigger error: ' + profileError.message);
+    throw new Error('Profile save failed: ' + profileError.message);
+  }
+
+  // 7. AUTO INCREMENT UPLINE TOTAL_TEAM
+  if (uplineId) {
+    const { error: rpcError } = await supabase.rpc('increment_total_team', { upline_id_param: uplineId });
+    if (rpcError) console.log('Team count update warning:', rpcError.message); // Non-blocking
+  }
+
+  // SUCCESS
+  setLoading(false);
+  sessionStorage.removeItem('pending_referral_code');
+  showMsg("Account created successfully!", "success");
+  window.location.replace('/');
+
+} catch (error: any) {
+  // SHOW EXACT ERROR ON SIGNUP PAGE TOP - NEVER SILENT FAIL
+  console.log('SIGNUP ERROR:', error);
+  setLoading(false);
+  showMsg(error.message || 'Unknown signup error. Please try again.', 'error');
+  return;
+}
+
+STEP 3: DATABASE DEFAULT FUNCTIONS - RUN ONCE, WORKS FOREVER
+1. Create/Replace increment function:
+create or replace function increment_total_team(upline_id_param uuid)
+returns void as $$
+begin
+  update profiles
+  set total_team = coalesce(total_team, 0) + 1,
+      updated_at = now()
+  where id = upline_id_param;
+end;
+$$ language plpgsql security definer;
+
+2. If handle_new_user trigger exists, MODIFY it to use same defaults as above, OR keep it and rely on upsert. DO NOT DELETE.
+
+STEP 4: DEFAULT RLS POLICIES - FUTURE PROOF
+Run these once:
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Enable insert for auth users" ON profiles;
+CREATE POLICY "Enable insert for auth users" ON profiles FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Enable read for all" ON profiles;
+CREATE POLICY "Enable read for all" ON profiles FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Enable update for users" ON profiles;
+CREATE POLICY "Enable update for users" ON profiles FOR UPDATE USING (auth.uid() = user_id);
+
+STEP 5: SMOKE TEST - DEFAULT BEHAVIOR + ERROR HANDLING
+1. Test invalid email → Should show "Invalid email format" on Signup page
+2. Test wrong referral FAKE123 → Should show "Referral code FAKE123 not found"
+3. Test without terms → Should show "Please accept Terms & Conditions"
+4. Test valid signup WITH FAIS6285 → Should work, upline_id set, faisal total_team +1
+5. Login as faisalnft55@gmail.com → Home.tsx must show Level 1 Members +1
+
+STEP 6: FINAL LOCK-IN REPORT
+Reply exactly: "OK - System set to DEFAULT + ERROR-PROOF. All columns auto-filled: [list all]. Home.tsx Level 1,2,3 + Total Register Members logic permanent. RLS: enabled. Triggers: preserved. All errors now show on Signup page top. Future signups: 0 silent issues."
+
+DO NOT SKIP ANY COLUMN. DO NOT CHANGE Home.tsx. SYSTEM MUST BE DEFAULT + AUTO + SHOW ALL ERRORS FOREVER.
+
+START NOW.

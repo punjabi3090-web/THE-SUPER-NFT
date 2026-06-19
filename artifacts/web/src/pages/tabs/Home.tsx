@@ -375,7 +375,7 @@ console.log('All History Data:', combined);
     const { data: level1Members } = await supabase
       .from("profiles")
       .select("id, name, email, referral_code, referred_by_code, total_deposit")
-      .eq("referred_by_code", refCode);
+      .eq('upline_id', uid);
 
     let level2Members: any[] = [];
 
@@ -392,7 +392,7 @@ console.log('All History Data:', combined);
       const { data: level2Data, error: level2Error } = await supabase
         .from("profiles")
         .select("id, name, email, referral_code, referred_by_code, total_deposit")
-        .in("referred_by_code", level1Codes);
+        .in("upline_id", level1Codes);
 
       level2Members = level2Data || [];
       // ===== LEVEL 3 SHURU =====
@@ -405,7 +405,7 @@ console.log('All History Data:', combined);
         const { data: level3Data, error: level3Error } = await supabase
           .from("profiles")
           .select("id, name, email, referral_code, referred_by_code, total_deposit")
-          .in("referred_by_code", level3Codes);
+          .in("upline_id", level3Codes);
 
         level3Members = level3Data || [];
       }

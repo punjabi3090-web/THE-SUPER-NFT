@@ -230,75 +230,31 @@ acceptTerms: false
     setTimeout(() => setMsg({ text: "", type: "" }), 4000);
   };
 
-  const handleSendOtp = async () => {
-    if (!form.fullName.trim()) return showMsg("Enter your full name");
-    if (!form.email || form.email !== form.confirmEmail) return showMsg("Emails do not match");
-    if (form.password !== form.confirmPassword) return showMsg("Passwords do not match");
-    if (form.password.length < 6) return showMsg("Password must be at least 6 characters");
-    if (!form.acceptTerms) return showMsg("Please agree to Terms & Conditions");
-
-    setLoading(true);
-
-    const refCode = form.referralCode.trim().toUpperCase() ||
-      sessionStorage.getItem('pending_referral_code') || '';
-
-    let authData = null;
-    let signupError: Error | { message: string; code?: string } | null = null;
-
-    try {
-  const result = await supabase.auth.signUp({
-    email: form.email.trim().toLowerCase(),
-    password: form.password,
-    options: {
-      data: {
-  full_name: form.fullName.trim(),
-  phone: form.phone ? `${form.countryCode}${form.phone.trim()}` : '',
-  referred_by: refCode || null
-}
-    }
-  });
-      authData = result.data;
-      signupError = result.error;
-    } catch (err) {
-      signupError = err as Error;
-    }
-if (signupError) {
-  setLoading(false);
-  console.log('Full Signup Error:', signupError);
-  return;
+  // ── Shared profile creation helper (used by both auto-confirm + OTP paths) ──
+  const createProfile = async (userId: string, refCode: string) => {
+    let uplineId: string | null = null;
+    if (refCode) {
+      const { data: uplineData, error: uplineErr } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('referral_code', refCode)
+        .maybeSingle();
+      if (uplineErr) throw new Error('Database error checking referral: ' + uplineErr.message);
+      if (!uplineData) throw new Error('Referral code ' + refCode + ' not found. Please check and try again.');
+      uplineId = (uplineData as { id: string }).id;
     }
 
-      if (!authData || !authData.user) {
-    setLoading(false);
-    showMsg("Registration failed. Please try again.");
-    return;
-  }
+    const newReferralCode = 'SNP' + crypto.randomUUID().substring(0, 6).toUpperCase();
+    const formattedPhone = form.phone ? `${form.countryCode}${form.phone.trim()}` : null;
 
-  // Create profile row - exact structure matching existing accounts
-  const newReferralCode = 'SNP' + Math.random().toString(36).substring(2, 8).toUpperCase();
-  const urlParams = new URLSearchParams(window.location.search);
-  const urlRefCode = urlParams.get('ref');
-  const finalRefCode = refCode || urlRefCode || null;
-  let uplineId: string | null = null;
-  if (finalRefCode) {
-    const { data: uplineData } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('referral_code', finalRefCode)
-      .single();
-    uplineId = (uplineData as { id: string } | null)?.id || null;
-  }
-  const formattedPhone = form.phone ? `${form.countryCode}${form.phone.trim()}` : null;
-  const { error: profileError } = await supabase
-    .from('profiles')
-    .insert({
-      user_id: authData.user.id,
+    const { error: profileError } = await supabase.from('profiles').upsert({
+      user_id: userId,
       name: form.fullName.trim(),
       email: form.email.trim().toLowerCase(),
       phone: formattedPhone,
       phone_number: formattedPhone,
       referral_code: newReferralCode,
-      referred_by_code: finalRefCode,
+      referred_by_code: refCode || null,
       upline_id: uplineId,
       role: 'user',
       totp_secret: null,
@@ -335,37 +291,90 @@ if (signupError) {
       total_withdraw: 0,
       total_bought: 0,
       total_sold: 0,
-    });
-  if (profileError) {
-    console.error('PROFILE INSERT FAILED:', profileError);
+    }, { onConflict: 'user_id' });
+
+    if (profileError) {
+      if (profileError.code === '42501') throw new Error('Permission denied by database. Contact admin.');
+      if (profileError.code === '23505') throw new Error('Account already exists. Please login.');
+      if (profileError.message.includes('null value')) throw new Error('Missing required field: ' + profileError.message);
+      throw new Error('Profile save failed: ' + profileError.message);
+    }
+
+    // Increment upline total_team (non-blocking)
+    if (uplineId) {
+      const { error: rpcErr } = await supabase.rpc('increment_total_team', { upline_id_param: uplineId });
+      if (rpcErr) {
+        const { data: upRow } = await supabase.from('profiles').select('total_team').eq('id', uplineId).single();
+        await supabase.from('profiles').update({
+          total_team: ((upRow as { total_team: number } | null)?.total_team || 0) + 1,
+        }).eq('id', uplineId);
+      }
+    }
+  };
+
+  const handleSendOtp = async () => {
+    if (!form.fullName.trim()) return showMsg("Enter your full name");
+    if (!form.email || form.email !== form.confirmEmail) return showMsg("Emails do not match");
+    if (form.password !== form.confirmPassword) return showMsg("Passwords do not match");
+    if (form.password.length < 6) return showMsg("Password must be at least 6 characters");
+    if (!form.acceptTerms) return showMsg("Please agree to Terms & Conditions");
+
+    setLoading(true);
+
+    const refCode = form.referralCode.trim().toUpperCase() ||
+      sessionStorage.getItem('pending_referral_code') || '';
+
+    let authData = null;
+    let signupError: Error | { message: string; code?: string } | null = null;
+
+    try {
+  const result = await supabase.auth.signUp({
+    email: form.email.trim().toLowerCase(),
+    password: form.password,
+    options: {
+      data: {
+  full_name: form.fullName.trim(),
+  phone: form.phone ? `${form.countryCode}${form.phone.trim()}` : '',
+  referred_by: refCode || null
+}
+    }
+  });
+      authData = result.data;
+      signupError = result.error;
+    } catch (err) {
+      signupError = err as Error;
+    }
+if (signupError) {
+  setLoading(false);
+  showMsg((signupError as { message: string }).message || 'Signup failed. Please try again.');
+  return;
+    }
+
+        if (!authData || !authData.user) {
     setLoading(false);
-    showMsg('Account creation failed: ' + profileError.message);
+    showMsg("Registration failed. Please try again.");
     return;
   }
-  // Increment upline's total_team count
-  if (uplineId) {
-    const { data: uplineRow } = await supabase
-      .from('profiles')
-      .select('total_team')
-      .eq('id', uplineId)
-      .single();
-    await supabase
-      .from('profiles')
-      .update({ total_team: ((uplineRow as { total_team: number } | null)?.total_team || 0) + 1 })
-      .eq('id', uplineId);
-  }
 
-  if (authData.session) {
-  setLoading(false);
-  sessionStorage.removeItem('pending_referral_code');
-  showMsg("Account created successfully!", "success");
-  window.location.replace('/');
-  } else {
-    // Email confirmation required - wait for OTP
-    setLoading(false);
-    setPage("register_otp");
-    showMsg("6-digit OTP sent to your email", "success");
-  }
+    if (authData.session) {
+      // Auto-confirmed: create profile immediately
+      try {
+        await createProfile(authData.user.id, refCode);
+      } catch (err: unknown) {
+        setLoading(false);
+        showMsg(err instanceof Error ? err.message : 'Profile creation failed', 'error');
+        return;
+      }
+      setLoading(false);
+      sessionStorage.removeItem('pending_referral_code');
+      showMsg("Account created successfully!", "success");
+      setTimeout(() => { window.location.replace('/'); }, 1000);
+    } else {
+      // Email confirmation required - wait for OTP
+      setLoading(false);
+      setPage("register_otp");
+      showMsg("6-digit OTP sent to your email", "success");
+    }   
 }
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -383,17 +392,22 @@ if (signupError) {
       setLoading(false);
       return;
     }
+    const refCode = (form.referralCode.trim().toUpperCase() ||
+      sessionStorage.getItem('pending_referral_code') || '');
 
-       const refCode = form.referralCode.trim().toUpperCase() || 
-      sessionStorage.getItem('pending_referral_code') || '';
- 
-    setLoading(false);
-sessionStorage.removeItem('pending_referral_code');
-    showMsg("Account created successfully!", "success");
-    window.location.replace('/');
-  };
-
-
+    try {
+      await createProfile(authData.user.id, refCode);
+      setLoading(false);
+      sessionStorage.removeItem('pending_referral_code');
+      showMsg("Account created successfully!", "success");
+      window.location.replace('/');
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : 'Unknown error. Please try again.';
+      console.error('OTP PROFILE ERROR:', err);
+      setLoading(false);
+      showMsg(errMsg, 'error');
+    }
+  };  // handleVerifyOtp end
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
