@@ -382,36 +382,33 @@ console.log('All History Data:', combined);
     // LEVEL 2 - DIRECT SUPABASE
 
     const level1Safe = level1Members ?? [];
-    const level1Codes = level1Safe
-      .map((m: any) => m.referral_code)
+    // upline_id is a UUID (profiles.id) — use id NOT referral_code
+    const level1Ids = level1Safe
+      .map((m: any) => m.id)
       .filter(Boolean);
-    // ===== DEBUG LEVEL 2 START =====
 
     let level3Members: any[] = [];
-    if (level1Codes.length > 0) {
-      const { data: level2Data, error: level2Error } = await supabase
+    if (level1Ids.length > 0) {
+      const { data: level2Data } = await supabase
         .from("profiles")
         .select("id, name, email, referral_code, referred_by_code, total_deposit")
-        .in("upline_id", level1Codes);
+        .in("upline_id", level1Ids);
 
       level2Members = level2Data || [];
-      // ===== LEVEL 3 SHURU =====
 
       if (level2Members.length > 0) {
-        const level3Codes = level2Members
-          .map((m: any) => m.referral_code)
+        const level2Ids = level2Members
+          .map((m: any) => m.id)
           .filter(Boolean);
 
-        const { data: level3Data, error: level3Error } = await supabase
+        const { data: level3Data } = await supabase
           .from("profiles")
           .select("id, name, email, referral_code, referred_by_code, total_deposit")
-          .in("upline_id", level3Codes);
+          .in("upline_id", level2Ids);
 
         level3Members = level3Data || [];
       }
-      // ===== LEVEL 3 KHATAM =====
     }
-    // ===== LEVEL 2 KHATAM =====
 
     // AB SAB SET KARO - LEVEL 1 + LEVEL 2 + LEVEL 3
     /// DEPOSIT DATA LAO - SIRF COMPLETE WALE

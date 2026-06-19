@@ -1,0 +1,37 @@
+URGENT TASK: FIX FULL REFERRAL SYSTEM - THIS IS FINAL CHANCE
+
+CONTEXT: 
+1. 1 month se signup broken hai. Logs me "null value in column user_id" error aa raha hai.
+2. Tumne "Fix complete" bola lekin error abhi bhi aa raha hai. Matlab fix nahi hua.
+3. Tumhare paas FULL SUPABASE DB ACCESS + FULL CODE ACCESS hai.
+
+YOUR JOB - 2 KAAM KARNE HAIN:
+
+KAAM 1: SIGNUP THEEK KARO - NO SILENT FAIL
+1. Khud Login.tsx ka handleVerifyOtp function padho
+2. Khud Supabase logs padho - user_id null kyun ja raha hai ye debug karo
+3. Khud code likho jo 100% guarantee de ki user_id null nahi jayega. verifyOtp ke baad session check karo, getUser() use karo, jo marzi karo.
+4. Har error Signup page pe toast/alert me show hona chahiye. Email galat, referral galat, RLS block, trigger fail - sab user ko dikhe.
+
+KAAM 2: HOME.TSX LEVEL SYSTEM THEEK KARO - faisalnft55@gmail.com WALA LOGIC
+1. profiles table me faisalnft55@gmail.com ki row check karo. Dekho usme total_team, referral_code, level kaise set hain.
+2. Home.tsx me Level 1, Level 2, Level 3 Members ka logic usi faisalnft55@gmail.com wali row ke hisaab se chalna chahiye.
+3. Naya user jab FAIS6285 code se signup kare to:
+   - uska upline_id = faisal ki id set ho
+   - uska referred_by_code = FAIS6285 set ho
+   - faisal ka total_team +1 ho jaye auto
+   - Home.tsx me faisal login kare to Level 1 Members: 1 dikhe
+4. Total Register Members = total_team count show hona chahiye
+
+TESTING CRITERIA - FAIL = PROJECT DEAD:
+1. Naya account banao referral FAIS6285 ke sath
+2. Supabase logs check karo - "null value in column user_id" error BILKUL NAHI AANA CHAHIYE
+3. Supabase profiles table me new user ki row check karo - user_id, upline_id, referred_by_code sab fill hone chahiye
+4. faisalnft55@gmail.com se login karo - Home.tsx me Level 1 Members: 1 aur Total Register Members: 1 dikhna chahiye
+
+RULES:
+1. Mujhse code mat poocho. Tum khud likho. Tumhare paas sab access hai.
+2. Jab tak upar wale 4 test pass nahi hote, "WORKING" mat bolna.
+3. Agar is dafa fail hue to hum Replit host chhod denge. This is final warning.
+
+START NOW. FIX SIGNUP + LEVEL SYSTEM. PROVE IT WORKS WITH LOGS + SCREENSHOTS.

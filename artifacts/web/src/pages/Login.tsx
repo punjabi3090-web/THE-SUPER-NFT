@@ -231,84 +231,30 @@ acceptTerms: false
   };
 
   // ── Shared profile creation helper (used by both auto-confirm + OTP paths) ──
-  const createProfile = async (userId: string, refCode: string) => {
-    let uplineId: string | null = null;
-    if (refCode) {
-      const { data: uplineData, error: uplineErr } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('referral_code', refCode)
-        .maybeSingle();
-      if (uplineErr) throw new Error('Database error checking referral: ' + uplineErr.message);
-      if (!uplineData) throw new Error('Referral code ' + refCode + ' not found. Please check and try again.');
-      uplineId = (uplineData as { id: string }).id;
-    }
-
-    const newReferralCode = 'SNP' + crypto.randomUUID().substring(0, 6).toUpperCase();
-    const formattedPhone = form.phone ? `${form.countryCode}${form.phone.trim()}` : null;
-
-    const { error: profileError } = await supabase.from('profiles').upsert({
-      user_id: userId,
-      name: form.fullName.trim(),
-      email: form.email.trim().toLowerCase(),
-      phone: formattedPhone,
-      phone_number: formattedPhone,
-      referral_code: newReferralCode,
-      referred_by_code: refCode || null,
-      upline_id: uplineId,
-      role: 'user',
-      totp_secret: null,
-      totp_enabled: false,
-      total_orders: 0,
-      bought_count: 0,
-      sold_count: 0,
-      balance: 0,
-      total_deposit: 0,
-      user_level: 0,
-      level: 0,
-      level1_count: 0,
-      level2_count: 0,
-      level3_count: 0,
-      a_count: 0,
-      bc_count: 0,
-      total_team: 0,
-      daily_income: 0,
-      total_income: 0,
-      last_daily_reserve: null,
-      last_income_reset: null,
-      enthusiast_type: null,
-      is_valid_member: true,
-      team_commission_earned: 0,
-      daily_reserve_balance: 0,
-      referral_earnings: 0,
-      is_level2_qualified: false,
-      valid_team_count: 0,
-      validated_at: null,
-      total_withdrawn: 0,
-      total_deposited: 0,
-      total_referral_earning: 0,
-      referred_by: null,
-      total_withdraw: 0,
-      total_bought: 0,
-      total_sold: 0,
-    }, { onConflict: 'user_id' });
-
-    if (profileError) {
-      if (profileError.code === '42501') throw new Error('Permission denied by database. Contact admin.');
-      if (profileError.code === '23505') throw new Error('Account already exists. Please login.');
-      if (profileError.message.includes('null value')) throw new Error('Missing required field: ' + profileError.message);
-      throw new Error('Profile save failed: ' + profileError.message);
-    }
-
-    // Increment upline total_team (non-blocking)
-    if (uplineId) {
-      const { error: rpcErr } = await supabase.rpc('increment_total_team', { upline_id_param: uplineId });
-      if (rpcErr) {
-        const { data: upRow } = await supabase.from('profiles').select('total_team').eq('id', uplineId).single();
-        await supabase.from('profiles').update({
-          total_team: ((upRow as { total_team: number } | null)?.total_team || 0) + 1,
-        }).eq('id', uplineId);
-      }
+  // createProfile — calls the API server (service role, bypasses all RLS)
+  // All form data is passed explicitly at call-site to avoid closure staleness
+  const createProfile = async (
+    userId: string,
+    accessToken: string,
+    refCode: string,
+    formData: { email: string; name: string; phone: string },
+  ) => {
+    const response = await fetch('/api/nft/auth/create-profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        accessToken,
+        userId,
+        email: formData.email,
+        name: formData.name,
+        phone: formData.phone,
+        referralCode: refCode || null,
+      }),
+    });
+    const data = await response.json() as { ok?: boolean; error?: string };
+    if (!response.ok) {
+      const msg = data?.error || 'Profile creation failed';
+      throw new Error(msg);
     }
   };
 
@@ -357,9 +303,14 @@ if (signupError) {
   }
 
     if (authData.session) {
-      // Auto-confirmed: create profile immediately
+      // Auto-confirmed: create profile immediately via API (service role)
+      const formData = {
+        email: form.email.trim().toLowerCase(),
+        name: form.fullName.trim(),
+        phone: form.phone ? `${form.countryCode}${form.phone.trim()}` : '',
+      };
       try {
-        await createProfile(authData.user.id, refCode);
+        await createProfile(authData.user.id, authData.session.access_token, refCode, formData);
       } catch (err: unknown) {
         setLoading(false);
         showMsg(err instanceof Error ? err.message : 'Profile creation failed', 'error');
@@ -393,8 +344,9 @@ if (signupError) {
       return;
     }
 
-    // Get user from active session — authData.user can be null after OTP verify
+    // Get user + session — authData.user can be null after OTP verify
     const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
     if (userError || !user) {
       showMsg("Failed to get user session. Please try again.");
       setLoading(false);
@@ -404,8 +356,15 @@ if (signupError) {
     const refCode = (form.referralCode.trim().toUpperCase() ||
       sessionStorage.getItem('pending_referral_code') || '');
 
+    // Capture form data explicitly at call-site (prevents stale closure issues)
+    const formData = {
+      email: form.email.trim().toLowerCase(),
+      name: form.fullName.trim(),
+      phone: form.phone ? `${form.countryCode}${form.phone.trim()}` : '',
+    };
+
     try {
-      await createProfile(user.id, refCode);
+      await createProfile(user.id, session?.access_token ?? '', refCode, formData);
       setLoading(false);
       sessionStorage.removeItem('pending_referral_code');
       showMsg("Account created successfully!", "success");

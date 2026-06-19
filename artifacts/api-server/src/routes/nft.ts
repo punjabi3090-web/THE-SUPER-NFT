@@ -284,8 +284,7 @@ router.post("/auth/reset-password", async (req: Request, res: Response): Promise
 });
 
 // POST /api/nft/auth/create-profile ──────────────────────────────────────────
-// Called right after supabase.auth.signUp() on the frontend.
-// Uses the SERVICE ROLE KEY server-side → bypasses ALL RLS policies.
+// Called right after signUp/verifyOtp. SERVICE ROLE → bypasses ALL RLS.
 // Body: { accessToken, userId, email, name, phone, referralCode }
 router.post("/auth/create-profile", async (req: Request, res: Response): Promise<void> => {
   const { accessToken, userId, email, name, phone, referralCode } = req.body as {
@@ -322,15 +321,72 @@ router.post("/auth/create-profile", async (req: Request, res: Response): Promise
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  const newRefCode = "FAIS" + Math.floor(1000 + Math.random() * 9000);
+  // Look up upline by referral_code → get upline profiles.id
+  let uplineId: string | null = null;
+  const refCodeClean = referralCode?.trim().toUpperCase() || null;
+  if (refCodeClean) {
+    const { data: uplineData, error: uplineErr } = await adminClient
+      .from("profiles")
+      .select("id")
+      .eq("referral_code", refCodeClean)
+      .maybeSingle();
+    if (uplineErr) {
+      res.status(400).json({ error: "Database error checking referral: " + uplineErr.message }); return;
+    }
+    if (!uplineData) {
+      res.status(400).json({ error: "Referral code " + refCodeClean + " not found. Please check and try again." }); return;
+    }
+    uplineId = (uplineData as { id: string }).id;
+  }
+
+  // Generate unique SNP referral code for new user
+  const newRefCode = "SNP" + Math.random().toString(36).substring(2, 8).toUpperCase();
+  const cleanPhone = phone ? String(phone).trim() : null;
 
   const { error: profileError } = await adminClient.from("profiles").upsert({
-    user_id:          userId,
-    email:            email.trim().toLowerCase(),
-    name:             (name ?? "").trim(),
-    phone:            (phone ?? "").trim(),
-    referral_code:    newRefCode,
-    referred_by_code: referralCode?.trim().toUpperCase() || null,
+    user_id:               userId,
+    email:                 email.trim().toLowerCase(),
+    name:                  (name ?? "").trim(),
+    phone:                 cleanPhone,
+    phone_number:          cleanPhone,
+    referral_code:         newRefCode,
+    referred_by_code:      refCodeClean,
+    upline_id:             uplineId,
+    role:                  "user",
+    totp_secret:           null,
+    totp_enabled:          false,
+    total_orders:          0,
+    bought_count:          0,
+    sold_count:            0,
+    balance:               0,
+    total_deposit:         0,
+    user_level:            0,
+    level:                 0,
+    level1_count:          0,
+    level2_count:          0,
+    level3_count:          0,
+    a_count:               0,
+    bc_count:              0,
+    total_team:            0,
+    daily_income:          0,
+    total_income:          0,
+    last_daily_reserve:    null,
+    last_income_reset:     null,
+    enthusiast_type:       null,
+    is_valid_member:       true,
+    team_commission_earned: 0,
+    daily_reserve_balance: 0,
+    referral_earnings:     0,
+    is_level2_qualified:   false,
+    valid_team_count:      0,
+    validated_at:          null,
+    total_withdrawn:       0,
+    total_deposited:       0,
+    total_referral_earning: 0,
+    referred_by:           null,
+    total_withdraw:        0,
+    total_bought:          0,
+    total_sold:            0,
   }, { onConflict: "user_id" });
 
   if (profileError) {
@@ -338,7 +394,21 @@ router.post("/auth/create-profile", async (req: Request, res: Response): Promise
     res.status(400).json({ error: profileError.message }); return;
   }
 
-  req.log.info({ userId, email, referralCode }, "Supabase profile created via service role");
+  // Increment upline total_team (non-critical, best-effort)
+  if (uplineId) {
+    try {
+      const { data: upRow } = await adminClient
+        .from("profiles")
+        .select("total_team")
+        .eq("id", uplineId)
+        .single();
+      await adminClient.from("profiles").update({
+        total_team: ((upRow as { total_team: number } | null)?.total_team || 0) + 1,
+      }).eq("id", uplineId);
+    } catch { /* non-critical */ }
+  }
+
+  req.log.info({ userId, email, refCodeClean, uplineId }, "Supabase profile created via service role");
   res.json({ ok: true, referral_code: newRefCode });
 });
 
