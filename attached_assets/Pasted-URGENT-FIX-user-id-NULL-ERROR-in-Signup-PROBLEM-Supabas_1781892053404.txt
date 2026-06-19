@@ -1,0 +1,97 @@
+URGENT FIX: user_id NULL ERROR in Signup
+
+PROBLEM: Supabase logs show "null value in column user_id". OTP verify ke baad authData.user.id null aa raha hai.
+
+SOLUTION: handleVerifyOtp me OTP verify ke baad session se user id nikalo, authData se nahi.
+
+OPEN Login.tsx → find handleVerifyOtp → Replace the try block with this:
+
+try {
+  // 1. Verify OTP first
+  const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
+    email: form.email,
+    token: form.otp,
+    type: 'signup'
+  });
+  
+  if (verifyError) throw new Error('OTP verification failed: ' + verifyError.message);
+
+  // 2. GET USER FROM CURRENT SESSION - THIS FIXES user_id NULL ERROR
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) throw new Error('Failed to get user session after OTP: ' + userError?.message);
+  
+  // 3. VALIDATE INPUTS
+  if (!form.fullName.trim()) throw new Error('Full Name is required');
+  if (!termsAccepted) throw new Error('Please accept Terms & Conditions');
+
+  // 4. Get referral code
+  const refCode = (form.referralCode.trim().toUpperCase() || sessionStorage.getItem('pending_referral_code') || '').toUpperCase();
+
+  // 5. Find UPLINE
+  let uplineId: string | null = null;
+  if (refCode) {
+    const { data: uplineData, error: uplineError } = await supabase
+     .from('profiles')
+     .select('id, referral_code')
+     .eq('referral_code', refCode)
+     .maybeSingle();
+    
+    if (uplineError) throw new Error('Database error: ' + uplineError.message);
+    if (!uplineData) throw new Error('Referral code ' + refCode + ' not found');
+    uplineId = uplineData.id;
+  }
+
+  // 6. Generate new referral code
+  const newReferralCode = 'SNP' + crypto.randomUUID().substring(0, 6).toUpperCase();
+
+  // 7. BUILD PROFILE - USE user.id NOT authData.user.id
+  const profileData = {
+    user_id: user.id, // FIX: user.id from getUser() not authData
+    name: form.fullName.trim(),
+    email: form.email.trim().toLowerCase(),
+    phone: form.phone? `${form.countryCode}${form.phone.trim()}` : null,
+    referral_code: newReferralCode,
+    upline_id: uplineId,
+    referred_by_code: refCode || null,
+    total_team: 0,
+    total_deposit: 0,
+    level: 1,
+    status: 'active',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    balance: 0,
+    avatar_url: null,
+    is_verified: false,
+    // ADD ALL OTHER COLUMNS FROM YOUR SCHEMA WITH DEFAULTS
+  };
+
+  // 8. UPSERT
+  const { error: profileError } = await supabase
+   .from('profiles')
+   .upsert(profileData, { onConflict: 'user_id' });
+
+  if (profileError) {
+    if (profileError.code === '42501') throw new Error('Permission denied. Contact admin.');
+    if (profileError.code === '23505') throw new Error('Account already exists.');
+    throw new Error('Profile save failed: ' + profileError.message);
+  }
+
+  // 9. INCREMENT UPLINE TEAM
+  if (uplineId) {
+    await supabase.rpc('increment_total_team', { upline_id_param: uplineId });
+  }
+
+  // SUCCESS
+  setLoading(false);
+  sessionStorage.removeItem('pending_referral_code');
+  showMsg("Account created successfully!", "success");
+  window.location.replace('/');
+
+} catch (error: any) {
+  console.log('SIGNUP ERROR:', error);
+  setLoading(false);
+  showMsg(error.message || 'Unknown signup error', 'error');
+  return;
+}
+
+TEST: Create account with FAIS6285. Check Supabase logs. user_id should NOT be null now.

@@ -387,16 +387,25 @@ if (signupError) {
       type: 'signup',
     });
 
-    if (verifyError || !authData.user) {
+    if (verifyError) {
       showMsg("Invalid or expired OTP. Please try again.");
       setLoading(false);
       return;
     }
+
+    // Get user from active session — authData.user can be null after OTP verify
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      showMsg("Failed to get user session. Please try again.");
+      setLoading(false);
+      return;
+    }
+
     const refCode = (form.referralCode.trim().toUpperCase() ||
       sessionStorage.getItem('pending_referral_code') || '');
 
     try {
-      await createProfile(authData.user.id, refCode);
+      await createProfile(user.id, refCode);
       setLoading(false);
       sessionStorage.removeItem('pending_referral_code');
       showMsg("Account created successfully!", "success");
