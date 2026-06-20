@@ -1,0 +1,115 @@
+STOP. YOU HAVE FULL DB POWER + SERVICE_ROLE. NO EXCUSES. THIS IS LAST CHANCE BEFORE I MIGRATE.
+
+CONTEXT: 1 month wasted. Signup dead due to trigger + RLS + deploy fail. Admin panel corrupt.
+
+GOAL:
+1. WIPE EVERYTHING: All auth.users, profiles, transactions, admin_logs, daily_reserve_logs, balances. ZERO DATA LEFT.
+2. KEEP SAME APP: Same UI, same Signup Page design/settings, same Level 1/2/3, same Daily Reserve, same percentage tools, Order Bought/Sold, SAME ADMIN PANEL FUNCTIONS.
+3. SYNC SYSTEM: Database must match EXACTLY with current Signup Page fields. When user creates account → auto redirect to old Dashboard → all old functions work via Supabase Auth → real auto working.
+
+CRITICAL RULES:
+1. You have SUPABASE SERVICE_ROLE. Use it. No "permission denied".
+2. Signup Page me jo fields hain: email, password, full_name, referral_code - Database trigger unhi ko use karega.
+3. No manual SQL after this. Only auth.signUp() from existing Signup Page.
+4. Admin panel UI/functions same rahenge. Bas data 0 se start.
+5. faisalnft55@gmail.com fresh admin banega with FAIS6285.
+
+EXECUTE THESE COMMANDS IN ORDER - USE SERVICE_ROLE:
+
+1. NUCLEAR RESET - MATCH SIGNUP PAGE SCHEMA:
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users CASCADE;
+DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
+TRUNCATE TABLE auth.users RESTART IDENTITY CASCADE;
+TRUNCATE TABLE profiles RESTART IDENTITY CASCADE;
+TRUNCATE TABLE transactions RESTART IDENTITY CASCADE;
+TRUNCATE TABLE daily_reserve_logs RESTART IDENTITY CASCADE;
+TRUNCATE TABLE admin_logs RESTART IDENTITY CASCADE;
+TRUNCATE TABLE user_levels RESTART IDENTITY CASCADE;
+-- Check Login.tsx/Signup.tsx: Jo bhi table Signup se related hai wo sab TRUNCATE karo
+
+2. CREATE TRIGGER FUNCTION - SYNCED WITH SIGNUP PAGE:
+CREATE OR REPLACE FUNCTION public.handle_new_user() 
+RETURNS TRIGGER 
+SECURITY DEFINER 
+SET search_path = public
+AS $$
+DECLARE
+  new_ref_code TEXT;
+  upline_uuid UUID;
+  ref_from_meta TEXT;
+  name_from_meta TEXT;
+BEGIN
+  -- Signup Page se data nikalo
+  name_from_meta := NEW.raw_user_meta_data->>'full_name';
+  ref_from_meta := NEW.raw_user_meta_data->>'referred_by_code';
+  
+  -- Unique referral code
+  new_ref_code := 'USER' || upper(substr(md5(NEW.id::text || clock_timestamp()::text), 1, 6));
+  
+  -- Upline dhoondo agar referral diya
+  IF ref_from_meta IS NOT NULL AND ref_from_meta != '' THEN
+    SELECT user_id INTO upline_uuid FROM profiles WHERE referral_code = ref_from_meta LIMIT 1;
+  END IF;
+
+  -- Insert profile - Signup Page ke sab fields + App ke sab columns
+  INSERT INTO public.profiles (
+    user_id, email, full_name, referral_code, referred_by_code, upline_id, 
+    total_team, level, balance, daily_reserve, order_bought, order_sold, 
+    is_active, created_at
+  ) VALUES (
+    NEW.id, NEW.email,
+    COALESCE(name_from_meta, 'New User'),
+    new_ref_code, ref_from_meta, upline_uuid,
+    0, 1, 0, 0, 0, 0,
+    true, NOW()
+  );
+  
+  -- Purana Level logic chalao
+  IF upline_uuid IS NOT NULL THEN
+    PERFORM increment_total_team(upline_uuid);
+    PERFORM update_user_levels(upline_uuid); -- Agar level function hai
+  END IF;
+  
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+  RAISE LOG 'handle_new_user failed for %: %', NEW.email, SQLERRM;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+3. ATTACH TRIGGER:
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+4. VERIFY SIGNUP PAGE CODE - Login.tsx/Signup.tsx:
+MUST USE THIS EXACT CODE. NO profiles.insert():
+const { data, error } = await supabase.auth.signUp({
+  email,
+  password,
+  options: {
+    data: {
+      full_name: fullName, // Signup page ka input
+      referred_by_code: referralCode // Signup page ka input
+    }
+  }
+})
+// Success pe redirect: router.push('/dashboard') - Purana dashboard
+
+5. CREATE FIRST ADMIN:
+Use service_role: 
+Email: faisalnft55@gmail.com, Password: Faisal123, 
+Metadata: { full_name: "Faisal NFT", referred_by_code: null, is_admin: true }
+Then: UPDATE profiles SET referral_code = 'FAIS6285' WHERE email = 'faisalnft55@gmail.com';
+
+6. DEPLOY + MANDATORY TESTS:
+Test 1: Open live Signup Page → Fill email/pass/name/referral FAIS6285 → Submit → Must redirect to /dashboard
+Test 2: Check profiles table → user_id NOT NULL, upline_id = Faisal ID, total_team = 0
+Test 3: Check Faisal profile → total_team = 1, Admin panel me new user dikhe
+Test 4: Level 2/3 signup → Admin panel team tree update ho
+Test 5: Dashboard pe Daily Reserve click → balance + order_bought/sold update ho + admin_logs me entry bane
+
+FAILURE = Any error OR no redirect OR old dashboard broken OR admin panel not showing users
+SUCCESS = "SIGNUP PAGE → DASHBOARD → ALL OLD FUNCTIONS WORKING" + Live URL + Screen record
+
+DO IT NOW. MATCH SIGNUP PAGE 100%. NO BUGS.

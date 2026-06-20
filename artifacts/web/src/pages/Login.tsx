@@ -279,11 +279,11 @@ acceptTerms: false
     password: form.password,
     options: {
       data: {
-  full_name: form.fullName.trim(),
-  phone: form.phone ? `${form.countryCode}${form.phone.trim()}` : '',
-  referred_by: refCode || null
-}
-    }
+        full_name:        form.fullName.trim(),
+        phone:            form.phone ? `${form.countryCode}${form.phone.trim()}` : '',
+        referred_by_code: refCode || null,
+      },
+    },
   });
       authData = result.data;
       signupError = result.error;
