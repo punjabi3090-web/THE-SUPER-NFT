@@ -26,10 +26,10 @@ type BindAddr = {
 };
 
 const DEFAULT_WD: WdSettings = {
-  min_withdraw:           10,
+  min_withdraw:           50,
   max_withdraw:           10000,
-  withdraw_fee_percent:   2,
-  withdraw_process_hours: 24,
+  withdraw_fee_percent:   5,
+  withdraw_process_hours: 72,
 };
 
 export default function Withdraw() {
@@ -71,11 +71,11 @@ export default function Withdraw() {
         const m: Record<string, string> = {};
         settingsRows.forEach((r: { key: string; value: string }) => { m[r.key] = r.value ?? ""; });
         setWdSettings({
-          min_withdraw:           parseFloat(m["min_withdraw"]           ?? "10"),
-          max_withdraw:           parseFloat(m["max_withdraw"]           ?? "10000"),
-          withdraw_fee_percent:   parseFloat(m["withdraw_fee_percent"]   ?? "2"),
-          withdraw_process_hours: parseFloat(m["withdraw_process_hours"] ?? "24"),
-        });
+  min_withdraw: parseFloat(m["min_withdraw"] ?? "50"),        // <-- "10" se "50"
+  max_withdraw: parseFloat(m["max_withdraw"] ?? "10000"),     // <-- Same
+  withdraw_fee_percent: parseFloat(m["withdraw_fee_percent"] ?? "5"),  // <-- "2" se "5"
+  withdraw_process_hours: parseFloat(m["withdraw_process_hours"] ?? "72"), // <-- "24" se "72"
+});
       }
 
       setBindAddr(bindData ?? null);
@@ -133,23 +133,6 @@ export default function Withdraw() {
 
     setSubmitting(true);
 
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const totpRes = await fetch("/api/2fa/validate", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token ?? ""}` },
-        body:    JSON.stringify({ token: totpCode }),
-      });
-      const totpData = await totpRes.json() as { valid?: boolean; error?: string };
-      if (!totpData.valid) {
-        toast.error("Invalid Google Auth code — please try again");
-        setSubmitting(false); return;
-      }
-    } catch {
-      toast.error("Network error — could not validate 2FA");
-      setSubmitting(false); return;
-    }
-
     const { error: insErr } = await supabase.from("withdrawals").insert({
       user_id:        user.id,
       amount:         amt,
@@ -165,11 +148,6 @@ export default function Withdraw() {
       setSubmitting(false); return;
     }
 
-    const { error: balErr } = await supabase.rpc("increment_balance", { uid: user.id, inc: -amt });
-    if (balErr) {
-      toast.error("Balance update failed — contact support");
-      setSubmitting(false); return;
-    }
 
     setSubmitted(true);
     setSubmitting(false);

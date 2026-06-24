@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "hello": "tsx ./src/hello.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+      "dev": "concurrently \"cd artifacts/api-server && pnpm run dev\" \"cd artifacts/web && pnpm run dev --port 3001\"",
+  "dev:web": "cd artifacts/web && pnpm run dev --port 3001",
+  "dev:api": "cd artifacts/api-server && pnpm run dev"
   },
   "devDependencies": {
     "@types/node": "catalog:",

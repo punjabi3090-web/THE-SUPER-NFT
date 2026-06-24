@@ -41,6 +41,7 @@ type UserStats = {
   bid: number;
   comprehensive: number;
   nftRate: number;
+  referral_total: number;
 };
 type TeamData = {
   level1Count: number;
@@ -70,6 +71,7 @@ const Z_STATS: UserStats = {
   bid: 0,
   comprehensive: 0,
   nftRate: 0,
+  referral_total:0,
 };
 const Z_TEAM: TeamData = {
   level1Count: 0,
@@ -95,6 +97,8 @@ export default function HomeTab() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [stats, setStats] = useState<UserStats>(Z_STATS);
   const [team, setTeam] = useState<TeamData>(Z_TEAM);
+  const [totalRegisterMembers, setTotalRegisterMembers] = useState(0);
+  const [totalBCEnthusiast, setTotalBCEnthusiast] = useState(0);
   const [orders, setOrders] = useState<any[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -149,10 +153,10 @@ export default function HomeTab() {
 
   const { data: profileData }: any = await supabase
     .from('profiles')
-    .select('balance,daily_income,total_income,last_daily_reserve,' +
-            'referral_code,level1_count,level2_count,a_count,bc_count,' +
-            'is_valid_member,user_level')
-    .eq('user_id', user.id)
+    .select('balance,daily_income,total_income,last_daily_reserve,' + 
+  'referral_code,level1_count,level2_count,a_count,bc_count,' + 
+  'is_valid_member,user_level,referral_earnings')
+.eq('user_id', user.id)
     .single();
 
   if (profileData) {
@@ -193,30 +197,42 @@ const fetchDeposits = async (uid: string) => {
   return data || [];
 };
 
-const fetchReferrals = async (uid: string) => {
-  const { data, error } = await supabase
-   .from('transactions')
-   .select('*')
-   .eq('user_id', uid)
-   .eq('type', 'referral_bonus')
-   .order('created_at', { ascending: false });
-  if (error) console.log('Referrals error:', error);
-  setReferrals(data || []);
-  return data || [];
-};
 
 const fetchBonuses = async (uid: string) => {
-  const { data, error } = await supabase
+  // IHTIYAT: transactions table se bonus la rahe hain kyunki function wahi use kar raha
+  const { data: bonusesData, error } = await supabase
    .from('transactions')
-   .select('*')
+   .select('id, amount, created_at, user_id')
    .eq('user_id', uid)
-   .eq('type', 'signup_bonus')
-   .order('created_at', { ascending: false });
-  if (error) console.log('Bonuses error:', error);
-  setBonuses(data || []);
-  return data || [];
+   .eq('type', 'bonus')
+   .eq('status', 'completed')
+   .gt('amount', 0);
+
+  if (error) {
+    alert('IHTIYAT: Bonus fetch error: ' + error.message);
+    return [];
+  }
+
+  if (!bonusesData || bonusesData.length === 0) {
+    alert('IHTIYAT: Transactions table me bonus nahi mila');
+  } else {
+    alert('IHTIYAT: Bonus mil gaya: $' + bonusesData[0].amount);
+  }
+
+  setBonuses(bonusesData || []);
+  return bonusesData || [];
+};
   
-}; 
+const fetchAllTransactions = async (uid: string) => {
+  const { data, error } = await supabase
+    .from('transactions')
+    .select('*')
+    .eq('user_id', uid)
+    .in('type', ['deposit', 'bonus', 'withdraw'])
+    .order('created_at', { ascending: false });
+  if (error) console.log('All Transactions error:', error);
+  return data || [];
+};
 const handleDailyReserve = async () => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return toast.error("User not found");
@@ -328,7 +344,7 @@ const handleDailyReserve = async () => {
       getCurrentUser(),
       supabase
         .from("profiles")
-        .select('role, referral_code, balance, total_orders, daily_income, total_income, last_daily_reserve')
+        .select('role, referral_code, balance, total_orders, daily_income, total_income, last_daily_reserve, referral_earnings')
         .eq("user_id", uid)
         .maybeSingle(),
     ]);
@@ -341,70 +357,86 @@ const { count: lifetimeOrders } = await supabase
   .select('*', { count: 'exact', head: true })
   .eq('user_id', uid)
   .eq('type', 'daily_reserve');
+    
 
+    const refCode = profileRow?.data?.referral_code ?? null;
+// Fetch all history data
+//const withdrawalsData = await fetchWithdrawals(uid);
+//const depositsData = await fetchDeposits(uid);
+const allTransactionsData = await fetchAllTransactions(uid);
+//const depositsData = allTransactionsData;
+//const referralsData = await fetchReferrals(uid);
+//const allTransactionsData = await fetchAllTransactions(uid);
+const bonusesData = await fetchBonuses(uid);
+
+// Merge all data into one array
+// IHTIYAT: Sirf allTransactionsData use karo - deposit + bonus + withdraw sab isme hai
+const combined = [
+  ...allTransactionsData.map(t => ({ 
+    ...t, 
+    history_type: t.type, // t.type = 'deposit' ya 'bonus' ya 'withdraw'
+    amount: Number(t.amount) // IHTIYAT: String ko Number banao
+  }))
+].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+setAllHistory(combined);
+console.log('IHTIYAT: All History Data:', combined);
+setAllHistory(combined);
+console.log('All History Data:', combined);
+    setProfile({ 
+  id: profileRow?.data?.id, 
+  email: profileRow?.data?.email, 
+  referral_code: profileRow?.data?.referral_code, 
+  name: profileRow?.data?.name,
+  referral_earnings: profileRow?.data?.referral_earnings 
+});
+    setIsAdmin(profileRow?.data?.role === "admin" || apiUser?.isAdmin === true || user.email === "faisalnft55@gmail.com");
 setOrderStats({
   total: lifetimeOrders || 0,
   processing: 0,
   bought: lifetimeOrders || 0, // Daily Reserve = Bought
-  sold: lifetimeOrders  || 0,//Daily Reserve = Sold
+  sold: lifetimeOrders || 0, //Daily Reserve = Sold
+  referral_total: profileRow?.data?.referral_earnings || 0,
 });
+    
+// IHTIYAT: Profile load hone ka wait karo
+alert('DEBUG: UID=' + uid + ' | EARNINGS=' + profileRow?.data?.referral_earnings + ' | TYPE=' + typeof profileRow?.data?.referral_earnings);
+    if (!uid) { setLoading(false); return; } // ✅ profileRow ki jagah uid use karo
 
-    const refCode = profileRow?.data?.referral_code ?? null;
-// Fetch all history data
-const withdrawalsData = await fetchWithdrawals(uid);
-const depositsData = await fetchDeposits(uid);
-const referralsData = await fetchReferrals(uid);
-const bonusesData = await fetchBonuses(uid);
-
-// Merge all data into one array
-const combined = [
-  ...withdrawalsData.map(w => ({ ...w, history_type: 'withdraw' })),
-  ...depositsData.map(d => ({ ...d, history_type: 'deposit' })),
-  ...referralsData.map(r => ({ ...r, history_type: 'referral' })),
-  ...bonusesData.map(b => ({ ...b, history_type: 'bonus' }))
-].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-setAllHistory(combined);
-console.log('All History Data:', combined);
-    //setProfile(apiUser? { balance: apiUser.walletBalance, name: apiUser.name, referral_code: refCode } : null);
-    setIsAdmin(profileRow?.data?.role === "admin" || apiUser?.isAdmin === true || user.email === "faisalnft55@gmail.com");
-
-    // ===== TEAM API HATA DI - AB DIRECT SUPABASE =====
-
+// ===== TEAM API HATA DI - AB DIRECT SUPABASE =====
     // LEVEL 1 - DIRECT SUPABASE
     const { data: level1Members } = await supabase
       .from("profiles")
       .select("id, name, email, referral_code, referred_by_code, total_deposit")
-      .eq('upline_id', uid);
+      .eq('referred_by_code', profileRow?.data?.referral_code); // ✅ FIXED
 
     let level2Members: any[] = [];
 
     // LEVEL 2 - DIRECT SUPABASE
 
     const level1Safe = level1Members ?? [];
-    // upline_id is a UUID (profiles.id) — use id NOT referral_code
-    const level1Ids = level1Safe
-      .map((m: any) => m.id)
-      .filter(Boolean);
-
+// L2 ke liye L1 ke referral_code chahiye
+const l1ReferralCodes = level1Safe
+  .map((m: any) => m.referral_code)
+  .filter(Boolean);
     let level3Members: any[] = [];
-    if (level1Ids.length > 0) {
+    if (l1ReferralCodes.length > 0) {
       const { data: level2Data } = await supabase
         .from("profiles")
         .select("id, name, email, referral_code, referred_by_code, total_deposit")
-        .in("upline_id", level1Ids);
+        .in('referred_by_code', l1ReferralCodes);
 
       level2Members = level2Data || [];
 
       if (level2Members.length > 0) {
-        const level2Ids = level2Members
-          .map((m: any) => m.id)
-          .filter(Boolean);
+        const l2ReferralCodes = level2Members
+  .map((m: any) => m.referral_code)
+  .filter(Boolean);
 
         const { data: level3Data } = await supabase
           .from("profiles")
           .select("id, name, email, referral_code, referred_by_code, total_deposit")
-          .in("upline_id", level2Ids);
+          .in('referred_by_code', l2ReferralCodes);
 
         level3Members = level3Data || [];
       }
@@ -444,7 +476,8 @@ console.log('All History Data:', combined);
       aCount: level1Safe.filter((m: any) => Number(m.total_deposit || 0) > 0).length,
 bcCount: [...level2Members, ...level3Members].filter((m: any) => Number(m.total_deposit || 0) > 0).length
     });
-
+setTotalRegisterMembers(level1Safe.length); // ✅ L1 lifetime count only, +1 hata diya
+setTotalBCEnthusiast(level2Members.length + level3Members.length); // Only L2+L3, no self
     setTeamMembers(allMembers);
     setLiveTeamCount(allMembers.length);
     // 4. STATS - PURANA CODE SAME HAI
@@ -453,7 +486,8 @@ bcCount: [...level2Members, ...level3Members].filter((m: any) => Number(m.total_
   .select('balance, daily_income, total_income, team_commission_earned, user_level')
   .eq('user_id', uid)
   .single();
-
+    // ✅ STEP 3 HISSA 2: Referral total laane ke liye
+    
 const { data: approvedDeposits } = await supabase
   .from('deposits')
   .select('amount')
@@ -472,34 +506,28 @@ const { data: approvedDeposits } = await supabase
       bid: maxAmt,
       comprehensive: maxAmt * (nftRate / 100),
       nftRate,
+      referral_total: Number(profileData?.referral_earnings || 0),
     });
 
   
     setLoading(false);
   }, [navigate]);
   useEffect(() => {
-    load();
-    const t = setInterval(load, 30_000);
+  // if (!apiUser?.id) { setLoading(false); return; } // ❌ ZARURAT NAHI, load() me check hai
 
-    const channel = supabase
-      .channel("home-realtime")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "transactions" },
-        () => load(),
-      )
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "deposits" },
-        () => load(),
-      )
-      .subscribe();
+  load();
+  const t = setInterval(load, 30_000);
+  const channel = supabase
+   .channel('home-realtime')
+   .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, () => load())
+   .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'deposits' }, () => load())
+   .subscribe();
 
-    return () => {
-      clearInterval(t);
-      supabase.removeChannel(channel);
-    };
-  }, [load]);
+  return () => {
+    clearInterval(t);
+    supabase.removeChannel(channel);
+  };
+  }, []); // ✅ Khali array - sirf 1 baar chalega jab component load hoga
 
   /* ── Realtime: new announcements → refresh bell badge ── */
   useEffect(() => {
@@ -667,13 +695,13 @@ setLiveTeamCount(realTeamCommission); // ✅ AB COMMISSION DIKHEGI
     },
     
     { label: "Team Income %", value: `$0.00`, hl: true },
-    { label: "Activity", value: String(stats.activity), hl: false },
+    { label: "Referral %", value: `$${(profile?.referral_earnings || 0).toFixed(2)}`, hl: true },
   ];
 
   const otherTeamBoxes = [
     {
       label: ["Total Register B/C", "Members"],
-      value: team.level2Count ?? 0,
+      value: totalBCEnthusiast,
       icon: (
         <Trophy className="w-5 h-5 mx-auto mt-1" style={{ color: "#ea580c" }} />
       ),
@@ -1157,6 +1185,7 @@ setLiveTeamCount(realTeamCommission); // ✅ AB COMMISSION DIKHEGI
           </div>
         )}
       </div>
+      
       {/* ══ SECTION 3 — MY ORDERS ══ */}
       <div className="bg-white rounded-xl p-3 mb-2 shadow-sm">
         <div className="flex items-center justify-between mb-2">

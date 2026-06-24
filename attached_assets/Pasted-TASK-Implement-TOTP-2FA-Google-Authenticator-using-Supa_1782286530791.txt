@@ -1,0 +1,58 @@
+TASK: Implement TOTP 2FA Google Authenticator using Supabase MFA only
+
+🚨🚨🚨 CRITICAL RED LINE - VIOLATION = DATA LOSS + PROJECT DESTROY 🚨🚨🚨
+BAKI TAMAM PROJECT KE PURANY KAMO KO BILKUL NA CHHERNA. 
+JO BHI KAAM JAHAN SET HAI US KO BILKUL NA CHHERNA.
+PURANE FUNCTIONS, TRIGGERS, FRONTEND CODE, BACKEND CODE, RLS, TABLES, COLUMNS, MIGRATIONS - SAB KO HAATH BHI MAT LAGANA.
+
+1. DO NOT TOUCH ANY EXISTING CODE/FILES EXCEPT THE 3 FILES LISTED BELOW. 
+   STRICTLY FORBIDDEN: wallets, profiles, transactions, auth.users, ANY triggers, ANY RLS policies, ANY existing functions, ANY existing API routes, ANY existing frontend components, ANY .sql files, ANY config files.
+   
+2. DO NOT CREATE OR RUN ANY DATABASE MIGRATIONS. Use Supabase built-in auth.mfa tables only. 
+   CHECK KAR SAKTE HO: auth.users, auth.mfa_factors, auth.mfa_challenges
+   EDIT HARGIZ NAHI KARNA: In tables me 1 column bhi touch kiya to project toot jayega.
+   
+3. DO NOT OPEN OR EDIT ANY FILE OUTSIDE THIS LIST. 
+   AGAR KISI AUR FILE KI ZARURAT PADI TO TURANT RUK JANA AUR MUJHSE POOCHNA.
+   APNI MARZI SE KOE BHI DOOSRI FILE NAHI KHOLNI.
+
+✅ ALLOWED CHANGES - SIRF YE 3 FILES:
+BACKEND:
+1. CREATE NEW FILE ONLY: artifacts/api-server/src/routes/mfa.ts
+   - POST /api/mfa/enroll -> supabase.auth.mfa.enroll({ factorType: 'totp' })
+   - POST /api/mfa/verify -> supabase.auth.mfa.verify() 
+   - POST /api/mfa/unenroll -> supabase.auth.mfa.unenroll()
+   - Use SUPABASE_SERVICE_ROLE_KEY from env. Frontend me expose nahi karna.
+   - Is file ke ilawa backend ki kisi file ko haath nahi lagana.
+
+FRONTEND:
+1. CREATE NEW FILE ONLY: artifacts/web/src/components/TwoFactorModal.tsx
+   - Full-screen centered modal, NOT bottom sheet
+   - Must work on mobile WITHOUT "desktop site" mode 
+   - Show QR code on enroll, 6-digit input on verify
+   - Use React Portal to render at document.body level for true center
+   - Is component ke ilawa koi component nahi banana, nahi edit karna
+
+2. MODIFY ONLY 1 EXISTING FILE: artifacts/web/src/pages/Profile.tsx
+   - SIRF Security Toolbox section me "Google Authenticator" button ka onClick change karna hai
+   - Button click pe TwoFactorModal.tsx open karna hai
+   - Profile.tsx ki baaki 1 line bhi nahi chherni. Sirf button ka handler badalna hai.
+   - Modal must open in CENTER of screen with backdrop blur, not at bottom
+
+UI REQUIREMENTS - MOBILE FIRST:
+1. Modal CSS: position: fixed, top: 50%, left: 50%, transform: translate(-50%, -50%), z-index: 9999
+2. Backdrop: background: rgba(0,0,0,0.6), backdrop-filter: blur(4px) 
+3. Mobile: width: 90vw, max-width: 400px. No bottom sheet/drawer/slide-up component allowed.
+4. User flow: Security Toolbox -> Google Authenticator -> Modal opens CENTER -> QR or 6-digit input -> Success
+
+SUPABASE CHECK ONLY - NO EDIT:
+1. Confirm Authentication > Multi-Factor > TOTP is enabled. If not enabled, RUK JAO aur mujhe batao. Khud enable nahi karna.
+2. Use only supabase.auth.mfa.* methods. Custom table banane ki zarurat nahi. 
+3. BAKI TAMAM PROJECT KE PURANE TABLES/COLUMNS/RLS KO BILKUL NA CHHERNA.
+
+TESTING:
+After implementation: Profile > Security Toolbox > Google Authenticator > Center modal opens immediately. No scrolling, no bottom panel, no desktop-site needed.
+
+FINAL WARNING:
+AGAR TUMNE MERE PURANE CODE, TRIGGERS, RLS, WALLETS, YA KISI BHI FILE KO JO UPAR LIST MEIN NAHI HAI, TOUCH KIYA TO MAIN TUMHARA CODE REVERT KAR DUNGA. 
+SIRF 2 NAYI FILES BANAO AUR 1 FILE MEIN 5-10 LINE EDIT KARO. BAS.

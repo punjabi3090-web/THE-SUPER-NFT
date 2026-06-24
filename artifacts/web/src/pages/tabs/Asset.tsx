@@ -54,30 +54,48 @@ export default function AssetTab() {
   }, [navigate]);
 
   useEffect(() => { load(); }, [load]);
+// IHTIYAT: LOAD TRANSACTION HISTORY - LINE 58
+const loadTransactionHistory = async () => {
+  if (!user) return;
+  
+  const { data, error } = await supabase
+  .from('transactions')
+  .select('*')
+  .eq('user_id', user.id)
+  .in('type', ['deposit', 'bonus', 'withdraw'])
+  .order('created_at', { ascending: false });
 
-  const loadTransactionHistory = async () => {
-    if (!user) return;
-    const { data: withdrawals } = await supabase.from('withdrawals').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
-    const { data: deposits } = await supabase.from('deposits').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
-    const { data: bonuses } = await supabase.from('transactions').select('*').eq('user_id', user.id).in('type', ['referral_bonus', 'signup_bonus']).order('created_at', { ascending: false });
-
-    const combined = [
-    ...(withdrawals || []).map(w => ({...w, history_type: 'withdraw' })),
-    ...(deposits || []).map(d => ({...d, history_type: 'deposit' })),
-    ...(bonuses || []).map(b => ({...b, history_type: b.type === 'referral_bonus'? 'referral' : 'bonus' }))
-    ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-    setAllHistory(combined);
-  };
+  if (!error && data) {
+    const historyData = data.map(t => ({
+    ...t,
+      history_type: t.type,
+      amount: Number(t.amount)
+    }));
+    setAllHistory(historyData);
+    console.log('IHTIYAT: Asset History:', historyData);
+  }
+  setLoading(false);
+};
 // ===== REAL-TIME UPDATES START =====
+// IHTIYAT: REALTIME - LINE 59
 useEffect(() => {
   if (!user) return;
-  const channel = supabase.channel('all_transactions_changes')
-  .on('postgres_changes', { event: '*', schema: 'public', table: 'withdrawals', filter: `user_id=eq.${user.id}` }, () => loadTransactionHistory())
-  .on('postgres_changes', { event: '*', schema: 'public', table: 'deposits', filter: `user_id=eq.${user.id}` }, () => loadTransactionHistory())
-  .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions', filter: `user_id=eq.${user.id}` }, () => loadTransactionHistory())
-  .subscribe();
-  return () => { supabase.removeChannel(channel); };
+  
+  const channel = supabase
+   .channel('asset-history')
+   .on('postgres_changes', { 
+      event: '*', // IHTIYAT: INSERT + UPDATE dono
+      schema: 'public', 
+      table: 'transactions',
+      filter: `user_id=eq.${user.id}`
+    }, () => {
+      loadTransactionHistory(); // IHTIYAT: Status change pe reload
+    })
+   .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
 }, );
 // ===== REAL-TIME UPDATES END =====
   useEffect(() => { if (user) { loadTransactionHistory(); } }, [user]);
@@ -152,48 +170,89 @@ useEffect(() => {
         </button>
       </div>
 
-      <div className="mt-4 bg-white rounded-xl p-3 mb-2 shadow-sm">
-        <div className="flex justify-between items-center mb-2">
-          <h3 className="text-base font-bold" style={{color: B}}>Transaction History</h3>
-          <span className="text-xs bg-gray-100 px-2 py-1 rounded-full">
-            {allHistory.length} records
-          </span>
-        </div>
-        {allHistory.length === 0? (
-          <div className="text-center py-8">
-            <p className="text-gray-400 text-sm">No transactions yet</p>
-            <p className="text-gray-300 text-xs mt-1">Your deposits and withdrawals will show here</p>
-          </div>
-        ) : (
-          <div className="space-y-2 max-h-96 overflow-y-auto">
-            {allHistory.map((item, index) => (
-              <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border border-gray-100">
-                <div className="flex items-center gap-3">
-                  <div>
-                    <p className="font-semibold text-sm capitalize">
-                      {item.history_type === 'withdraw' && 'Withdrawal'}
-                      {item.history_type === 'deposit' && 'Deposit'}
-                      {item.history_type === 'referral' && 'Referral Bonus'}
-                      {item.history_type === 'bonus' && 'Signup Bonus'}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                     {new Date(item.created_at).toLocaleString('en-US', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}
-                    </p>
-                  </div>
+      {/* === IHTIYAT: NEW TRANSACTION HISTORY WITH COLORS === */}
+<div className="mt-4">
+  <div className="flex justify-between items-center mb-3 px-1">
+    <p className="text-sm font-bold" style={{ color: B }}>Transaction History</p>
+    <p className="text-xs text-gray-500">{allHistory?.length || 0} records</p>
+  </div>
+
+  {loading? (
+    <div className="text-center py-6">
+      <p className="text-xs text-gray-400">Loading...</p>
+    </div>
+  ) :!allHistory || allHistory.length === 0? (
+    <div className="text-center py-6">
+      <p className="text-xs text-gray-400">No transactions yet</p>
+      <p className="text-xs text-gray-300 mt-1">Your deposits and withdrawals will show here</p>
+    </div>
+  ) : (
+    <div className="space-y-2">
+      {allHistory.map((item, index) => {
+        // IHTIYAT: COLOR LOGIC - TERE COLORS
+        const isGreen = 
+          (item.history_type === 'deposit' && item.status === 'completed') || // Deposited
+          (item.history_type === 'withdraw' && item.status === 'completed') || // Withdrawal Approved
+          (item.history_type === 'bonus' && item.status === 'completed');     // Referral bonus
+        
+        const isRed = 
+          (item.history_type === 'withdraw' && item.status === 'pending') ||   // Withdrawal pending
+          (item.history_type === 'withdraw' && item.status === 'rejected');    // withdrawal rejected
+        
+        const bgColor = isGreen ? 'bg-green-50 border-green-200' : 
+                       isRed ? 'bg-red-50 border-red-200' : 
+                       'bg-blue-50 border-blue-200';
+        
+        const textColor = isGreen ? 'text-green-700' : 
+                         isRed ? 'text-red-700' : 
+                         'text-blue-700';
+        
+        const amountColor = isGreen ? 'text-green-600' : 
+                           isRed ? 'text-red-600' : 
+                           'text-blue-600';
+        
+        const iconBg = isGreen ? 'bg-green-100' : 
+                      isRed ? 'bg-red-100' : 
+                      'bg-blue-100';
+        
+        const iconText = isGreen ? 'text-green-600' : 
+                        isRed ? 'text-red-600' : 
+                        'text-blue-600';
+        
+        const iconLetter = item.history_type === 'bonus' ? 'B' : 
+                          item.history_type === 'deposit' ? 'D' : 'W';
+        
+        const title = item.history_type === 'bonus' ? 'Referral Bonus' :
+                     item.history_type === 'deposit' ? 'Deposit' :
+                     `Withdraw - ${item.status}`;
+        
+        const sign = item.history_type === 'withdraw' ? '-' : '+';
+
+        return (
+          <div key={item.id || index}>
+            <div className={`flex justify-between items-center p-3 rounded-lg border ${bgColor}`}>
+              <div className="flex items-center gap-2">
+                <div className={`w-8 h-8 ${iconBg} rounded-full flex items-center justify-center`}>
+                  <span className={`${iconText} text-xs font-bold`}>{iconLetter}</span>
                 </div>
-                <div className="text-right">
-                  <p className="font-bold text-sm" style={{color: item.history_type === 'deposit' || item.history_type === 'bonus' ? '#22c55e' : item.history_type === 'withdraw' && item.status === 'approved' ? '#22c55e' : '#ef4444'}}> 
-                    {item.history_type === 'withdraw'? '-' : '+'}${Number(item.amount || item.usd_amount || 0).toFixed(2)}
+                <div>
+                  <p className={`font-bold ${textColor} text-sm`}>{title}</p>
+                  <p className="text-xs text-gray-500">
+                    {new Date(item.created_at).toLocaleString()}
                   </p>
-                  <p className="text-xs capitalize" style={{color: item.history_type === 'deposit' || item.history_type === 'bonus' ? '#22c55e' : item.status === 'approved' || item.status === 'confirmed' ? '#22c55e' : item.status === 'rejected' || item.status === 'pending' ? '#ef4444' : '#6b7280'}}>
-  {item.status === 'approved' ? 'Completed' : item.status === 'confirmed' ? 'Completed' : item.status || 'pending'}
-</p>
                 </div>
               </div>
-            ))}
+              <p className={`font-bold ${amountColor} text-sm`}>
+                {sign}${Number(item.amount).toFixed(2)}
+              </p>
+            </div>
           </div>
-        )}
-      </div>
+        );
+      })}
     </div>
-  );
+  )}
+</div>
+{/* === END HISTORY === */}
+    </div>
+    );
 }

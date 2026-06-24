@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
+import TwoFactorModal from "../../components/TwoFactorModal";
 import { getCurrentUser } from "../../lib/api";
 import toast, { Toaster } from "react-hot-toast";
 import {
@@ -38,6 +39,7 @@ export default function ProfileTab() {
   const [trc20Input,  setTrc20Input]  = useState("");
   const [savingBind,  setSavingBind]  = useState(false);
 
+  const [showTwoFactor, setShowTwoFactor] = useState(false);
   const [totpEnabled,   setTotpEnabled]   = useState(false);
   const [totpSetup,     setTotpSetup]     = useState(false);
   const [totpSecret,    setTotpSecret]    = useState("");
@@ -117,39 +119,40 @@ export default function ProfileTab() {
   };
 
   const startTotpSetup = async () => {
-    setTotpLoading(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res  = await fetch("/api/2fa/generate", {
-        headers: { "Authorization": `Bearer ${session?.access_token ?? ""}` },
-      });
-      const data = await res.json() as { secret?: string; qrCodeDataUrl?: string; error?: string };
-      if (!res.ok) { toast.error(data.error ?? "Failed to generate 2FA"); setTotpLoading(false); return; }
-      setTotpSecret(data.secret ?? "");
-      setTotpQr(data.qrCodeDataUrl ?? "");
-      setTotpSetup(true);
-    } catch { toast.error("Network error"); }
-    setTotpLoading(false);
-  };
+  setTotpLoading(true);
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch("/api/2fa/generate", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${session?.access_token ?? ""}` }
+    });
+    const data = await res.json() as { secret?: string; qr?: string; error?: string };
+    if (!res.ok) { toast.error(data.error ?? "Failed to start 2FA"); setTotpLoading(false); return; }
+    setTotpSecret(data.secret ?? "");
+    setTotpQr(data.qr ?? "");
+    setTotpSetup(true);
+  } catch { toast.error("Network error"); }
+  setTotpLoading(false);
+};
 
   const verifyTotp = async () => {
-    if (totpCode.length !== 6) { toast.error("Enter 6-digit code"); return; }
-    setTotpVerifying(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch("/api/2fa/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token ?? ""}` },
-        body: JSON.stringify({ secret: totpSecret, token: totpCode }),
-      });
-      const data = await res.json() as { ok?: boolean; error?: string };
-      if (!res.ok) { toast.error(data.error ?? "Verification failed"); setTotpVerifying(false); return; }
-      setTotpEnabled(true); setTotpSetup(false);
-      setTotpCode(""); setTotpSecret(""); setTotpQr("");
-      toast.success("Google Authenticator enabled ✓");
-    } catch { toast.error("Network error"); }
-    setTotpVerifying(false);
-  };
+  if (totpCode.length !== 6) { toast.error("Enter 6-digit code"); return; }
+  setTotpVerifying(true);
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch("/api/2fa/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token ?? ""}` },
+      body: JSON.stringify({ secret: totpSecret, token: totpCode }),
+    });
+    const data = await res.json() as { ok?: boolean; error?: string };
+    if (!res.ok) { toast.error(data.error ?? "Verification failed"); setTotpVerifying(false); return; }
+    setTotpEnabled(true); setTotpSetup(false);
+    setTotpCode(""); setTotpSecret(""); setTotpQr("");
+    toast.success("Google Authenticator enabled ✓");
+  } catch { toast.error("Network error"); }
+  setTotpVerifying(false);
+};
 
   if (loading) {
     return (
@@ -417,16 +420,22 @@ export default function ProfileTab() {
                     <AlertCircle size={12} className="flex-shrink-0 mt-0.5 text-orange-500" />
                     <p className="text-[10px] text-orange-700">Required for withdrawals. Scan QR with Google Authenticator app.</p>
                   </div>
-                  <button onClick={startTotpSetup} disabled={totpLoading}
-                    className={btnRed} style={{ background: B }}>
-                    {totpLoading ? "Loading..." : "Enable Google Authenticator"}
-                  </button>
+                  <button onClick={() => setShowTwoFactor(true)}
+  className={btnRed} style={{ background: B }}>
+  Enable Google Authenticator
+</button>
                 </div>
               )}
             </div>
           </div>
         </div>
       )}
+
+      <TwoFactorModal
+        open={showTwoFactor}
+        onClose={() => setShowTwoFactor(false)}
+        onSuccess={() => setTotpEnabled(true)}
+      />
     </div>
   );
 }
